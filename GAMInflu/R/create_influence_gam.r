@@ -1,12 +1,3 @@
-# Ensure necessary packages are available (Ideally handled by DESCRIPTION/NAMESPACE Imports)
-# These checks are useful for scripts, but in a package, dependencies are declared.
-# We keep them here for script-like usability if files are sourced directly.
-if (!requireNamespace("mgcv", quietly = TRUE)) {
-  stop("Package 'mgcv' is required but not installed. Please install it.")
-}
-# Load libraries (Again, Imports are preferred in packages)
-library(mgcv)
-
 # -----------------------------------------------------------------------------
 # Constructor Function
 # -----------------------------------------------------------------------------
