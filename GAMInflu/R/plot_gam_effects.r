@@ -350,3 +350,251 @@ create_effect_plot <- function(term, plot_data, data, var_names, is_smooth, show
   return(p)
 }
 
+# Helper function to extract variables from terms - more robust for spatial smoothers
+extract_variables_from_term <- function(term, model, verbose) {
+  # For smooth terms (s, te, ti)
+  if (grepl("^s\\(|^te\\(|^ti\\(", term)) {
+    # Extract content inside parentheses
+    content <- gsub("^[a-z]+\\((.*)\\)$", "\\1", term)
+    
+    # Handle potential 'by' variable
+    by_var <- NULL
+    if (grepl("by\\s*=", content)) {
+      # Extract 'by' variable
+      by_var <- gsub(".*by\\s*=\\s*([^,)]+).*", "\\1", content)
+      # Remove 'by' section from content
+      content <- gsub("\\s*,?\\s*by\\s*=\\s*[^,)]+", "", content)
+    }
+    
+    # Handle k parameter and other parameters
+    content <- gsub("\\s*,\\s*k\\s*=\\s*[^,)]+", "", content)  # Remove k=...
+    content <- gsub("\\s*,\\s*bs\\s*=\\s*[^,)]+", "", content)  # Remove bs=...
+    content <- gsub("\\s*,\\s*m\\s*=\\s*[^,)]+", "", content)   # Remove m=...
+    content <- gsub("\\s*,\\s*fx\\s*=\\s*[^,)]+", "", content)  # Remove fx=...
+    
+    # Split remaining content on commas
+    var_names <- strsplit(content, "\\s*,\\s*")[[1]]
+    
+    # Add 'by' variable if present
+    if (!is.null(by_var)) {
+      var_names <- c(var_names, by_var)
+    }
+  } else {
+    # For regular terms including interactions (a:b)
+    var_names <- unlist(strsplit(term, "\\s*:\\s*"))
+  }
+  
+  # Check if variables exist in the model
+  for (var in var_names) {
+    # Check in model terms
+    if (!var %in% all.vars(stats::formula(model))) {
+      # Not a critical error - might be a smooth-specific variable
+      if (verbose) {
+        message("  Note: Variable '", var, "' may not be directly referenced in model formula.")
+      }
+    }
+  }
+  
+  return(var_names)
+}
+
+# Create grid specifically for spatial smoothers
+create_spatial_grid <- function(model, data, var_names, n_points, verbose) {
+  if (length(var_names) < 2) {
+    stop("Spatial grid requires at least two variables.")
+  }
+  
+  # For a 2D grid, we want a square root distribution of points
+  points_per_dim <- ceiling(sqrt(n_points))
+  
+  # Create a grid for the first two variables
+  var1 <- var_names[1]
+  var2 <- var_names[2]
+  
+  # Check if variables exist in data
+  if (!var1 %in% names(data) || !var2 %in% names(data)) {
+    stop("Variables ", var1, " or ", var2, " not found in data.")
+  }
+  
+  # Create sequences for the grid
+  if (is.numeric(data[[var1]])) {
+    x1_range <- range(data[[var1]], na.rm = TRUE)
+    x1_seq <- seq(from = x1_range[1], to = x1_range[2], length.out = points_per_dim)
+  } else {
+    if (is.factor(data[[var1]])) {
+      x1_seq <- levels(data[[var1]])
+    } else {
+      x1_seq <- unique(data[[var1]])
+    }
+  }
+  
+  if (is.numeric(data[[var2]])) {
+    x2_range <- range(data[[var2]], na.rm = TRUE)
+    x2_seq <- seq(from = x2_range[1], to = x2_range[2], length.out = points_per_dim)
+  } else {
+    if (is.factor(data[[var2]])) {
+      x2_seq <- levels(data[[var2]])
+    } else {
+      x2_seq <- unique(data[[var2]])
+    }
+  }
+  
+  # Create the grid for the two main variables
+  grid_list <- list(x1_seq, x2_seq)
+  names(grid_list) <- c(var1, var2)
+  pred_grid <- expand.grid(grid_list, stringsAsFactors = FALSE)
+  
+  # If there are more than 2 variables, handle the additional ones
+  if (length(var_names) > 2) {
+    for (i in 3:length(var_names)) {
+      var <- var_names[i]
+      if (var %in% names(data)) {
+        if (is.factor(data[[var]])) {
+          # For factors, use the first level
+          pred_grid[[var]] <- factor(rep(levels(data[[var]])[1], nrow(pred_grid)), 
+                                    levels = levels(data[[var]]))
+        } else if (is.numeric(data[[var]])) {
+          # For numeric, use the median
+          pred_grid[[var]] <- rep(stats::median(data[[var]], na.rm = TRUE), nrow(pred_grid))
+        } else {
+          # For other types, use the first value
+          pred_grid[[var]] <- rep(data[[var]][1], nrow(pred_grid))
+        }
+      }
+    }
+  }
+  
+  # Add reference values for all model variables not already in the grid
+  model_vars <- all.vars(stats::formula(model)[-2])  # Exclude response
+  
+  for (var in model_vars) {
+    if (var %in% names(data) && !(var %in% names(pred_grid))) {
+      if (is.factor(data[[var]])) {
+        # For factors, use the reference level
+        pred_grid[[var]] <- factor(rep(levels(data[[var]])[1], nrow(pred_grid)), 
+                                  levels = levels(data[[var]]))
+      } else if (is.character(data[[var]])) {
+        # For character, use the most common level
+        tab <- table(data[[var]])
+        ref_level <- names(tab)[which.max(tab)]
+        pred_grid[[var]] <- rep(ref_level, nrow(pred_grid))
+      } else if (is.numeric(data[[var]])) {
+        # For numeric, use the median
+        pred_grid[[var]] <- rep(stats::median(data[[var]], na.rm = TRUE), nrow(pred_grid))
+      } else {
+        # For other types, use the first value
+        pred_grid[[var]] <- rep(data[[var]][1], nrow(pred_grid))
+      }
+    }
+  }
+  
+  # Ensure factors have proper levels
+  for (var in names(pred_grid)) {
+    if (var %in% names(data) && is.factor(data[[var]]) && !is.factor(pred_grid[[var]])) {
+      pred_grid[[var]] <- factor(pred_grid[[var]], levels = levels(data[[var]]))
+    }
+  }
+  
+  return(pred_grid)
+}
+
+# Predict effect for spatial smoother
+predict_spatial_effect <- function(model, term, pred_grid, ci_level, show_ci) {
+  # Predict for all data points
+  if (show_ci) {
+    preds <- stats::predict(model, newdata = pred_grid, type = "link", se.fit = TRUE)
+    fit <- preds$fit
+    se <- preds$se.fit
+    
+    # Confidence interval
+    ci_mult <- stats::qnorm((1 + ci_level) / 2)
+    lower <- fit - ci_mult * se
+    upper <- fit + ci_mult * se
+    
+    # Transform to response scale if needed
+    if (inherits(model$family, "family")) {
+      fit <- model$family$linkinv(fit)
+      lower <- model$family$linkinv(lower)
+      upper <- model$family$linkinv(upper)
+    }
+    
+    preds_df <- data.frame(pred_grid, y = fit, lower = lower, upper = upper)
+  } else {
+    fit <- stats::predict(model, newdata = pred_grid, type = "response")
+    preds_df <- data.frame(pred_grid, y = fit)
+  }
+  
+  return(preds_df)
+}
+
+# Create plot for spatial smoothers
+create_spatial_plot <- function(term, plot_data, data, var_names, show_rug, 
+                               show_ci, color_palette, contour_type) {
+  # Need at least 2 variables for spatial plot
+  if (length(var_names) < 2) {
+    stop("Spatial plot requires at least two variables.")
+  }
+  
+  var1 <- var_names[1]
+  var2 <- var_names[2]
+  
+  # Check if variables are numeric
+  if (!is.numeric(plot_data[[var1]]) || !is.numeric(plot_data[[var2]])) {
+    # Fall back to interaction plot for non-numeric variables
+    return(create_interaction_plot(term, plot_data, data, var_names, TRUE, 
+                                  show_rug, show_ci, color_palette))
+  }
+  
+  # Create the base plot
+  p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[var1]], y = .data[[var2]]))
+  
+  # Add contours based on type
+  if (contour_type == "raster") {
+    # Filled contour with color scale
+    p <- p + ggplot2::geom_raster(ggplot2::aes(fill = .data[["y"]])) +
+      ggplot2::geom_contour(ggplot2::aes(z = .data[["y"]]), color = "white", alpha = 0.5, linewidth = 0.2)
+    
+    # Apply color scale
+    if (color_palette == "viridis" && requireNamespace("viridisLite", quietly = TRUE)) {
+      p <- p + ggplot2::scale_fill_viridis_c(option = "plasma")
+    } else if (requireNamespace("RColorBrewer", quietly = TRUE) && 
+               color_palette %in% rownames(RColorBrewer::brewer.pal.info)) {
+      # Use RColorBrewer sequential palette
+      p <- p + ggplot2::scale_fill_distiller(palette = color_palette, direction = 1)
+    }
+  } else {
+    # Line contours
+    p <- p + ggplot2::geom_contour(ggplot2::aes(z = .data[["y"]], color = ..level..)) +
+      ggplot2::scale_color_viridis_c(option = "plasma")
+  }
+  
+  # Add rug plots if requested
+  if (show_rug) {
+    p <- p + ggplot2::geom_rug(
+      data = data,
+      ggplot2::aes(x = .data[[var1]], y = .data[[var2]]),
+      alpha = 0.1,
+      size = 0.1
+    )
+  }
+  
+  # Add labels and styling
+  p <- p + ggplot2::labs(
+    title = paste("Spatial Effect:", term),
+    x = var1,
+    y = var2,
+    fill = if (contour_type == "raster") "Effect" else NULL,
+    color = if (contour_type != "raster") "Effect" else NULL
+  ) +
+    ggplot2::theme_bw() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5),
+      panel.grid = ggplot2::element_blank()
+    )
+  
+  return(p)
+}
+
+# Additional helper functions remain the same as in the previous version
+
+
