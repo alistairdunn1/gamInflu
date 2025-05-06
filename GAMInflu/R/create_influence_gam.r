@@ -33,7 +33,6 @@
 #' plot(influ_obj, type = "cdi", term = "s(x0)") # Note: CDI plot needs adaptation for smooths
 #' }
 create_influence_gam <- function(model, data = NULL, focus = NULL, response = NULL, verbose = TRUE) {
-
   # --- Input Validation ---
   if (!inherits(model, "gam")) {
     stop("'model' must be a fitted GAM object from the 'mgcv' package.")
@@ -44,19 +43,19 @@ create_influence_gam <- function(model, data = NULL, focus = NULL, response = NU
     if (verbose) message("Attempting to extract data from model object.")
     data <- model$model # This usually holds the model frame
     if (is.null(data)) {
-        # Try harder for some cases
-        data_name <- model$call$data
-        if (!is.null(data_name)){
-             data <- try(eval(data_name, environment(formula(model))), silent=TRUE)
-             if(inherits(data, "try-error")) data <- NULL
-        }
+      # Try harder for some cases
+      data_name <- model$call$data
+      if (!is.null(data_name)) {
+        data <- try(eval(data_name, environment(formula(model))), silent = TRUE)
+        if (inherits(data, "try-error")) data <- NULL
+      }
     }
-     if (is.null(data)) {
-         stop("Could not extract data from model. Please provide the 'data' argument explicitly.")
-     }
+    if (is.null(data)) {
+      stop("Could not extract data from model. Please provide the 'data' argument explicitly.")
+    }
   }
   if (!is.data.frame(data)) {
-      stop("'data' must be a data frame.")
+    stop("'data' must be a data frame.")
   }
 
   # Infer response if not provided
@@ -84,22 +83,22 @@ create_influence_gam <- function(model, data = NULL, focus = NULL, response = NU
   focus_var_name <- trimws(focus_var_name)
 
   if (!focus_var_name %in% names(data)) {
-       stop("Focus variable '", focus_var_name, "' (derived from focus term '", focus, "') not found in data.")
+    stop("Focus variable '", focus_var_name, "' (derived from focus term '", focus, "') not found in data.")
   }
   # More robust check: does the focus variable appear in the model terms?
   term_check <- any(grepl(focus_var_name, model_terms, fixed = TRUE))
   if (!term_check) {
-      # Check if it's the intercept (though intercept isn't usually a focus)
-      if(focus != "intercept"){
-          warning("Focus term '", focus, "' or its base variable '", focus_var_name, "' not directly found among model term labels: ", paste(model_terms, collapse=", "), ". Proceeding, but check results carefully.")
-      }
+    # Check if it's the intercept (though intercept isn't usually a focus)
+    if (focus != "intercept") {
+      warning("Focus term '", focus, "' or its base variable '", focus_var_name, "' not directly found among model term labels: ", paste(model_terms, collapse = ", "), ". Proceeding, but check results carefully.")
+    }
   }
   # Warning if focus is not a factor - recommend setting type *before* model fitting
   if (!is.factor(data[[focus_var_name]])) {
-      warning("Focus variable '", focus_var_name, "' is not a factor. Influence calculations assume a factor. Please ensure the data used for fitting 'gam' has the correct variable type. Converting to factor internally for calculations.")
-      data[[focus_var_name]] <- as.factor(data[[focus_var_name]])
-      # Note: This internal conversion happens *after* the model is potentially fitted.
-      # Best practice is to ensure data[[focus_var_name]] is a factor *before* calling gam().
+    warning("Focus variable '", focus_var_name, "' is not a factor. Influence calculations assume a factor. Please ensure the data used for fitting 'gam' has the correct variable type. Converting to factor internally for calculations.")
+    data[[focus_var_name]] <- as.factor(data[[focus_var_name]])
+    # Note: This internal conversion happens *after* the model is potentially fitted.
+    # Best practice is to ensure data[[focus_var_name]] is a factor *before* calling gam().
   }
 
 
