@@ -39,7 +39,7 @@ summary(influ4)
 
 # Get R2 contribution summary with error handling
 print("R2 Contribution Summary (Example 4):")
-r2(influ4, r2_type = "r2Dev")
+r2_contribution(influ4, r2_type = "r2Dev")
 
 print("Influence terms calculated (should include year:area interaction):")
 print(names(influ4$influences))
@@ -77,11 +77,15 @@ if ("area" %in% names(influ4$influences)) {
     other_terms <- setdiff(names(influ4$influences), c("level", interaction_term_name))
     if (length(other_terms) > 0) {
         print(paste("Attempting CDI plot with alternative term:", other_terms[1]))
-          plot(influ4, type = "cdi", term = other_terms[1], main = paste("Ex4: CDI Plot (", other_terms[1], ")"))
+        safe_plot(
+          expr = quote(plot(influ4, type = "cdi", term = other_terms[1], 
+               main = paste("Ex4: CDI Plot (", other_terms[1], ")"))),
+          plot_desc = paste("CDI plot for term", other_terms[1])
+        )
     }
 }
 
-plot_gam_effects(res1.gam, temp)
+plot_gam_effects(model4, dat_ex4)
 
 
 print("--- Example 4 Finished ---")
