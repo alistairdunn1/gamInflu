@@ -1,11 +1,3 @@
-DIR <- "C:/Users/alist/OneDrive/Projects/Software/GAMInflu/GAMInflu/R/"
-
-source(paste0(DIR, "calculate_influence.influence_gam.R"))
-source(paste0(DIR, "create_influence_gam.R"))
-source(paste0(DIR, "plot_influence_gam.R"))
-source(paste0(DIR, "print_summary_influence_gam.R"))
-source(paste0(DIR, "print_summary_influence_gam.R"))
-
 # --- Example 4: Interaction term involving focus variable ---
 # Load required packages
 library(mgcv)     # For gam function and gamSim
@@ -13,6 +5,16 @@ library(ggplot2)  # For plotting
 library(tidyr)    # For data reshaping
 library(patchwork) # For combining plots
 library(RColorBrewer) # For color palettes
+library(here) # For file path management
+
+DIR <- paste0(here(), "/GAMInflu/R/")
+
+source(paste0(DIR, "calculate_influence.influence_gam.R"))
+source(paste0(DIR, "create_influence_gam.R"))
+source(paste0(DIR, "plot_gam_effects.r"))
+source(paste0(DIR, "plot_influence_gam.R"))
+source(paste0(DIR, "print_summary_influence_gam.R"))
+source(paste0(DIR, "r2.R"))
 
 print("--- Running Example 4: Interaction term involving focus (year*area) ---")
 set.seed(456)
@@ -39,7 +41,8 @@ summary(influ4)
 
 # Get R2 contribution summary with error handling
 print("R2 Contribution Summary (Example 4):")
-r2_contribution(influ4, r2_type = "r2Dev")
+#r2_contribution(influ4, r2_type = "r2Dev")
+r2_contribution.influence_gam(influ4, r2_type = "r2Dev")
 
 print("Influence terms calculated (should include year:area interaction):")
 print(names(influ4$influences))
@@ -67,21 +70,14 @@ print(names(influ4$influences))
 
 if ("area" %in% names(influ4$influences)) {
     print("Generating CDI plot for term 'area' in Example 4...")
-    safe_plot(
-      expr = quote(plot(influ4, type = "cdi", term = "area", main = "Ex4: CDI Plot (area)")),
-      plot_desc = "CDI plot for term 'area'"
-    )
+    plot(influ4, type = "cdi", term = "area", main = "Ex4: CDI Plot (area)")
 } else {
     print("Term 'area' not found in influences for CDI plot in Example 4.")
     # Try to find an alternative term for CDI plot
     other_terms <- setdiff(names(influ4$influences), c("level", interaction_term_name))
     if (length(other_terms) > 0) {
         print(paste("Attempting CDI plot with alternative term:", other_terms[1]))
-        safe_plot(
-          expr = quote(plot(influ4, type = "cdi", term = other_terms[1], 
-               main = paste("Ex4: CDI Plot (", other_terms[1], ")"))),
-          plot_desc = paste("CDI plot for term", other_terms[1])
-        )
+        plot(influ4, type = "cdi", term = other_terms[1])
     }
 }
 
