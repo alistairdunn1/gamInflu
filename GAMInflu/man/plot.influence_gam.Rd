@@ -5,7 +5,7 @@
 \title{Plot influence_gam Object using ggplot2}
 \usage{
 \method{plot}{influence_gam}(
-  x,
+  obj,
   y = NULL,
   type = c("stan", "step", "influ", "cdi", "step_influ", "interaction"),
   term = NULL,
@@ -16,7 +16,7 @@
 )
 }
 \arguments{
-\item{x}{An object of class `influence_gam` with calculated results.}
+\item{obj}{An object of class `influence_gam` with calculated results.}
 
 \item{y}{Ignored. Included for compatibility with the generic plot function.}
 

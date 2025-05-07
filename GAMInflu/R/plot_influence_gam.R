@@ -1,9 +1,3 @@
-# Load libraries (Imports preferred in packages)
-library(ggplot2)
-library(tidyr)
-library(patchwork)
-library(RColorBrewer)
-
 # Source helper functions (if they are in separate files)
 # source("R/plot-helpers.R") # Assuming helpers are grouped
 
@@ -19,7 +13,7 @@ library(RColorBrewer)
 #' Generates various diagnostic plots for influence analysis results from a
 #' `influence_gam` object using the `ggplot2` package.
 #'
-#' @param x An object of class `influence_gam` with calculated results.
+#' @param obj An object of class `influence_gam` with calculated results.
 #' @param y Ignored. Included for compatibility with the generic plot function.
 #' @param type The type of plot to generate. Options are:
 #'   `"stan"`: Standardization plot (unstandardised vs standardised index).
@@ -37,17 +31,17 @@ library(RColorBrewer)
 #' @return A ggplot object (for single plots) or a patchwork object (for combined plots like cdi, step_influ).
 #' @method plot influence_gam
 #' @export
-plot.influence_gam <- function(x, y = NULL, # Add y for generic compatibility
+plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
                                type = c("stan", "step", "influ", "cdi", "step_influ", "interaction"),
                                term = NULL,
                                panels = TRUE,
                                labels = list(),
                                base_size = 11,
                                ...) {
-  if (!inherits(x, "influence_gam")) {
+  if (!inherits(obj, "influence_gam")) {
     stop("Input 'x' must be of class 'influence_gam'.")
   }
-  if (!x$calculated) {
+  if (!obj$calculated) {
     stop("Calculations not performed. Run 'calculate_influence()' before plotting.")
   }
 
@@ -57,34 +51,40 @@ plot.influence_gam <- function(x, y = NULL, # Add y for generic compatibility
   if (type %in% c("step", "influ") && !requireNamespace("tidyr", quietly = TRUE)) stop("Package 'tidyr' needed for 'step' and 'influ' plots.")
   if (type %in% c("cdi", "step_influ") && !requireNamespace("patchwork", quietly = TRUE)) stop("Package 'patchwork' needed for 'cdi' and 'step_influ' plots.")
 
-
   type <- match.arg(type)
-  obj <- x # Use obj internally for clarity
+  obj <- obj # Use obj internally for clarity
   focus_var <- obj$focus_var
   focus_label <- labels[[focus_var]] %||% focus_var # Use custom label or variable name
 
   # --- Plotting Logic ---
-
   # Standardization Plot
   if (type == "stan") {
     if (!all(c("level", "unstan", "stan", "stanLower", "stanUpper") %in% names(obj$indices))) {
       stop("Required columns missing in obj$indices for stan plot.")
     }
+    if (obj$islog) {
+      obj$indices[, !(names(obj$indices) %in% c("level", "unstan"))] <- exp(obj$indices[, !(names(obj$indices) %in% c("level", "unstan"))])
+    }
     indices <- obj$indices
-    indices$level_num <- as.numeric(factor(indices$level)) # Ensure level_num corresponds to factor levels
+    indices$level_num <- as.numeric(as.character(indices$level)) # Ensure level_num corresponds to numeric form of factor levels
+    indices$f.level_num <- as.numeric(factor(indices$level)) # Ensure level_num corresponds to factor levels
+    if (any(is.na(indices$level_num))) { # check if level_num is a numeric variable, and if so treat it as such
+      indices$level_num <- indices$f.level_num
+    }
 
     p <- ggplot(indices, aes(x = level_num)) +
-      geom_point(aes(y = unstan, shape = "Unstandardised", color = "Unstandardised")) +
-      geom_line(aes(y = unstan, linetype = "Unstandardised", color = "Unstandardised")) +
-      geom_point(aes(y = stan, shape = "Standardised", color = "Standardised")) +
-      geom_line(aes(y = stan, linetype = "Standardised", color = "Standardised")) +
-      geom_errorbar(aes(ymin = stanLower, ymax = stanUpper, color = "Standardised"), width = 0.2, na.rm = TRUE) + # Add na.rm
-      scale_x_continuous(breaks = indices$level_num, labels = indices$level) +
+      geom_point(aes(y = unstan, shape = "Unstandardised", colour = "Unstandardised")) +
+      geom_line(aes(y = unstan, linetype = "Unstandardised", colour = "Unstandardised")) +
+      geom_point(aes(y = stan, shape = "Standardised", colour = "Standardised")) +
+      geom_line(aes(y = stan, linetype = "Standardised", colour = "Standardised")) +
+      geom_errorbar(aes(ymin = stanLower, ymax = stanUpper, colour = "Standardised"), width = 0.2, na.rm = TRUE) + # Add na.rm
+      scale_x_continuous() +
       scale_shape_manual("Index Type", values = c("Unstandardised" = 1, "Standardised" = 16)) +
       scale_linetype_manual("Index Type", values = c("Unstandardised" = "dashed", "Standardised" = "solid")) + # Diff linetypes
-      scale_color_brewer("Index Type", palette = "Set1") + # Use color palette
+      scale_colour_brewer("Index Type", palette = "Set1") + # Use colour palette
       labs(title = "Standardization Plot", x = focus_label, y = "Index (Relative Scale)") +
-      theme(legend.position = "bottom")
+      theme(legend.position = "bottom") +
+      ylim(0, NA)
     return(p)
   }
 
@@ -93,25 +93,31 @@ plot.influence_gam <- function(x, y = NULL, # Add y for generic compatibility
     step_data_long <- prepare_step_data(obj$indices, focus_var)
     if (is.null(step_data_long)) stop("No step index columns found in obj$indices.")
 
+    step_data_long$level_num <- as.numeric(as.character(step_data_long$level)) # Ensure level_num corresponds to numeric form of factor levels
+    step_data_long$f.level_num <- as.numeric(factor(step_data_long$level)) # Ensure level_num corresponds to factor levels
+    if (any(is.na(step_data_long$level_num))) { # check if level_num is a numeric variable, and if so treat it as such
+      step_data_long$level_num <- step_data_long$f.level_num
+    }
+
     p <- ggplot(step_data_long, aes(x = level_num, y = index_value)) +
-      geom_hline(yintercept = 1, linetype = "dashed", color = "grey") +
+      geom_hline(yintercept = 1, linetype = "dashed", colour = "grey") +
       scale_x_continuous(breaks = unique(step_data_long$level_num), labels = levels(step_data_long$level)) +
       labs(title = "Step Plot: Index vs. Focus Level", x = focus_label, y = "Index (Relative Scale)")
 
     if (panels) {
       # Faceted plot
       p <- p +
-        # geom_line(aes(group = step_name), color="grey") + # Base lines (optional)
-        geom_line(aes(group = step_name), color = "black") + # Current step black
-        geom_point(aes(color = step_name), na.rm = TRUE) + # Color points by step, handle NAs
+        # geom_line(aes(group = step_name), colour="grey") + # Base lines (optional)
+        geom_line(aes(group = step_name), colour = "black") + # Current step black
+        geom_point(aes(colour = step_name), na.rm = TRUE) + # colour points by step, handle NAs
         facet_wrap(~step_name, ncol = 1, strip.position = "top") +
-        scale_color_brewer("Step", palette = "Paired") + # Use color palette
+        scale_colour_brewer("Step", palette = "Paired") + # Use colour palette
         theme(legend.position = "none", strip.background = element_blank(), strip.placement = "outside")
     } else { # Overlaid plot
       p <- p +
-        geom_line(aes(color = step_name, linetype = step_name), na.rm = TRUE) +
-        geom_point(aes(color = step_name, shape = step_name), na.rm = TRUE) +
-        scale_color_brewer("Step", palette = "Paired") +
+        geom_line(aes(colour = step_name, linetype = step_name), na.rm = TRUE) +
+        geom_point(aes(colour = step_name, shape = step_name), na.rm = TRUE) +
+        scale_colour_brewer("Step", palette = "Paired") +
         scale_linetype_discrete("Step") +
         scale_shape_discrete("Step") +
         theme(legend.position = "right") # Move legend
@@ -124,25 +130,31 @@ plot.influence_gam <- function(x, y = NULL, # Add y for generic compatibility
     influ_data_long <- prepare_influ_data(obj$influences, focus_var)
     if (is.null(influ_data_long)) stop("No influence columns found in obj$influences.")
 
+    influ_data_long$level_num <- as.numeric(as.character(influ_data_long$level)) # Ensure level_num corresponds to numeric form of factor levels
+    influ_data_long$f.level_num <- as.numeric(factor(influ_data_long$level)) # Ensure level_num corresponds to factor levels
+    if (any(is.na(influ_data_long$level_num))) { # check if level_num is a numeric variable, and if so treat it as such
+      influ_data_long$level_num <- influ_data_long$f.level_num
+    }
+
     ylab <- "Influence (Partial Effect on Link Scale)"
 
     p <- ggplot(influ_data_long, aes(x = level_num, y = influence_value)) +
-      geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +
+      geom_hline(yintercept = 0, linetype = "dashed", colour = "grey") +
       scale_x_continuous(breaks = unique(influ_data_long$level_num), labels = levels(influ_data_long$level)) +
       labs(title = "Influence Plot: Term Effect vs. Focus Level", x = focus_label, y = ylab)
 
     if (panels) {
       p <- p +
-        geom_line(color = "black", na.rm = TRUE) +
-        geom_point(aes(color = term_label), na.rm = TRUE) + # Color points by term
+        geom_line(colour = "black", na.rm = TRUE) +
+        geom_point(aes(colour = term_label), na.rm = TRUE) + # colour points by term
         facet_wrap(~term_label, ncol = 1, scales = "free_y", strip.position = "top") +
-        scale_color_brewer("Term", palette = "Set3") + # Use color palette
+        scale_colour_brewer("Term", palette = "Set3") + # Use colour palette
         theme(legend.position = "none", strip.background = element_blank(), strip.placement = "outside")
     } else { # Overlaid plot
       p <- p +
-        geom_line(aes(color = term_label, linetype = term_label), na.rm = TRUE) +
-        geom_point(aes(color = term_label, shape = term_label), na.rm = TRUE) +
-        scale_color_brewer("Term", palette = "Set3") +
+        geom_line(aes(colour = term_label, linetype = term_label), na.rm = TRUE) +
+        geom_point(aes(colour = term_label, shape = term_label), na.rm = TRUE) +
+        scale_colour_brewer("Term", palette = "Set3") +
         scale_linetype_discrete("Term") +
         scale_shape_discrete("Term") +
         theme(legend.position = "right") # Move legend
@@ -186,13 +198,13 @@ plot.influence_gam <- function(x, y = NULL, # Add y for generic compatibility
 
     # 1. Coefficient Plot (Partial Effect vs Term Variable)
     p_coeff <- ggplot(cdi_data$coeffs, aes(x = term_var_num, y = term_effect)) +
-      geom_point(size = 2, color = RColorBrewer::brewer.pal(3, "Set1")[1], na.rm = TRUE) +
-      geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +
+      geom_point(size = 2, colour = RColorBrewer::brewer.pal(3, "Set1")[1], na.rm = TRUE) +
+      geom_hline(yintercept = 0, linetype = "dashed", colour = "grey") +
       labs(y = paste("Partial Effect"), x = NULL, title = paste("CDI Plot:", term)) + # Add title here
       theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), plot.margin = margin(t = 5, r = 5, b = 0, l = 5)) # Adjust margins
     if (cdi_data$is_numeric) {
       # Optionally add a smooth line for numeric terms
-      p_coeff <- p_coeff + geom_smooth(method = "loess", se = FALSE, color = "darkgrey", linetype = "dotted", na.rm = TRUE)
+      p_coeff <- p_coeff + geom_smooth(method = "loess", se = FALSE, colour = "darkgrey", linetype = "dotted", na.rm = TRUE)
     } else { # Factor term
       p_coeff <- p_coeff + scale_x_continuous(breaks = cdi_data$coeffs$term_var_num, labels = cdi_data$coeffs$term_var_labels) +
         theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate labels if factor
@@ -200,13 +212,13 @@ plot.influence_gam <- function(x, y = NULL, # Add y for generic compatibility
 
     # 2. Distribution Plot (Focus Level vs Term Variable, point size = proportion)
     p_distr <- ggplot(cdi_data$distr, aes(x = term_int, y = focus_int)) +
-      geom_point(aes(size = prop), shape = 16, show.legend = TRUE, color = RColorBrewer::brewer.pal(3, "Set1")[2], na.rm = TRUE) +
+      geom_point(aes(size = prop), shape = 16, show.legend = TRUE, colour = RColorBrewer::brewer.pal(3, "Set1")[2], na.rm = TRUE) +
       scale_size_continuous(range = c(1, 8), name = "Proportion") + # Adjust size range
       scale_x_continuous(breaks = unique(cdi_data$distr$term_int), labels = levels(cdi_data$distr$term_labels)) +
       scale_y_continuous(breaks = unique(cdi_data$distr$focus_int), labels = levels(cdi_data$distr$focus_labels)) +
       labs(x = term_label, y = focus_label) +
       theme(
-        panel.grid.major = element_line(color = "grey90"),
+        panel.grid.major = element_line(colour = "grey90"),
         legend.position = "bottom",
         axis.text.x = if (!cdi_data$is_numeric) element_text(angle = 45, hjust = 1) else element_text(), # Rotate labels if factor
         plot.margin = margin(t = 0, r = 5, b = 5, l = 5)
@@ -215,9 +227,9 @@ plot.influence_gam <- function(x, y = NULL, # Add y for generic compatibility
 
     # 3. Influence Plot (Term Influence vs Focus Level)
     p_influ <- ggplot(cdi_data$influ, aes(x = influence_value, y = level_num)) +
-      geom_point(size = 2, color = RColorBrewer::brewer.pal(3, "Set1")[3], na.rm = TRUE) +
-      geom_path(color = RColorBrewer::brewer.pal(3, "Set1")[3], na.rm = TRUE) + # Connect points
-      geom_vline(xintercept = 0, linetype = "dashed", color = "grey") +
+      geom_point(size = 2, colour = RColorBrewer::brewer.pal(3, "Set1")[3], na.rm = TRUE) +
+      geom_path(colour = RColorBrewer::brewer.pal(3, "Set1")[3], na.rm = TRUE) + # Connect points
+      geom_vline(xintercept = 0, linetype = "dashed", colour = "grey") +
       scale_y_continuous(breaks = cdi_data$influ$level_num, labels = cdi_data$influ$level) +
       labs(x = "Influence", y = NULL) + # Simpler label
       theme(
@@ -232,9 +244,9 @@ plot.influence_gam <- function(x, y = NULL, # Add y for generic compatibility
     BBC
     BBC
     "
-    combined_plot <- p_coeff + p_distr + p_influ + plot_layout(design = layout) & theme(legend.position = "bottom")
+    combined_plot <- p_coeff + p_distr + p_influ + patchwork::plot_layout(design = layout) & theme(legend.position = "bottom")
     # Add overall title using patchwork annotation
-    # combined_plot <- combined_plot + plot_annotation(title = paste("CDI Plot:", term))
+    # combined_plot <- combined_plot + patchwork::plot_annotation(title = paste("CDI Plot:", term))
 
     return(combined_plot)
   }
@@ -242,16 +254,16 @@ plot.influence_gam <- function(x, y = NULL, # Add y for generic compatibility
   # Step + Influence Plot
   else if (type == "step_influ") {
     # Generate individual plots (faceted)
-    p_step <- plot.influence_gam(x, type = "step", panels = TRUE, labels = labels, base_size = base_size, ...) +
+    p_step <- plot.influence_gam(obj, type = "step", panels = TRUE, labels = labels, base_size = base_size, ...) +
       theme(legend.position = "none", plot.margin = margin(5, 0, 5, 5)) + labs(title = NULL, x = NULL)
-    p_influ <- plot.influence_gam(x, type = "influ", panels = TRUE, labels = labels, base_size = base_size, ...) +
+    p_influ <- plot.influence_gam(obj, type = "influ", panels = TRUE, labels = labels, base_size = base_size, ...) +
       theme(legend.position = "none", axis.text.y = element_blank(), axis.ticks.y = element_blank(), plot.margin = margin(5, 5, 5, 0)) + labs(title = NULL, y = NULL, x = NULL)
 
     # Combine side-by-side
-    combined_plot <- p_step + p_influ + plot_layout(ncol = 2)
+    combined_plot <- p_step + p_influ + patchwork::plot_layout(ncol = 2)
     # Add overall title and shared x-axis label
     combined_plot <- combined_plot +
-      plot_annotation(
+      patchwork::plot_annotation(
         title = "Step and Influence Plots",
         caption = paste("Focus Variable:", focus_label),
         theme = theme(plot.title = element_text(hjust = 0.5))
@@ -278,12 +290,12 @@ plot.influence_gam <- function(x, y = NULL, # Add y for generic compatibility
 
     p <- ggplot(plot_data, aes(
       x = x_factor, y = response_vals,
-      color = trace_factor, shape = trace_factor, linetype = trace_factor, group = trace_factor
+      colour = trace_factor, shape = trace_factor, linetype = trace_factor, group = trace_factor
     )) +
       geom_point(size = 2.5, na.rm = TRUE) +
       geom_line(na.rm = TRUE) +
-      geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +
-      scale_color_brewer(var2_label, palette = "Set1") + # Use color palette
+      geom_hline(yintercept = 0, linetype = "dashed", colour = "grey") +
+      scale_colour_brewer(var2_label, palette = "Set1") + # Use colour palette
       scale_shape_discrete(var2_label) +
       scale_linetype_discrete(var2_label) +
       labs(

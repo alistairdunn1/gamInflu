@@ -5,17 +5,18 @@
 \title{Create an influence_gam Object}
 \usage{
 create_influence_gam(
-  model,
+  gam_model,
   data = NULL,
   focus = NULL,
   response = NULL,
+  islog = FALSE,
   verbose = TRUE
 )
 }
 \arguments{
-\item{model}{A fitted GAM object (from `mgcv::gam`).}
+\item{gam_model}{A fitted GAM object (from `mgcv::gam`).}
 
-\item{data}{The data frame used to fit the model. Essential if not stored in the model object.
+\item{data}{The data frame used to fit the model. Essential if not stored in the gam_model object.
 Ensure variable types (especially factors) are correct *before* fitting the model.}
 
 \item{focus}{The name (character string) of the focus term (predictor variable)
@@ -23,7 +24,10 @@ for which influence is to be calculated. This term must be present in the model.
 It can be a factor, numeric, or involved in smooths/interactions.}
 
 \item{response}{Optional. The name (character string) of the response variable.
-If NULL, it will be inferred from the model formula.}
+If NULL, it will be inferred from the gam_model formula.}
+
+\item{islog}{Logical. Indicates if the response variable is log-transformed.
+This is used for inverse link function calculations.}
 
 \item{verbose}{Logical. Print messages during initialization?}
 }

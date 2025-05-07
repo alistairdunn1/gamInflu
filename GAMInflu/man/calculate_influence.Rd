@@ -12,7 +12,7 @@ calculate_influence(obj, islog = NULL, verbose = TRUE, ...)
 \arguments{
 \item{obj}{An object of class `influence_gam` created by `create_influence_gam`.}
 
-\item{islog}{Deprecated. Logic now tries to infer if response is logged.}
+\item{islog}{Deprecated. Logic now tries to infer from the influence object or the model.}
 
 \item{verbose}{Logical. Print progress messages?}
 

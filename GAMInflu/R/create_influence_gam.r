@@ -6,16 +6,17 @@
 #'
 #' Initializes an object for performing influence analysis on a GAM model.
 #'
-#' @param model A fitted GAM object (from `mgcv::gam`).
-#' @param data The data frame used to fit the model. Essential if not stored in the model object.
+#' @param gam_model A fitted GAM object (from `mgcv::gam`).
+#' @param data The data frame used to fit the model. Essential if not stored in the gam_model object.
 #'        Ensure variable types (especially factors) are correct *before* fitting the model.
 #' @param focus The name (character string) of the focus term (predictor variable)
 #'   for which influence is to be calculated. This term must be present in the model.
 #'   It can be a factor, numeric, or involved in smooths/interactions.
 #' @param response Optional. The name (character string) of the response variable.
-#'   If NULL, it will be inferred from the model formula.
+#'   If NULL, it will be inferred from the gam_model formula.
+#' @param islog Logical. Indicates if the response variable is log-transformed.
+#'   This is used for inverse link function calculations.
 #' @param verbose Logical. Print messages during initialization?
-#'
 #' @return An object of class `influence_gam`.
 #' @export
 #' @examples
@@ -32,21 +33,21 @@
 #' plot(influ_obj, type = "influ")
 #' plot(influ_obj, type = "cdi", term = "s(x0)") # Note: CDI plot needs adaptation for smooths
 #' }
-create_influence_gam <- function(model, data = NULL, focus = NULL, response = NULL, verbose = TRUE) {
+create_influence_gam <- function(gam_model, data = NULL, focus = NULL, response = NULL, islog = FALSE, verbose = TRUE) {
   # --- Input Validation ---
-  if (!inherits(model, "gam")) {
-    stop("'model' must be a fitted GAM object from the 'mgcv' package.")
+  if (!inherits(gam_model, "gam")) {
+    stop("'gam_model' must be a fitted GAM object from the 'mgcv' package.")
   }
 
   # Attempt to extract data if not provided
   if (is.null(data)) {
     if (verbose) message("Attempting to extract data from model object.")
-    data <- model$model # This usually holds the model frame
+    data <- gam_model$model # This usually holds the model frame
     if (is.null(data)) {
       # Try harder for some cases
-      data_name <- model$call$data
+      data_name <- gam_model$call$data
       if (!is.null(data_name)) {
-        data <- try(eval(data_name, environment(formula(model))), silent = TRUE)
+        data <- try(eval(data_name, environment(formula(gam_model))), silent = TRUE)
         if (inherits(data, "try-error")) data <- NULL
       }
     }
@@ -60,7 +61,7 @@ create_influence_gam <- function(model, data = NULL, focus = NULL, response = NU
 
   # Infer response if not provided
   if (is.null(response)) {
-    response <- as.character(stats::formula(model)[[2]]) # Use stats::formula explicitly
+    response <- as.character(stats::formula(gam_model)[[2]]) # Use stats::formula explicitly
     if (verbose) message("Inferred response variable: ", response)
   }
   if (!response %in% names(data)) {
@@ -68,7 +69,7 @@ create_influence_gam <- function(model, data = NULL, focus = NULL, response = NU
   }
 
   # Extract all term labels (including smooths)
-  model_terms <- attr(stats::terms(model), "term.labels") # Use stats::terms explicitly
+  model_terms <- attr(stats::terms(gam_model), "term.labels") # Use stats::terms explicitly
 
   # Validate focus term
   if (is.null(focus)) {
@@ -104,12 +105,15 @@ create_influence_gam <- function(model, data = NULL, focus = NULL, response = NU
 
   # --- Create Object ---
   obj <- list(
-    model = model,
+    model = gam_model,
     data = as.data.frame(data), # Ensure it's a standard data frame
     response = response,
     focus = focus,
     focus_var = focus_var_name, # Store the derived variable name
     terms = model_terms,
+    link_function = family(gam_model)$link,
+    inverse_link_function = family(gam_model)$linkinv,
+    islog = islog,
     # Placeholders for results
     indices = NULL,
     summary = NULL,
