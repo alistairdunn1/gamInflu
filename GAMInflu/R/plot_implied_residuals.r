@@ -89,13 +89,13 @@ plot_implied_residuals.gam <- function(gam_model, data, focus_var, var, nbins = 
   }
   if (is.null(ylim)) {
     if (islog) {
-      ylim <- c(0, max(var_summary$x_q975, na.rm = TRUE) * 1.04)
+      ylim <- c(0, max(var_summary$x_CI975, na.rm = TRUE) * 1.04)
     } else {
-      ylim <- c(min(var_summary$x_q975, na.rm = TRUE) * 1.04, max(var_summary$x_q975, na.rm = TRUE) * 1.04)
+      ylim <- c(min(var_summary$x_CI025, na.rm = TRUE), max(var_summary$x_CI975, na.rm = TRUE) * 1.04)
     }
   } else {
-    var_summary$x_q025 <- pmax(var_summary$x_q025, ylim[1])
-    var_summary$x_q975 <- pmin(var_summary$x_q975, ylim[2])
+    var_summary$x_CI025 <- pmax(var_summary$x_CI025, ylim[1])
+    var_summary$x_CI975 <- pmin(var_summary$x_CI975, ylim[2])
   }
   var_summary$N <- var_summary$n_records / max(var_summary$n_records) * ylim[2] * 0.3
   var_summary$n.focus_var <- as.numeric(as.character(var_summary$focus_var))
