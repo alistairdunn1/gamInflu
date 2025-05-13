@@ -9,13 +9,16 @@ plot_gam_effects(
   data,
   terms = NULL,
   n_points = 100,
-  show_rug = TRUE,
+  show_rug = FALSE,
   show_ci = TRUE,
   ci_level = 0.95,
   plot_as_grid = TRUE,
   smooth_method = "predict",
   ncol = 2,
-  verbose = TRUE
+  verbose = TRUE,
+  re_style = "panel",
+  interactive = FALSE,
+  predict_all = TRUE
 )
 }
 \arguments{
@@ -40,19 +43,29 @@ plot_gam_effects(
 \item{ncol}{Number of columns in the grid (if plot_as_grid=TRUE)}
 
 \item{verbose}{Logical. Print progress messages?}
+
+\item{re_style}{Style for random effects plots. Options: "panel" (default), "qqnorm", "caterpillar", "shrinkage", "combined"}
+
+\item{interactive}{Logical. Whether to create interactive plots using plotly (if available)}
+
+\item{predict_all}{Logical. Whether to predict for all terms even if not visualized}
 }
 \value{
 A grid of plots (if plot_as_grid=TRUE) or a list of ggplot objects
 }
 \description{
 Creates plots showing the effect of each predictor in a GAM model while holding
-other variables at their median/mode/reference level.
+other variables at their median/mode/reference level. For random effects,
+includes specialized visualizations showing the distribution and properties
+of the random effect estimates.
 }
 \examples{
 \dontrun{
 library(mgcv)
 data(mtcars)
-m <- gam(mpg ~ s(wt) + s(hp) + factor(cyl), data = mtcars)
+m <- gam(mpg ~ s(wt) + s(hp) + s(cyl, bs = "re"), data = mtcars)
 plot_gam_effects(m, mtcars)
+plot_gam_effects(m, mtcars, re_style = "qqnorm")
+plot_gam_effects(m, mtcars, re_style = "caterpillar")
 }
 }

@@ -17,7 +17,9 @@ Imports:
     tidyr,       
     patchwork,   
     RColorBrewer,
-    utils        
+    utils,
+    ggplot2,
+    mgcv       
 Suggests: 
     knitr,
     rmarkdown

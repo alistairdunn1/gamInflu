@@ -33,11 +33,7 @@
 #' @export
 plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
                                type = c("stan", "step", "influ", "cdi", "step_influ", "interaction"),
-                               term = NULL,
-                               panels = TRUE,
-                               labels = list(),
-                               base_size = 11,
-                               ...) {
+                               term = NULL, panels = TRUE, labels = list(), base_size = 11, ...) {
   if (!inherits(obj, "influence_gam")) {
     stop("Input 'x' must be of class 'influence_gam'.")
   }
@@ -47,7 +43,6 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
 
   # Check if necessary plotting packages are loaded/available
   if (!requireNamespace("ggplot2", quietly = TRUE)) stop("Package 'ggplot2' needed for plotting.")
-  if (!requireNamespace("RColorBrewer", quietly = TRUE)) stop("Package 'RColorBrewer' needed for plotting.")
   if (type %in% c("step", "influ") && !requireNamespace("tidyr", quietly = TRUE)) stop("Package 'tidyr' needed for 'step' and 'influ' plots.")
   if (type %in% c("cdi", "step_influ") && !requireNamespace("patchwork", quietly = TRUE)) stop("Package 'patchwork' needed for 'cdi' and 'step_influ' plots.")
 
@@ -73,23 +68,34 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
     }
 
     p <- ggplot(indices, aes(x = level_num)) +
-      geom_point(aes(y = unstan, shape = "Unstandardised", colour = "Unstandardised")) +
-      geom_line(aes(y = unstan, linetype = "Unstandardised", colour = "Unstandardised")) +
       geom_point(aes(y = stan, shape = "Standardised", colour = "Standardised")) +
       geom_line(aes(y = stan, linetype = "Standardised", colour = "Standardised")) +
-      geom_errorbar(aes(ymin = stanLower, ymax = stanUpper, colour = "Standardised"), width = 0.2, na.rm = TRUE) + # Add na.rm
-      scale_x_continuous() +
-      scale_shape_manual("Index Type", values = c("Unstandardised" = 1, "Standardised" = 16)) +
-      scale_linetype_manual("Index Type", values = c("Unstandardised" = "dashed", "Standardised" = "solid")) + # Diff linetypes
-      scale_colour_brewer("Index Type", palette = "Set1") + # Use colour palette
-      labs(title = "Standardization Plot", x = focus_label, y = "Index (Relative Scale)") +
+      geom_errorbar(aes(ymin = stanLower, ymax = stanUpper, colour = "Standardised", linetype = "Standardised"), width = 0.2, na.rm = TRUE) +
+      geom_point(aes(y = unstan, shape = "Unstandardised", colour = "Unstandardised")) +
+      geom_line(aes(y = unstan, linetype = "Unstandardised", colour = "Unstandardised")) +
+      labs(x = focus_label, y = "CPUE index", colour = "Index", shape = "Index", linetype = "Index") +
+      scale_colour_manual(values = c("Standardised" = "blue", "Unstandardised" = "grey30")) +
+      scale_shape_manual(values = c("Standardised" = 16, "Unstandardised" = 1)) +
+      scale_linetype_manual(values = c("Standardised" = "solid", "Unstandardised" = "dashed")) +
       theme(legend.position = "bottom") +
-      ylim(0, NA)
+      ylim(0, max(indices$stanUpper, na.rm = TRUE) * 1.04) # Add some space above the upper limit
     return(p)
   }
 
   # Step Plot
   else if (type == "step") {
+    linkfun_name <- obj$model$family$link
+    message(
+      "Step plot: link function = ", linkfun_name,
+      "; islog = ", obj$islog, ". ",
+      "Index values are plotted on: ",
+      if (obj$islog && identical(obj$model$family$linkinv, function(x) x)) {
+        "exp(identity(link)) (natural scale)"
+      } else {
+        paste0(linkfun_name, " (inverse link scale)")
+      }
+    )
+
     step_data_long <- prepare_step_data(obj$indices, focus_var)
     if (is.null(step_data_long)) stop("No step index columns found in obj$indices.")
 
@@ -102,7 +108,7 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
     p <- ggplot(step_data_long, aes(x = level_num, y = index_value)) +
       geom_hline(yintercept = 1, linetype = "dashed", colour = "grey") +
       scale_x_continuous(breaks = unique(step_data_long$level_num), labels = levels(step_data_long$level)) +
-      labs(title = "Step Plot: Index vs. Focus Level", x = focus_label, y = "Index (Relative Scale)")
+      labs(x = focus_label, y = "Index (Relative Scale)")
 
     if (panels) {
       # Faceted plot
@@ -111,13 +117,11 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
         geom_line(aes(group = step_name), colour = "black") + # Current step black
         geom_point(aes(colour = step_name), na.rm = TRUE) + # colour points by step, handle NAs
         facet_wrap(~step_name, ncol = 1, strip.position = "top") +
-        scale_colour_brewer("Step", palette = "Paired") + # Use colour palette
         theme(legend.position = "none", strip.background = element_blank(), strip.placement = "outside")
     } else { # Overlaid plot
       p <- p +
         geom_line(aes(colour = step_name, linetype = step_name), na.rm = TRUE) +
         geom_point(aes(colour = step_name, shape = step_name), na.rm = TRUE) +
-        scale_colour_brewer("Step", palette = "Paired") +
         scale_linetype_discrete("Step") +
         scale_shape_discrete("Step") +
         theme(legend.position = "right") # Move legend
@@ -127,6 +131,18 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
 
   # Influence Plot
   else if (type == "influ") {
+    linkfun_name <- obj$model$family$link
+    message(
+      "Influence plot: link function = ", linkfun_name,
+      "; islog = ", obj$islog, ". ",
+      "Influence values are plotted on: ",
+      if (obj$islog && identical(obj$model$family$linkinv, function(x) x)) {
+        "exp(identity(link)) (natural scale)"
+      } else {
+        paste0(linkfun_name, " (inverse link scale)")
+      }
+    )
+
     influ_data_long <- prepare_influ_data(obj$influences, focus_var)
     if (is.null(influ_data_long)) stop("No influence columns found in obj$influences.")
 
@@ -141,20 +157,18 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
     p <- ggplot(influ_data_long, aes(x = level_num, y = influence_value)) +
       geom_hline(yintercept = 0, linetype = "dashed", colour = "grey") +
       scale_x_continuous(breaks = unique(influ_data_long$level_num), labels = levels(influ_data_long$level)) +
-      labs(title = "Influence Plot: Term Effect vs. Focus Level", x = focus_label, y = ylab)
+      labs(x = focus_label, y = ylab)
 
     if (panels) {
       p <- p +
         geom_line(colour = "black", na.rm = TRUE) +
         geom_point(aes(colour = term_label), na.rm = TRUE) + # colour points by term
         facet_wrap(~term_label, ncol = 1, scales = "free_y", strip.position = "top") +
-        scale_colour_brewer("Term", palette = "Set3") + # Use colour palette
         theme(legend.position = "none", strip.background = element_blank(), strip.placement = "outside")
     } else { # Overlaid plot
       p <- p +
         geom_line(aes(colour = term_label, linetype = term_label), na.rm = TRUE) +
         geom_point(aes(colour = term_label, shape = term_label), na.rm = TRUE) +
-        scale_colour_brewer("Term", palette = "Set3") +
         scale_linetype_discrete("Term") +
         scale_shape_discrete("Term") +
         theme(legend.position = "right") # Move legend
@@ -189,30 +203,40 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
     if (is.null(obj$preds)) stop("Predictions (obj$preds) required for CDI plot are missing.")
     if (!term %in% names(obj$preds)) stop("Term '", term, "' not found in predicted term effects (obj$preds).")
 
-
-    message("CDI plot for GAMs is experimental. 'Coefficient' plot shows partial effect on link scale.")
-
     cdi_data <- prepare_cdi_data(obj, term)
     term_label <- labels[[cdi_data$term_var]] %||% cdi_data$term_var
     focus_label <- labels[[focus_var]] %||% focus_var
 
-    # 1. Coefficient Plot (Partial Effect vs Term Variable)
+    # 3. Influence Plot (Term Influence vs Focus Level)
+    # Apply inverse link function to influence_value
+    linkfun_name <- obj$model$family$link
+    if (obj$islog && identical(obj$model$family$link, "identity")) {
+      # If islog is TRUE and inverse link is identity, exponentiate the influence
+      message("Link function: ", linkfun_name, "; islog: ", obj$islog, ". Influence and coefficient values are plotted on natural scale: exp(x)")
+      cdi_data$influ$influence_value <- exp(cdi_data$influ$influence_value)
+      cdi_data$coeffs$term_effect <- exp(cdi_data$coeffs$term_effect)
+      xlab_scale <- ""
+    } else {
+      message("Link function: ", linkfun_name, "; islog: ", obj$islog, ". Influence and coefficient values are plotted on the inverse link scale")
+      cdi_data$influ$influence_value <- obj$model$family$linkinv(cdi_data$influ$influence_value)
+      cdi_data$coeffs$term_effect <- obj$model$family$linkinv(cdi_data$coeffs$term_effect)
+      xlab_scale <- "(inverse link)"
+    }
+    cdi_data$influ$influence_value <- cdi_data$influ$influence_value / mean(cdi_data$influ$influence_value, na.rm = TRUE) # Normalize to mean
+
     p_coeff <- ggplot(cdi_data$coeffs, aes(x = term_var_num, y = term_effect)) +
-      geom_point(size = 2, colour = RColorBrewer::brewer.pal(3, "Set1")[1], na.rm = TRUE) +
-      geom_hline(yintercept = 0, linetype = "dashed", colour = "grey") +
-      labs(y = paste("Partial Effect"), x = NULL, title = paste("CDI Plot:", term)) + # Add title here
+      geom_point(size = 2, colour = "blue", alpha = 0.5, na.rm = TRUE) +
+      geom_hline(yintercept = obj$model$family$linkinv(0), linetype = "dashed", colour = "grey") +
+      labs(y = "Partial Effect", x = NULL) +
       theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), plot.margin = margin(t = 5, r = 5, b = 0, l = 5)) # Adjust margins
     if (cdi_data$is_numeric) {
       # Optionally add a smooth line for numeric terms
       p_coeff <- p_coeff + geom_smooth(method = "loess", se = FALSE, colour = "darkgrey", linetype = "dotted", na.rm = TRUE)
-    } else { # Factor term
-      p_coeff <- p_coeff + scale_x_continuous(breaks = cdi_data$coeffs$term_var_num, labels = cdi_data$coeffs$term_var_labels) +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate labels if factor
     }
 
     # 2. Distribution Plot (Focus Level vs Term Variable, point size = proportion)
     p_distr <- ggplot(cdi_data$distr, aes(x = term_int, y = focus_int)) +
-      geom_point(aes(size = prop), shape = 16, show.legend = TRUE, colour = RColorBrewer::brewer.pal(3, "Set1")[2], na.rm = TRUE) +
+      geom_point(aes(size = prop), shape = 21, colour = "grey30", fill = "blue", alpha = 0.3, show.legend = TRUE, na.rm = TRUE) +
       scale_size_continuous(range = c(1, 8), name = "Proportion") + # Adjust size range
       scale_x_continuous(breaks = unique(cdi_data$distr$term_int), labels = levels(cdi_data$distr$term_labels)) +
       scale_y_continuous(breaks = unique(cdi_data$distr$focus_int), labels = levels(cdi_data$distr$focus_labels)) +
@@ -224,19 +248,13 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
         plot.margin = margin(t = 0, r = 5, b = 5, l = 5)
       ) # Adjust margins
 
-
-    # 3. Influence Plot (Term Influence vs Focus Level)
     p_influ <- ggplot(cdi_data$influ, aes(x = influence_value, y = level_num)) +
-      geom_point(size = 2, colour = RColorBrewer::brewer.pal(3, "Set1")[3], na.rm = TRUE) +
-      geom_path(colour = RColorBrewer::brewer.pal(3, "Set1")[3], na.rm = TRUE) + # Connect points
-      geom_vline(xintercept = 0, linetype = "dashed", colour = "grey") +
+      geom_point(size = 2, colour = "blue", alpha = 0.5, na.rm = TRUE) +
+      geom_path(colour = "blue", alpha = 0.8, na.rm = TRUE) + # Connect points
+      geom_vline(xintercept = obj$model$family$linkinv(0), linetype = "dashed", colour = "grey") +
       scale_y_continuous(breaks = cdi_data$influ$level_num, labels = cdi_data$influ$level) +
-      labs(x = "Influence", y = NULL) + # Simpler label
-      theme(
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        plot.margin = margin(t = 0, r = 5, b = 5, l = 0)
-      ) # Adjust margins
+      labs(x = paste0("Influence ", xlab_scale), y = NULL) +
+      theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), plot.margin = margin(t = 0, r = 5, b = 5, l = 0))
 
     # Combine using patchwork
     layout <- "
@@ -245,8 +263,6 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
     BBC
     "
     combined_plot <- p_coeff + p_distr + p_influ + patchwork::plot_layout(design = layout) & theme(legend.position = "bottom")
-    # Add overall title using patchwork annotation
-    # combined_plot <- combined_plot + patchwork::plot_annotation(title = paste("CDI Plot:", term))
 
     return(combined_plot)
   }
@@ -263,11 +279,6 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
     combined_plot <- p_step + p_influ + patchwork::plot_layout(ncol = 2)
     # Add overall title and shared x-axis label
     combined_plot <- combined_plot +
-      patchwork::plot_annotation(
-        title = "Step and Influence Plots",
-        caption = paste("Focus Variable:", focus_label),
-        theme = theme(plot.title = element_text(hjust = 0.5))
-      ) &
       theme(plot.margin = margin(1, 1, 1, 1)) # Adjust margins for subplots slightly
 
 
@@ -278,6 +289,16 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
   else if (type == "interaction") {
     if (is.null(term)) stop("Argument 'term' must be provided for type = 'interaction'.")
 
+    linkfun_name <- obj$model$family$link
+    message(
+      "Interaction plot: link function = ", linkfun_name, "; islog = ", obj$islog, ". ", "Plotted on: ",
+      if (identical(obj$model$family$link, "identity") && obj$islog) {
+        "exp(x) (natural scale)"
+      } else {
+        paste0(linkfun_name, " (inverse link scale)")
+      }
+    )
+
     interaction_data <- prepare_interaction_data(obj, term)
     plot_data <- interaction_data$data
     var1 <- interaction_data$var1
@@ -286,23 +307,44 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
 
     var1_label <- labels[[var1]] %||% var1
     var2_label <- labels[[var2]] %||% var2
-    response_label <- "Interaction Effect (Link Scale)"
 
-    p <- ggplot(plot_data, aes(
-      x = x_factor, y = response_vals,
-      colour = trace_factor, shape = trace_factor, linetype = trace_factor, group = trace_factor
-    )) +
-      geom_point(size = 2.5, na.rm = TRUE) +
+    # Modify response_vals based on link function and islog
+    if (identical(obj$model$family$link, "identity")) {
+      # If the link is identity
+      if (obj$islog) {
+        # If islog is TRUE, exponentiate response_vals
+        plot_data$response_vals <- exp(plot_data$response_vals)
+      }
+      # Else, response_vals remain unchanged (identity link)
+      plot_data$response_vals <- plot_data$response_vals
+    } else {
+      # Apply the inverse link function
+      plot_data$response_vals <- obj$model$family$linkinv(plot_data$response_vals)
+    }
+    # standardise the response to mean = 1
+    plot_data <- plot_data %>%
+      group_by(trace_factor) %>%
+      mutate(response_vals = response_vals / mean(response_vals, na.rm = TRUE)) %>%
+      ungroup()
+
+    if (is.factor(plot_data$x_factor)) {
+      plot_data$x <- as.numeric(as.character(plot_data$x_factor))
+      if (any(is.na(plot_data$x))) {
+        plot_data$x <- plot_data$x_factor
+      }
+    } else {
+      plot_data$x <- plot_data$x_factor
+    }
+
+    # Create the interaction plot
+    p <- ggplot(plot_data, aes(x = x, y = response_vals, colour = trace_factor, group = trace_factor)) +
+      geom_hline(yintercept = if (obj$islog && identical(obj$model$family$link, "identity")) 1 else obj$model$family$linkinv(0), linetype = "dashed", colour = "grey") +
+      geom_point(na.rm = TRUE) +
       geom_line(na.rm = TRUE) +
-      geom_hline(yintercept = 0, linetype = "dashed", colour = "grey") +
-      scale_colour_brewer(var2_label, palette = "Set1") + # Use colour palette
-      scale_shape_discrete(var2_label) +
-      scale_linetype_discrete(var2_label) +
-      labs(
-        title = paste("Interaction Plot:", term_name),
-        x = var1_label, y = response_label
-      ) +
-      theme(legend.position = "top")
+      labs(x = var1_label, y = "Interaction Effect", colour = var2_label) +
+      guides(colour = guide_legend(title = var2_label)) +
+      ylim(0, NA) +
+      theme(legend.position = "bottom")
     return(p)
   }
 
@@ -421,7 +463,6 @@ prepare_influ_data <- function(influences_df, focus_var) {
   return(influ_data_long)
 }
 
-
 # Helper function for CDI plot data preparation
 prepare_cdi_data <- function(obj, term) {
   preds <- obj$preds
@@ -492,7 +533,6 @@ prepare_cdi_data <- function(obj, term) {
     coeffs_data$term_var_labels <- coeffs_data$term_var_values # Factor labels
   }
 
-
   # Data for Distribution plot (Focus level vs Term variable)
   distr_data <- as.data.frame(table(plot_data$term_var_values, plot_data$focus_var_values, dnn = c("term_val", "focus_val")))
   # Use original levels for factors
@@ -516,7 +556,6 @@ prepare_cdi_data <- function(obj, term) {
   if (is.factor(distr_data$term_labels)) distr_data$term_labels <- factor(distr_data$term_labels, levels = levels(data[[actual_term_var]]))
   if (is.factor(distr_data$focus_labels)) distr_data$focus_labels <- factor(distr_data$focus_labels, levels = levels(data[[focus_var]]))
 
-
   # Data for Influence plot (Influence value vs Focus Level)
   if (!term %in% names(influences)) {
     # If the exact term name (e.g., 's(x)') isn't in influences, check if a related one is
@@ -539,7 +578,6 @@ prepare_cdi_data <- function(obj, term) {
   influ_plot_data$level <- factor(influ_plot_data$level, levels = levels(data[[focus_var]]))
   influ_plot_data <- influ_plot_data[order(influ_plot_data$level), ] # Order by level
   influ_plot_data$level_num <- as.numeric(influ_plot_data$level)
-
 
   return(list(
     coeffs = coeffs_data,
@@ -614,7 +652,6 @@ prepare_interaction_data <- function(obj, term) {
   # Ensure factors have correct levels if they were character originally
   if (is.factor(obj$data[[var1]])) pred_grid$x_factor <- factor(pred_grid$x_factor, levels = levels(obj$data[[var1]]))
   if (is.factor(obj$data[[var2]])) pred_grid$trace_factor <- factor(pred_grid$trace_factor, levels = levels(obj$data[[var2]]))
-
 
   return(list(data = pred_grid, var1 = var1, var2 = var2, term = term_to_use))
 }
