@@ -44,7 +44,7 @@ plot_gam_effects(
 
 \item{verbose}{Logical. Print progress messages?}
 
-\item{re_style}{Style for random effects plots. Options: "panel" (default), "qqnorm", "caterpillar", "shrinkage", "combined"}
+\item{re_style}{Style for random effects plots. Options: "panel" (default), "density", "qqnorm", "caterpillar", "shrinkage"}
 
 \item{interactive}{Logical. Whether to create interactive plots using plotly (if available)}
 

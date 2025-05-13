@@ -16,7 +16,8 @@
 #' @param smooth_method Method for smooth terms. Options: "predict" (uses predict.gam) or "plot_smooth" (uses plot.gam)
 #' @param ncol Number of columns in the grid (if plot_as_grid=TRUE)
 #' @param verbose Logical. Print progress messages?
-#' @param re_style Style for random effects plots. Options: "panel" (default), "qqnorm", "caterpillar", "shrinkage", "combined"
+#' @param re_style Style for random effects plots. Options: "" (default), "qqnorm", "caterpillar", "shrinkage"
+#' @param re_style Style for random effects plots. Options: "panel" (default), "density", "qqnorm", "caterpillar", "shrinkage"
 #' @param interactive Logical. Whether to create interactive plots using plotly (if available)
 #' @param predict_all Logical. Whether to predict for all terms even if not visualized
 #'
@@ -45,7 +46,7 @@ plot_gam_effects <- function(model, data, terms = NULL, n_points = 100,
   if (!is.data.frame(data)) {
     stop("Data must be a data frame")
   }
-  re_style <- match.arg(re_style, c("panel", "qqnorm", "caterpillar", "shrinkage", "combined"))
+  re_style <- match.arg(re_style, c("panel", "density", "qqnorm", "caterpillar", "shrinkage"))
   if (!is.logical(plot_as_grid)) {
     stop("plot_as_grid must be a logical value")
   }
@@ -76,8 +77,8 @@ plot_gam_effects <- function(model, data, terms = NULL, n_points = 100,
   if (!is.character(smooth_method) || !smooth_method %in% c("predict", "plot_smooth")) {
     stop("smooth_method must be either 'predict' or 'plot_smooth'")
   }
-  if (!is.character(re_style) || !re_style %in% c("panel", "qqnorm", "caterpillar", "shrinkage", "combined")) {
-    stop("re_style must be one of 'panel', 'qqnorm', 'caterpillar', 'shrinkage', or 'combined'")
+  if (!is.character(re_style) || !re_style %in% c("panel", "density", "qqnorm", "caterpillar", "shrinkage")) {
+    stop("re_style must be one of 'panel', 'density', 'qqnorm', 'caterpillar', or 'shrinkage'")
   }
   if (!is.null(terms) && !is.character(terms)) {
     stop("terms must be a character vector")
@@ -90,9 +91,6 @@ plot_gam_effects <- function(model, data, terms = NULL, n_points = 100,
   }
   if (!is.null(terms) && any(terms %in% names(data))) {
     terms <- terms[terms %in% names(data)]
-  }
-  if (length(terms) == 0) {
-    stop("No valid terms to plot. Ensure terms match variable names in the model.")
   }
   if (length(terms) > 1 && plot_as_grid) {
     if (!is.numeric(ncol) || ncol <= 0) {
@@ -155,14 +153,6 @@ plot_gam_effects <- function(model, data, terms = NULL, n_points = 100,
     }
   }
 
-  # Special case: if there are multiple random effects and we're using a combined view
-  if (length(random_terms) > 1 && re_style == "combined" && plot_as_grid && all(random_terms %in% terms)) {
-    # Create individual plots first, then add a combined view
-    combined_re_viz <- TRUE
-  } else {
-    combined_re_viz <- FALSE
-  }
-
   # Create prediction grid for each term
   plot_list <- list()
 
@@ -210,20 +200,10 @@ plot_gam_effects <- function(model, data, terms = NULL, n_points = 100,
       p <- create_spatial_plot(term, plot_data, data, var_names, show_rug, show_ci, color_palette = "viridis", contour_type = "raster")
     } else {
       # For regular terms
-      p <- create_effect_plot(
-        term, plot_data, data, var_names, is_smooth, show_rug, show_ci,
-        response_var = response_var
-      )
+      p <- create_effect_plot(term, plot_data, data, var_names, is_smooth, show_rug, show_ci, response_var = response_var)
     }
 
     plot_list[[term]] <- p
-  }
-
-  # If we have multiple random effects and combined view is requested, add it
-  if (combined_re_viz) {
-    # Create combined random effects visualization
-    p_combined <- create_combined_re_plot(model, random_terms, data, response_var)
-    plot_list[["combined_random_effects"]] <- p_combined
   }
 
   # Convert to interactive plots if requested
@@ -280,11 +260,7 @@ compute_re_diagnostics <- function(model, smooth_id) {
     n_groups = length(re_coefs),
     sd = stats::sd(re_coefs),
     mean = mean(re_coefs),
-    min_max_ratio = ifelse(
-      any(abs(re_coefs) > 0.0001),
-      max(abs(re_coefs)) / min(abs(re_coefs[abs(re_coefs) > 0.0001])),
-      NA
-    ),
+    min_max_ratio = ifelse(any(abs(re_coefs) > 0.0001), max(abs(re_coefs)) / min(abs(re_coefs[abs(re_coefs) > 0.0001])), NA),
     shrinkage_factor = model$sp[smooth_id]
   )
 
@@ -302,7 +278,7 @@ compute_re_diagnostics <- function(model, smooth_id) {
 # Enhanced helper function to create plots with density panels for random effects
 create_random_effect_plot <- function(model, term, plot_data, data, var_names,
                                       response_var, smooth_id, show_rug, show_ci,
-                                      re_style = "panel", verbose = TRUE) {
+                                      re_style = "density", verbose = TRUE) {
   # Find the smooth corresponding to this term
   if (is.null(smooth_id)) {
     for (i in seq_along(model$smooth)) {
@@ -329,34 +305,7 @@ create_random_effect_plot <- function(model, term, plot_data, data, var_names,
   # For multi-variable terms, only plot first variable
   x_var <- var_names[1]
 
-  # Create the main effect plot
-  if (is.numeric(plot_data[[x_var]])) {
-    # Continuous variable
-    p_main <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[x_var]], y = .data[["y"]])) +
-      ggplot2::geom_line(aes(colour = "blue", alpha = 0.5)) +
-      ggplot2::labs(x = x_var, y = "Partial effects")
-
-    if (show_ci && "lower" %in% names(plot_data) && "upper" %in% names(plot_data)) {
-      p_main <- p_main + ggplot2::geom_ribbon(ggplot2::aes(ymin = .data[["lower"]], ymax = .data[["upper"]], colour = "blue"), alpha = 0.2)
-    }
-
-    if (show_rug && x_var %in% names(data)) {
-      p_main <- p_main + ggplot2::geom_rug(data = data, ggplot2::aes(x = .data[[x_var]], y = NULL), sides = "b", alpha = 0.2)
-    }
-  } else {
-    # Categorical variable
-    p_main <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[x_var]], y = .data[["y"]])) +
-      ggplot2::geom_point(aes(colour = "blue", alpha = 0.5)) +
-      ggplot2::labs(x = x_var, y = "Partial effects")
-
-    if (show_ci && "lower" %in% names(plot_data) && "upper" %in% names(plot_data)) {
-      p_main <- p_main + ggplot2::geom_errorbar(ggplot2::aes(ymin = .data[["lower"]], ymax = .data[["upper"]]), width = 0.2)
-    }
-    # For factors, adjust x-axis
-    if (is.factor(plot_data[[x_var]])) {
-      p_main <- p_main + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
-    }
-  }
+  # Remove plotting of partial effects for random effects
 
   # Create diagnostics annotation
   diag_text <- paste(
@@ -368,28 +317,19 @@ create_random_effect_plot <- function(model, term, plot_data, data, var_names,
     sep = "\n"
   )
 
-  # Create appropriate secondary plot based on re_style
-  if (re_style == "panel") {
-    # Density panel
-    density_df <- data.frame(effect = random_coefs)
-
-    p_secondary <- ggplot2::ggplot(density_df, ggplot2::aes(x = effect)) +
-      ggplot2::geom_density(fill = "lightblue", alpha = 0.7) +
-      ggplot2::geom_rug(alpha = 0.5) +
-      ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
-      ggplot2::labs(x = "Effect", y = "Density") +
-      ggplot2::coord_flip()
-  } else if (re_style == "qqnorm") {
+  # Create appropriate plot based on re_style
+  if (re_style == "qqnorm") {
     if (verbose) message("  Creating QQ-plot for random effects")
 
     # Ensure random_coefs is a numeric vector
     density_df <- data.frame(effect = random_coefs)
 
-    # Create the Q-Q plot
-    p_secondary <- ggplot2::ggplot(density_df, ggplot2::aes(sample = effect)) +
-      ggplot2::stat_qq() +
-      ggplot2::stat_qq_line() +
-      ggplot2::labs(x = "Theoretical Quantiles", y = "Sample Quantiles")
+    # Create the Q-Q plot (x-axis horizontal)
+    p_secondary <- ggplot(density_df, aes(sample = effect)) +
+      stat_qq() +
+      stat_qq_line() +
+      labs(x = x_var, y = "Sample Quantiles") +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
   } else if (re_style == "caterpillar") {
     if (verbose) message("  Creating caterpillar plot for random effects")
 
@@ -411,21 +351,26 @@ create_random_effect_plot <- function(model, term, plot_data, data, var_names,
     caterpillar_data$lower <- caterpillar_data$effect - 1.96 * caterpillar_data$se
     caterpillar_data$upper <- caterpillar_data$effect + 1.96 * caterpillar_data$se
 
-    # Create the caterpillar plot
-    p_secondary <- ggplot2::ggplot(caterpillar_data, ggplot2::aes(x = level, y = effect)) +
-      ggplot2::geom_errorbar(ggplot2::aes(ymin = lower, ymax = upper), width = 0.2, alpha = 0.5) +
-      ggplot2::geom_point() +
-      ggplot2::geom_hline(yintercept = 0, linetype = "dashed") +
-      ggplot2::labs(x = "Groups (sorted by effect)", y = "Random Effect") +
-      ggplot2::theme(axis.text.x = ggplot2::element_blank(), axis.ticks.x = ggplot2::element_blank())
+    # Create the caterpillar plot (x-axis horizontal)
+    p_secondary <- ggplot(caterpillar_data, aes(x = level, y = effect)) +
+      geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, alpha = 0.5) +
+      geom_point() +
+      geom_hline(yintercept = 0, linetype = "dashed") +
+      labs(x = x_var, y = "Random Effect") +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5), axis.ticks.x = element_line())
+  } else if (re_style == "density") {
+    density_df <- data.frame(effect = random_coefs)
+
+    p_secondary <- ggplot(density_df, aes(x = effect)) +
+      geom_density(fill = "blue", alpha = 0.3) +
+      geom_rug(alpha = 0.2) +
+      geom_vline(xintercept = 0, linetype = "dashed") +
+      labs(x = x_var, y = "Density")
   } else if (re_style == "shrinkage") {
     # Need to calculate raw group means for comparison
-    # First identify which variable in the data corresponds to the grouping factor
     group_var <- var_names[1]
 
-    # Check if we can extract group means
     if (group_var %in% names(data) && response_var %in% names(data)) {
-      # Calculate group means
       if (requireNamespace("dplyr", quietly = TRUE)) {
         if (verbose) message("  Creating shrinkage plot for random effects")
 
@@ -433,20 +378,19 @@ create_random_effect_plot <- function(model, term, plot_data, data, var_names,
           dplyr::group_by(!!dplyr::sym(group_var)) %>%
           dplyr::summarize(raw_mean = mean(!!dplyr::sym(response_var), na.rm = TRUE))
 
-        # Match with random effects
         if (nrow(group_data) == length(random_coefs)) {
           shrinkage_data <- data.frame(
             raw_mean = group_data$raw_mean,
             re_estimate = random_coefs
           )
 
-          # Create shrinkage plot
-          p_secondary <- ggplot2::ggplot(shrinkage_data, ggplot2::aes(x = raw_mean, y = re_estimate)) +
-            ggplot2::geom_point() +
-            ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
-            ggplot2::labs(x = "Raw Group Means", y = "Random Effect Estimates")
+          # Create shrinkage plot (x-axis horizontal)
+          p_secondary <- ggplot(shrinkage_data, aes(x = raw_mean, y = re_estimate)) +
+            geom_point() +
+            geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+            labs(x = paste("Raw Mean of", x_var), y = "Random Effect Estimates") +
+            theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
         } else {
-          # Fallback to panel if mismatch
           if (verbose) {
             warning("Cannot create shrinkage plot: mismatch between group levels and random effects.")
             message("  Falling back to panel style")
@@ -454,97 +398,49 @@ create_random_effect_plot <- function(model, term, plot_data, data, var_names,
           re_style <- "panel"
         }
       } else {
-        # Fallback if dplyr not available
         if (verbose) {
           warning("Package 'dplyr' needed for shrinkage plots. Falling back to panel style.")
         }
         re_style <- "panel"
       }
     } else {
-      # Fallback if required variables not available
       if (verbose) {
         warning("Cannot create shrinkage plot: required variables not in data.")
         message("  Falling back to panel style")
       }
       re_style <- "panel"
     }
-  } else if (re_style == "panel") {
-    density_df <- data.frame(effect = random_coefs)
-
-    p_secondary <- ggplot2::ggplot(density_df, ggplot2::aes(x = effect)) +
-      ggplot2::geom_density(fill = "lightblue", alpha = 0.7) +
-      ggplot2::geom_rug(alpha = 0.5) +
-      ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
-      ggplot2::labs(x = "Effect", y = "Density") +
-      ggplot2::coord_flip()
-  } else {
-    # Default to density panel if unknown style
-    if (verbose) message("  Unknown re_style: ", re_style, ". Using panel style.")
-    density_df <- data.frame(effect = random_coefs)
-
-    p_secondary <- ggplot2::ggplot(density_df, ggplot2::aes(x = effect)) +
-      ggplot2::geom_density(fill = "lightblue", alpha = 0.7) +
-      ggplot2::geom_rug(alpha = 0.5) +
-      ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
-      ggplot2::labs(x = "Effect", y = "Density", ) +
-      ggplot2::coord_flip()
   }
 
-  # Combine the main and secondary plots
-  if (!requireNamespace("patchwork", quietly = TRUE)) {
-    warning("Package 'patchwork' needed for combined plots. Returning main plot only.")
-    return(p_main)
+  if (re_style == "panel") {
+    if (verbose) message("  Creating panel plot for random effects")
+
+    # Calculate standard errors for random effects
+    se_val <- sqrt(1 / model$sp[smooth_id]) # Approximate SE based on smoothing parameter
+
+    # Prepare data for panel plot
+    panel_data <- data.frame(
+      level = factor(seq_along(random_coefs)),
+      effect = random_coefs,
+      se = se_val
+    )
+
+    # Add confidence intervals
+    panel_data$lower <- panel_data$effect - 1.96 * panel_data$se
+    panel_data$upper <- panel_data$effect + 1.96 * panel_data$se
+
+    # Create the panel plot (x-axis horizontal)
+    p_secondary <- ggplot(panel_data, aes(x = level, y = effect)) +
+      geom_errorbar(aes(ymin = lower, ymax = upper, colour = "blue"), width = 0.2, alpha = 0.5) +
+      geom_point(colour = "blue") +
+      geom_rug(alpha = 0.2) +
+      geom_hline(yintercept = 0, linetype = "dashed") +
+      labs(x = x_var, y = "Random Effect") +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5), axis.ticks.x = element_line())
   }
 
-  combined_plot <- p_main + p_secondary +
-    patchwork::plot_layout(ncol = 2, widths = c(3, 2))
-  return(combined_plot)
-}
-
-# Function to create a combined visualization of all random effects
-create_combined_re_plot <- function(model, random_terms, data, response_var) {
-  # Initialize empty data frame for all random effects
-  all_re_data <- data.frame()
-
-  # Extract random effects for each term
-  for (term in random_terms) {
-    # Find the smooth ID
-    smooth_id <- NULL
-    for (i in seq_along(model$smooth)) {
-      if (model$smooth[[i]]$label == term) {
-        smooth_id <- i
-        break
-      }
-    }
-
-    if (!is.null(smooth_id)) {
-      # Extract coefficients
-      coef_indices <- model$smooth[[smooth_id]]$first.para:model$smooth[[smooth_id]]$last.para
-      random_coefs <- coef(model)[coef_indices]
-
-      # Add to data frame
-      term_data <- data.frame(
-        effect = random_coefs,
-        term = term
-      )
-
-      all_re_data <- rbind(all_re_data, term_data)
-    }
-  }
-
-  # Create density plot for all random effects
-  if (nrow(all_re_data) > 0) {
-    p_combined <- ggplot2::ggplot(all_re_data, ggplot2::aes(x = effect, fill = term)) +
-      ggplot2::geom_density(alpha = 0.5) +
-      ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
-      ggplot2::facet_wrap(~term, scales = "free") +
-      ggplot2::labs(x = "Partial effects", y = "Density")
-    print(p_combined)
-    return(p_combined)
-  } else {
-    # Return NULL if no data available
-    return(NULL)
-  }
+  # Only return the secondary plot for random effects
+  return(p_secondary)
 }
 
 # Helper function to create prediction grid
@@ -602,6 +498,43 @@ create_prediction_grid <- function(model, data, var_names, n_points, verbose) {
       if (verbose) message("  Warning: Variable ", var, " not found in data.")
     }
   }
+
+  return(pred_grid)
+}
+
+# Helper function to extract smooth term using plot.gam
+extract_smooth_term <- function(model, term, pred_grid, ci_level) {
+  # Extract the variable name from the smooth term
+  var_name <- gsub("^s\\(|^te\\(|^ti\\(|\\)$|,.+\\)$", "", term)
+
+  # Get smooths list from model
+  smooths <- model$smooth
+
+  # Find the appropriate smooth
+  smooth_id <- NULL
+  for (i in seq_along(smooths)) {
+    if (smooths[[i]]$label == term || # Check label
+      # Or check if the term name is in the smooth
+      grepl(paste0("^", term, "$"), smooths[[i]]$label)) {
+      smooth_id <- i
+      break
+    }
+  }
+
+  if (is.null(smooth_id)) {
+    stop("Could not find smooth term: ", term)
+  }
+
+  # Extract the smooth
+  smooth <- smooths[[smooth_id]]
+
+  # Use mgcv:::plot.gam to extract the partial residuals
+  tmp <- tempfile()
+  pdf(tmp)
+  # Handle potential errors
+  p_obj <- tryCatch({
+    if (verbose) message("  Warning: Variable ", var, " not found in data.")
+  })
 
   return(pred_grid)
 }
@@ -708,65 +641,48 @@ predict_term_effect <- function(model, term, pred_grid, ci_level, show_ci) {
 }
 
 # Helper function to create the plot
-create_effect_plot <- function(term, plot_data, data, var_names, is_smooth, show_rug, show_ci,
-                               response_var = NULL) {
+create_effect_plot <- function(term, plot_data, data, var_names, is_smooth, show_rug, show_ci, response_var = NULL) {
   # For multi-variable terms, only plot first variable
   x_var <- var_names[1]
 
   # Set y-axis label
-  y_lab <- "Partial effects"
+  y_lab <- "Partial effect"
 
   # Handle different types of variables
   if (is.numeric(plot_data[[x_var]])) {
     # Continuous variable
-    p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[x_var]], y = .data[["y"]])) +
-      ggplot2::geom_line(colour = "blue", alpha = 0.8) +
-      ggplot2::labs(x = x_var, y = y_lab)
+    p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[["y"]])) +
+      geom_line(colour = "blue", alpha = 0.8) +
+      labs(x = x_var, y = y_lab)
 
     if (show_ci && "lower" %in% names(plot_data) && "upper" %in% names(plot_data)) {
-      p <- p + ggplot2::geom_ribbon(
-        ggplot2::aes(ymin = .data[["lower"]], ymax = .data[["upper"]]),
+      p <- p + geom_ribbon(
+        aes(ymin = .data[["lower"]], ymax = .data[["upper"]]),
         fill = "blue", alpha = 0.3
       )
     }
 
     if (show_rug && x_var %in% names(data)) {
-      p <- p + ggplot2::geom_rug(
-        data = data,
-        ggplot2::aes(x = .data[[x_var]], y = NULL),
-        sides = "b",
-        alpha = 0.2
-      )
+      p <- p + geom_rug(data = data, aes(x = .data[[x_var]], y = NULL), sides = "b", alpha = 0.2)
     }
   } else {
     # Categorical variable
-    p <- ggplot2::ggplot(plot_data, ggplot2::aes(
-      x = .data[[x_var]],
-      y = .data[["y"]],
-      fill = .data[[group_var]],
-      colour = .data[[group_var]]
-    )) +
-      ggplot2::geom_bar(stat = "identity", position = "dodge", alpha = 0.4) +
-      ggplot2::geom_point(position = ggplot2::position_dodge(width = 0.9), alpha = 0.4) +
-      ggplot2::labs(x = x_var, y = y_lab, fill = group_var, colour = group_var)
+    p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[["y"]], fill = .data[[group_var]], colour = .data[[group_var]])) +
+      geom_bar(stat = "identity", position = "dodge", alpha = 0.4) +
+      geom_point(position = position_dodge(width = 0.9), alpha = 0.4) +
+      labs(x = x_var, y = y_lab, fill = group_var, colour = group_var)
 
     if (show_ci && "lower" %in% names(plot_data) && "upper" %in% names(plot_data)) {
-      p <- p + ggplot2::geom_errorbar(
-        ggplot2::aes(ymin = .data[["lower"]], ymax = .data[["upper"]]),
-        position = ggplot2::position_dodge(width = 0.9),
-        width = 0.2,
-        colour = "blue",
-        alpha = 0.3
-      )
+      p <- p + geom_errorbar(aes(ymin = .data[["lower"]], ymax = .data[["upper"]]), position = position_dodge(width = 0.9), width = 0.2, colour = "blue", alpha = 0.3)
     }
 
     # For factors, adjust x-axis
     if (is.factor(plot_data[[x_var]])) {
-      p <- p + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+      p <- p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
     }
 
     if (color_palette == "viridis" && requireNamespace("viridisLite", quietly = TRUE)) {
-      p <- p + ggplot2::scale_fill_viridis_d() + ggplot2::scale_colour_viridis_d()
+      p <- p + scale_fill_viridis_d() + scale_colour_viridis_d()
     }
   }
 
@@ -792,40 +708,40 @@ create_spatial_plot <- function(term, plot_data, data, var_names, show_rug, show
   }
 
   # Create the base plot
-  p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[var1]], y = .data[[var2]]))
+  p <- ggplot(plot_data, aes(x = .data[[var1]], y = .data[[var2]]))
 
   # Add contours based on type
   if (contour_type == "raster") {
     # Filled contour with color scale
-    p <- p + ggplot2::geom_raster(ggplot2::aes(fill = .data[["y"]])) +
-      ggplot2::geom_contour(ggplot2::aes(z = .data[["y"]]), color = "white", alpha = 0.5, linewidth = 0.2)
+    p <- p + geom_raster(aes(fill = .data[["y"]])) +
+      geom_contour(aes(z = .data[["y"]]), color = "white", alpha = 0.5, linewidth = 0.2)
 
     # Apply color scale
     if (color_palette == "viridis" && requireNamespace("viridisLite", quietly = TRUE)) {
-      p <- p + ggplot2::scale_fill_viridis_c(option = "plasma")
+      p <- p + scale_fill_viridis_c(option = "plasma")
     } else if (requireNamespace("RColorBrewer", quietly = TRUE) &&
       color_palette %in% rownames(RColorBrewer::brewer.pal.info)) {
       # Use RColorBrewer sequential palette
-      p <- p + ggplot2::scale_fill_distiller(palette = color_palette, direction = 1)
+      p <- p + scale_fill_distiller(palette = color_palette, direction = 1)
     }
   } else {
     # Line contours
-    p <- p + ggplot2::geom_contour(ggplot2::aes(z = .data[["y"]]), color = "darkblue") +
-      ggplot2::scale_color_viridis_c(option = "plasma")
+    p <- p + geom_contour(aes(z = .data[["y"]]), color = "darkblue") +
+      scale_color_viridis_c(option = "plasma")
   }
 
   # Add rug plots if requested
   if (show_rug) {
-    p <- p + ggplot2::geom_rug(
+    p <- p + geom_rug(
       data = data,
-      ggplot2::aes(x = .data[[var1]], y = .data[[var2]]),
-      alpha = 0.1,
+      aes(x = .data[[var1]], y = .data[[var2]]),
+      alpha = 0.2,
       size = 0.1
     )
   }
 
   # Add labels and styling
-  p <- p + ggplot2::labs(x = var1, y = var2, fill = if (contour_type == "raster") "Effect" else NULL, color = if (contour_type != "raster") "Effect" else NULL)
+  p <- p + labs(x = var1, y = var2, fill = if (contour_type == "raster") "Effect" else NULL, color = if (contour_type != "raster") "Effect" else NULL)
 
   return(p)
 }
@@ -850,34 +766,34 @@ create_interaction_plot <- function(term, plot_data, data, var_names, is_smooth,
         plot_data[[group_var]] <- factor(plot_data[[group_var]])
       }
 
-      p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[x_var]], y = .data[["y"]], color = .data[[group_var]], group = .data[[group_var]])) +
-        ggplot2::geom_line(alpha = 0.8) +
-        ggplot2::labs(x = x_var, y = "Partial Effect", color = group_var)
+      p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[["y"]], color = .data[[group_var]], group = .data[[group_var]])) +
+        geom_line(alpha = 0.8) +
+        labs(x = x_var, y = "Partial Effect", color = group_var)
 
       if (show_ci && "lower" %in% names(plot_data) && "upper" %in% names(plot_data)) {
-        p <- p + ggplot2::geom_ribbon(
-          ggplot2::aes(ymin = .data[["lower"]], ymax = .data[["upper"]], fill = .data[[group_var]]),
+        p <- p + geom_ribbon(
+          aes(ymin = .data[["lower"]], ymax = .data[["upper"]], fill = .data[[group_var]]),
           alpha = 0.3, color = NA
         )
       }
 
       if (show_rug && x_var %in% names(data)) {
-        p <- p + ggplot2::geom_rug(data = data, ggplot2::aes(x = .data[[x_var]], y = NULL, color = .data[[group_var]]), sides = "b", alpha = 0.2)
+        p <- p + geom_rug(data = data, aes(x = .data[[x_var]], y = NULL, color = .data[[group_var]]), sides = "b", alpha = 0.2)
       }
 
       if (color_palette == "viridis" && requireNamespace("viridisLite", quietly = TRUE)) {
         p <- p +
-          ggplot2::scale_color_viridis_d() +
-          ggplot2::scale_fill_viridis_d(alpha = 0.1)
+          scale_color_viridis_d() +
+          scale_fill_viridis_d(alpha = 0.1)
       }
     } else if (is.numeric(plot_data[[group_var]])) {
-      p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[x_var]], y = .data[[group_var]])) +
-        ggplot2::geom_raster(ggplot2::aes(fill = .data[["y"]])) +
-        ggplot2::geom_contour(ggplot2::aes(z = .data[["y"]]), color = "white", alpha = 0.5) +
-        ggplot2::labs(x = x_var, y = group_var, fill = "Effect")
+      p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[group_var]])) +
+        geom_raster(aes(fill = .data[["y"]])) +
+        geom_contour(aes(z = .data[["y"]]), color = "white", alpha = 0.5) +
+        labs(x = x_var, y = group_var, fill = "Effect")
 
       if (color_palette == "viridis" && requireNamespace("viridisLite", quietly = TRUE)) {
-        p <- p + ggplot2::scale_fill_viridis_c(option = "plasma")
+        p <- p + scale_fill_viridis_c(option = "plasma")
       }
     }
   } else {
@@ -890,20 +806,20 @@ create_interaction_plot <- function(term, plot_data, data, var_names, is_smooth,
         plot_data[[group_var]] <- factor(plot_data[[group_var]])
       }
 
-      p <- ggplot2::ggplot(plot_data, ggplot2::aes(
+      p <- ggplot(plot_data, aes(
         x = .data[[x_var]],
         y = .data[["y"]],
         fill = .data[[group_var]],
         colour = .data[[group_var]]
       )) +
-        ggplot2::geom_bar(stat = "identity", position = "dodge", alpha = 0.4) +
-        ggplot2::geom_point(position = ggplot2::position_dodge(width = 0.9), alpha = 0.4) +
-        ggplot2::labs(x = x_var, y = "Partial Effect", fill = group_var, colour = group_var)
+        geom_bar(stat = "identity", position = "dodge", alpha = 0.4) +
+        geom_point(position = position_dodge(width = 0.9), alpha = 0.4) +
+        labs(x = x_var, y = "Partial Effect", fill = group_var, colour = group_var)
 
       if (show_ci && "lower" %in% names(plot_data) && "upper" %in% names(plot_data)) {
-        p <- p + ggplot2::geom_errorbar(
-          ggplot2::aes(ymin = .data[["lower"]], ymax = .data[["upper"]]),
-          position = ggplot2::position_dodge(width = 0.9),
+        p <- p + geom_errorbar(
+          aes(ymin = .data[["lower"]], ymax = .data[["upper"]]),
+          position = position_dodge(width = 0.9),
           width = 0.2,
           colour = "blue",
           alpha = 0.3
@@ -911,7 +827,7 @@ create_interaction_plot <- function(term, plot_data, data, var_names, is_smooth,
       }
 
       if (color_palette == "viridis" && requireNamespace("viridisLite", quietly = TRUE)) {
-        p <- p + ggplot2::scale_fill_viridis_d() + ggplot2::scale_colour_viridis_d()
+        p <- p + scale_fill_viridis_d() + scale_colour_viridis_d()
       }
     } else if (is.numeric(plot_data[[group_var]])) {
       if (!is.factor(plot_data[[x_var]])) {
@@ -921,17 +837,17 @@ create_interaction_plot <- function(term, plot_data, data, var_names, is_smooth,
       breaks <- pretty(range(plot_data[[group_var]]), n = 5)
       plot_data$group_binned <- cut(plot_data[[group_var]], breaks = breaks)
 
-      p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[x_var]], y = .data[["y"]], fill = .data$group_binned)) +
-        ggplot2::geom_bar(stat = "identity", position = "dodge", colour = "blue", alpha = 0.4) +
-        ggplot2::labs(x = x_var, y = "Partial Effect", fill = group_var)
+      p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[["y"]], fill = .data$group_binned)) +
+        geom_bar(stat = "identity", position = "dodge", colour = "blue", alpha = 0.4) +
+        labs(x = x_var, y = "Partial Effect", fill = group_var)
 
       if (color_palette == "viridis" && requireNamespace("viridisLite", quietly = TRUE)) {
-        p <- p + ggplot2::scale_fill_viridis_d()
+        p <- p + scale_fill_viridis_d()
       }
     }
   }
 
-  p <- p + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+  p <- p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
   return(p)
 }

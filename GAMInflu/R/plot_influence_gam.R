@@ -226,9 +226,8 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
 
     p_coeff <- ggplot(cdi_data$coeffs, aes(x = term_var_num, y = term_effect)) +
       geom_point(size = 2, colour = "blue", alpha = 0.5, na.rm = TRUE) +
-      geom_hline(yintercept = obj$model$family$linkinv(0), linetype = "dashed", colour = "grey") +
       labs(y = "Partial Effect", x = NULL) +
-      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), plot.margin = margin(t = 5, r = 5, b = 0, l = 5)) # Adjust margins
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), plot.margin = margin(t = 5, r = 5, b = 5, l = 5)) # Adjust margins
     if (cdi_data$is_numeric) {
       # Optionally add a smooth line for numeric terms
       p_coeff <- p_coeff + geom_smooth(method = "loess", se = FALSE, colour = "darkgrey", linetype = "dotted", na.rm = TRUE)
@@ -245,13 +244,13 @@ plot.influence_gam <- function(obj, y = NULL, # Add y for generic compatibility
         panel.grid.major = element_line(colour = "grey90"),
         legend.position = "bottom",
         axis.text.x = if (!cdi_data$is_numeric) element_text(angle = 45, hjust = 1) else element_text(), # Rotate labels if factor
-        plot.margin = margin(t = 0, r = 5, b = 5, l = 5)
+        plot.margin = margin(t = 0, r = 5, b = 5, l = 0)
       ) # Adjust margins
 
     p_influ <- ggplot(cdi_data$influ, aes(x = influence_value, y = level_num)) +
       geom_point(size = 2, colour = "blue", alpha = 0.5, na.rm = TRUE) +
       geom_path(colour = "blue", alpha = 0.8, na.rm = TRUE) + # Connect points
-      geom_vline(xintercept = obj$model$family$linkinv(0), linetype = "dashed", colour = "grey") +
+      geom_vline(xintercept = 1, linetype = "dashed", colour = "grey") +
       scale_y_continuous(breaks = cdi_data$influ$level_num, labels = cdi_data$influ$level) +
       labs(x = paste0("Influence ", xlab_scale), y = NULL) +
       theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), plot.margin = margin(t = 0, r = 5, b = 5, l = 0))
