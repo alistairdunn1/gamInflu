@@ -21,8 +21,10 @@ Imports:
     tidyr,
     gridExtra,
     viridis,
-    R6,
-    rlang
+    rlang,
+    RColorBrewer,
+    patchwork,
+    plotly
 Suggests:
     testthat,
     knitr,

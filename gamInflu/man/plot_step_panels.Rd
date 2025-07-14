@@ -21,3 +21,4 @@ A ggplot object
 \description{
 Plot the step change of terms on the parametric focus term
 }
+\keyword{internal}

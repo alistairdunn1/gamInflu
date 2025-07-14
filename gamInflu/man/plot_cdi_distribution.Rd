@@ -12,8 +12,6 @@ plot_cdi_distribution(x, variable, ...)
 \item{variable}{Variable name for distribution}
 
 \item{...}{Additional plotting arguments}
-
-\item{term}{Term name}
 }
 \value{
 ggplot object

@@ -3,7 +3,7 @@
 #' @param step_effects A list of step effects
 #' @param x A gam_influence object
 #' @param show_previous Logical indicating whether to show previous steps
-#' @internal
+#' @keywords internal
 #'
 prepare_step_data <- function(step_effects, x, show_previous = TRUE) {
   if (length(step_effects) == 0) {

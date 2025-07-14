@@ -6,7 +6,7 @@
 #' @param ... Additional arguments
 #' @return The gam_influence object with calculated statistics
 #' @keywords internal
-#' 
+#'
 calculate_gam_influence <- function(x, ...) {
   if (x$calculated) {
     message("Calculations already performed.")
@@ -22,7 +22,7 @@ calculate_gam_influence <- function(x, ...) {
   x$expanded_terms <- expand_by_variables(x$model)
 
   # Calculate effects for parametric focus term
-  x$focus_effects <- calculate_parametric_focus_effects(x$model, x$focus, x$data)
+  x$focus_effects <- calculate_parametric_effects(x$model, x$focus, x$data)
 
   # Calculate model progression (step-wise addition)
   x$model_progression <- calculate_model_progression(x)

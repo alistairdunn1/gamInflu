@@ -2,7 +2,7 @@
 % Please edit documentation in R/calculate_smooth_influences.R
 \name{calculate_smooth_influences}
 \alias{calculate_smooth_influences}
-\title{Calculate Smooth Term Influences on Parametric Focus Term (CORRECTED)}
+\title{Calculate Smooth Term Influences on Parametric Focus Term}
 \usage{
 calculate_smooth_influences(x)
 }
@@ -13,7 +13,6 @@ calculate_smooth_influences(x)
 List with influence calculations per focus level
 }
 \description{
-This function now properly calculates influence per level of the focus term,
-matching the methodology from the original Influ.r package
+Calculate Smooth Term Influences on Parametric Focus Term
 }
 \keyword{internal}

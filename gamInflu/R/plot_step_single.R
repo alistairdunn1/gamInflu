@@ -6,7 +6,8 @@
 #' @param x A gam_influence object with calculations performed
 #' @param show_previous Logical indicating whether to show previous steps
 #' @return A ggplot object
-#' @internal
+#' @keywords internal
+#'
 plot_step_single <- function(step_effects, x, show_previous = TRUE) {
   if (length(step_effects) == 0) {
     warning("No data to plot")

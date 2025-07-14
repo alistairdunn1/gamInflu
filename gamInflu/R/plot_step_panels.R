@@ -7,7 +7,8 @@
 #' @param show_previous Logical indicating whether to show previous steps
 #' @param ncol (integer) Number of columns for faceting
 #' @return A ggplot object
-#' @internal
+#' @keywords internal
+#'
 plot_step_panels <- function(step_effects, x, show_previous = TRUE, ncol = 1) {
   plot_data <- prepare_step_data(step_effects, x, show_previous)
   labs <- unique(plot_data$term_added)[-1]
