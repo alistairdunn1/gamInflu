@@ -1,0 +1,26 @@
+#' gamInflu: Influence Analysis for Generalized Additive Models
+#'
+#' A package for generating influence plots and metrics for GAM models fitted with mgcv.
+#'
+#' @section Required packages:
+#' This package requires the following packages to be installed:
+#' \itemize{
+#'   \item mgcv - for GAM model support
+#'   \item ggplot2 - for all plotting functions
+#'   \item dplyr - for data manipulation
+#'   \item tidyr - for data reshaping
+#'   \item gridExtra - for plot arrangement
+#' }
+#'
+#' Install all required packages with:
+#' \code{install.packages(c("mgcv", "ggplot2", "dplyr", "tidyr", "gridExtra"))}
+#'
+#' @name gamInflu-package
+#' @import mgcv
+#' @import ggplot2
+#' @import dplyr
+#' @import tidyr
+#' @import gridExtra
+#' @import stats
+#' @import graphics
+NULL
