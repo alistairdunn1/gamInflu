@@ -1,72 +1,68 @@
-#' Create a GAM Influence Analysis Object
+#' Create a GAM Influence Object
 #'
-#' Creates an S3 object for analysing the influence of terms in a GAM model.
+#' Initializes a gam_influence object for a given model and focus term. This is the
+#' main constructor for the 'gam_influence' class. It sets up the basic structure,
+#' which is then populated by `calculate_influence()`.
 #'
-#' @param model A fitted GAM model from mgcv (gam, bam, or gamm)
-#' @param focus The focus term for influence analysis (smooth or parametric)
-#' @param data Optional data frame used to fit the model
-#' @param response Optional response variable name
+#' @param model A fitted model object (supported: `glm`, `gam`).
+#' @param focus A character string specifying the name of the focus term. This
+#'   term must be a factor in the model's data and is typically the term for
+#'   which an annual index is being calculated (e.g., "year").
+#' @param data The data frame used to fit the model. This is crucial for models
+#'   that do not store the data internally. If NULL, the function will attempt
+#'   to extract it from the model object.
+#' @param islog A logical value indicating whether the response variable is on a
+#'   logarithmic scale.
 #'
-#' @return A 'gam_influence' S3 object
+#' @return An object of S3 class 'gam_influence'. This is a list containing the model,
+#'   data, and key term specifications.
 #' @export
 #'
-#' @examples
-#' \dontrun{
-#' library(mgcv)
-#' data(mcycle)
-#' m1 <- gam(accel ~ s(times) + s(times, by = factor), data = mcycle)
-#' gi <- gam_influence(m1, focus = "s(times)")
-#' }
-gam_influence <- function(model, focus = NULL, data = NULL, response = NULL) {
-  # Validate input
-  if (!inherits(model, c("gam", "bam", "gamm"))) {
-    stop("Model must be a GAM fitted with mgcv (gam, bam, or gamm)")
-  }
-
-  # Extract model components
-  if (inherits(model, "gamm")) {
-    gam_model <- model$gam
-    data_used <- model$gam$model
-  } else {
-    gam_model <- model
-    data_used <- model$model
-  }
-
-  # Get data
+gam_influence <- function(model, focus, data = NULL, islog = NULL) {
+  # --- Data Extraction and Validation ---
   if (is.null(data)) {
-    if (is.null(data_used)) {
-      stop("Cannot extract data from model. Please provide 'data' argument.")
-    }
-    data <- data_used
+    data <- model$data
+  }
+  if (is.null(data)) {
+    # Attempt to retrieve data from the model's call if not explicitly provided
+    tryCatch(
+      {
+        data <- eval(model$call$data, environment(formula(model)))
+      },
+      error = function(e) {
+        stop("Could not find model data. Please supply it using the 'data' argument.", call. = FALSE)
+      }
+    )
+  }
+  if (is.null(data)) {
+    stop("Failed to extract or find the data frame used for the model.", call. = FALSE)
   }
 
-  # Get response variable
-  if (is.null(response)) {
-    response <- all.vars(formula(gam_model))[1]
+  if (!focus %in% names(data)) {
+    stop(paste0("Focus term '", focus, "' not found in the provided data."), call. = FALSE)
+  }
+  if (!is.factor(data[[focus]])) {
+    stop(paste0("The focus term '", focus, "' must be a factor."), call. = FALSE)
   }
 
-  # Extract model terms information
-  terms_info <- extract_gam_terms(gam_model)
+  # --- Term and Response Variable Extraction ---
+  term_labels <- attr(terms(model), "term.labels")
+  response_var <- all.vars(formula(model))[1]
 
-  # Set focus term
-  if (is.null(focus)) {
-    focus <- terms_info$smooth_terms[1]
-    if (is.na(focus)) focus <- terms_info$parametric_terms[1]
-  }
-
-  # Create S3 object
-  obj <- list(
-    model = gam_model,
-    original_model = model,
-    data = data,
-    response = response,
-    focus = focus,
-    terms_info = terms_info,
-    calculated = FALSE
+  # --- Structure and Class Assignment ---
+  # The main object is a list with the 'gam_influence' class assigned.
+  obj <- structure(
+    list(
+      model = model,
+      data = as.data.frame(data),
+      focus = focus,
+      response = response_var,
+      terms = term_labels,
+      islog = islog,
+      calculated = FALSE # This list will be populated by calculate_influence()
+    ),
+    class = "gam_influence"
   )
 
-  obj <- calculate_gam_influence(obj)
-
-  class(obj) <- "gam_influence"
   return(obj)
 }

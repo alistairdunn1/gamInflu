@@ -1,22 +1,16 @@
-#' Get terms from a gam_influence object
-#' @param x A gam_influence object
-#' @return Character vector of term names
+#' @title Get Model Terms
+#' @description Returns the terms used in a fitted model as a character vector.
+#' @param obj A `gam_influence` object or a fitted model object.
+#' @param full Logical; if TRUE, returns the full term expressions (e.g., s(term, ...)), otherwise returns variable names.
+#' @return A character vector of model terms.
 #' @export
-#' 
-get_terms <- function(x) {
-  if (!inherits(x, "gam_influence")) {
-    stop("Object must be of class 'gam_influence'")
+get_terms <- function(obj, full = FALSE) {
+  if ("gam_influence" %in% class(obj)) {
+    if (full && !is.null(obj$model$formula)) {
+      return(attr(terms(formula(obj$model)), "term.labels"))
+    }
+    return(obj$terms)
+  } else {
+    stop("Input must be a gam_influence object.")
   }
-  
-  if (!x$calculated) {
-    warning("Calculations not yet performed. Run calculate() first.")
-    return(character(0))
-  }
-  
-  if (is.null(x$expanded_terms)) {
-    warning("No expanded_terms found. Available components: ", paste(names(x), collapse = ", "))
-    return(character(0))
-  }
-  
-  return(names(x$expanded_terms))
 }

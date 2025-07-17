@@ -2,30 +2,30 @@
 % Please edit documentation in R/gam_influence.r
 \name{gam_influence}
 \alias{gam_influence}
-\title{Create a GAM Influence Analysis Object}
+\title{Create a GAM Influence Object}
 \usage{
-gam_influence(model, focus = NULL, data = NULL, response = NULL)
+gam_influence(model, focus, data = NULL, islog = NULL)
 }
 \arguments{
-\item{model}{A fitted GAM model from mgcv (gam, bam, or gamm)}
+\item{model}{A fitted model object (supported: `glm`, `gam`).}
 
-\item{focus}{The focus term for influence analysis (smooth or parametric)}
+\item{focus}{A character string specifying the name of the focus term. This
+term must be a factor in the model's data and is typically the term for
+which an annual index is being calculated (e.g., "year").}
 
-\item{data}{Optional data frame used to fit the model}
+\item{data}{The data frame used to fit the model. This is crucial for models
+that do not store the data internally. If NULL, the function will attempt
+to extract it from the model object.}
 
-\item{response}{Optional response variable name}
+\item{islog}{A logical value indicating whether the response variable is on a
+logarithmic scale.}
 }
 \value{
-A 'gam_influence' S3 object
+An object of S3 class 'gam_influence'. This is a list containing the model,
+  data, and key term specifications.
 }
 \description{
-Creates an S3 object for analysing the influence of terms in a GAM model.
-}
-\examples{
-\dontrun{
-library(mgcv)
-data(mcycle)
-m1 <- gam(accel ~ s(times) + s(times, by = factor), data = mcycle)
-gi <- gam_influence(m1, focus = "s(times)")
-}
+Initializes a gam_influence object for a given model and focus term. This is the
+main constructor for the 'gam_influence' class. It sets up the basic structure,
+which is then populated by `calculate_influence()`.
 }

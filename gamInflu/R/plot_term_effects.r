@@ -1,0 +1,83 @@
+#' @title Plot Predicted Effects for Model Terms
+#' @description Plots the predicted effects for each model term, with options for single or all terms, including by-variable panels and random effects.
+#' @param obj A `gam_influence` object containing calculated predictions and standard errors.
+#' @param term Character; the term to plot (e.g., "s(temp)"). If NULL, plots all terms.
+#' @param type Character; for random effects, one of "point", "bar", or "violin".
+#' @return A ggplot object (or patchwork if multiple terms).
+#' @export
+plot_term_effects <- function(obj, term = NULL, type = "point") {
+  preds_df <- obj$calculated$predictions
+  se_df <- obj$calculated$prediction_se
+  terms_vec <- get_terms(obj, full = TRUE)
+  term_list <- if (is.null(term)) terms_vec else term
+
+  plots <- lapply(term_list, function(t) {
+    term_vars <- all.vars(rlang::parse_expr(t))
+    is_random <- grepl('bs\\s*=\\s*"re"', t)
+    is_by <- grepl("by\\s*=", t)
+    se_col <- if (!is.null(se_df)) grep(paste0("(^|\\(|\\:)", t, "($|\\)|\\:|\\d+)"), colnames(se_df), value = TRUE) else character(0)
+
+    if (is_random) {
+      # Random effect plot
+      if (!(t %in% colnames(preds_df)) || !(term_vars[1] %in% colnames(preds_df))) {
+        warning(paste("Random effect term", t, "not found in predictions."))
+        return(ggplot() + labs(title = paste("Random effect", t, "not found")))
+      }
+      re_levels <- preds_df[[term_vars[1]]]
+      re_effect <- preds_df[[t]]
+      re_se <- if (length(se_col) > 0 && se_col[1] %in% colnames(se_df)) se_df[[se_col[1]]] else NA
+      df <- data.frame(level = re_levels, effect = re_effect, se = re_se)
+      if (type == "violin") {
+        p <- ggplot(df, aes(x = level, y = effect)) +
+          geom_violin(fill = "grey80") +
+          labs(title = t, x = term_vars[1], y = "Random Effect")
+      } else if (type == "bar") {
+        p <- ggplot(df, aes(x = level, y = effect)) +
+          geom_bar(stat = "identity", fill = "steelblue") +
+          geom_errorbar(aes(ymin = effect - 1.96 * se, ymax = effect + 1.96 * se), width = 0.2, na.rm = TRUE) +
+          labs(title = t, x = term_vars[1], y = "Random Effect")
+      } else {
+        p <- ggplot(df, aes(x = level, y = effect)) +
+          geom_point(size = 3, colour = "steelblue") +
+          geom_errorbar(aes(ymin = effect - 1.96 * se, ymax = effect + 1.96 * se), width = 0.2, na.rm = TRUE) +
+          labs(title = t, x = term_vars[1], y = "Random Effect")
+      }
+    } else if (is_by) {
+      # By-variable panel
+      by_var <- sub('.*by\\s*=\\s*([^,\\)]+).*', '\\1', t)
+      main_var <- term_vars[1]
+      df <- preds_df
+      p <- ggplot(df, aes_string(x = main_var, y = t, colour = by_var)) +
+        geom_line(aes_string(group = by_var)) +
+        geom_ribbon(aes_string(ymin = paste0(t, " - 1.96 * ", se_col[1]),
+                               ymax = paste0(t, " + 1.96 * ", se_col[1]),
+                               fill = by_var), alpha = 0.2, colour = NA) +
+        labs(title = t, x = main_var, y = "Effect", colour = by_var, fill = by_var) +
+        facet_wrap(vars(!!rlang::sym(by_var)))
+    } else if (is.factor(obj$data[[term_vars[1]]])) {
+      # Factor variable
+      df <- data.frame(level = obj$data[[term_vars[1]]], effect = preds_df[[t]],
+                       se = if (length(se_col) > 0) se_df[[se_col[1]]] else NA)
+      p <- ggplot(df, aes(x = level, y = effect)) +
+        geom_point(size = 3, colour = "royalblue") +
+        geom_errorbar(aes(ymin = effect - 1.96 * se, ymax = effect + 1.96 * se), width = 0.2, na.rm = TRUE) +
+        labs(title = t, x = term_vars[1], y = "Effect")
+    } else {
+      # Continuous variable
+      df <- data.frame(x = preds_df[[term_vars[1]]], effect = preds_df[[t]],
+                       se = if (length(se_col) > 0) se_df[[se_col[1]]] else NA)
+      p <- ggplot(df, aes(x = x, y = effect)) +
+        geom_line(colour = "royalblue") +
+        geom_ribbon(aes(ymin = effect - 1.96 * se, ymax = effect + 1.96 * se), alpha = 0.2, fill = "royalblue") +
+        labs(title = t, x = term_vars[1], y = "Effect")
+    }
+    p
+  })
+
+  if (length(plots) == 1) {
+    return(plots[[1]])
+  } else {
+    patchwork::wrap_plots(plots)
+  }
+}
+
