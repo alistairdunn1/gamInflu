@@ -19,7 +19,7 @@ the function infers this by checking if the response name starts with "log(".}
 }
 \value{
 The `gam_influence` object, now containing a `calculated` list with data frames
-  for indices, summary stats, influences, and predictions.
+  for indices, summary stats, influences, predictions, and s.e. of predictions.
 }
 \description{
 A generic S3 function to perform calculations on a `gam_influence` object.
