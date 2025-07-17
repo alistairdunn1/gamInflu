@@ -4,13 +4,10 @@ Title: Influence Analysis for Generalized Additive Models
 Version: 0.1.0
 Author: Alistair Dunn [aut, cre]
 Maintainer: Alistair Dunn <alistair.dunn@OceanEnvironmental.co.nz>
-Description: Comprehensive influence analysis tools for Generalized Additive Models (GAMs) fitted with mgcv. 
+Description: Influence analysis tools for Generalized Additive Models (GAMs) fitted with mgcv. 
     Supports smoother types including s(), te(), ti(), t2(), and by= terms. 
-    Generates stepwise index plots, term influence plots, and coefficient-distribution-influence (CDI) plots 
-    to help understand model structure and the influence of each term.
-    This package is inspired by and builds upon concepts from 'Bentley, N.; Kendrick, T. H.; Starr, P. J.; 
-     Breen, P. A. Influence Plots and Metrics: Tools for Better Understanding Fisheries Catch-per-Unit-Effort
-     Standardizations. ICES Journal of Marine Science 2012, 69(1), 84–88 pp.'.
+    Generates stepwise index plots, term influence plots, and coefficient-distribution-influence (CDI) plots to help understand model structure and the influence of each term.
+    This package is inspired by and builds upon concepts from 'Bentley, N.; Kendrick, T. H.; Starr, P. J.; Breen, P. A. Influence Plots and Metrics: Tools for Better Understanding Fisheries Catch-per-Unit-Effort Standardizations. ICES Journal of Marine Science 2012, 69(1), 84–88 pp.'.
 License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true

@@ -86,7 +86,7 @@ plot_cdi <- function(obj, term) {
     # Case 2: 2D smooth term, e.g., te(lon, lat)
     var1 <- term_vars[1]
     var2 <- term_vars[2]
-    p_coef <- ggplot(preds_df, aes_string(x = var1, y = var2, fill = term)) +
+    p_coef <- ggplot(preds_df, aes(x = !!rlang::sym(var1), y = !!rlang::sym(var2), fill = !!rlang::sym(term))) +
       geom_raster() +
       scale_fill_viridis_c() +
       labs(x = NULL, y = var2, fill = "Effect")
@@ -96,8 +96,8 @@ plot_cdi <- function(obj, term) {
     factor_var <- as.character(by_value)
     numeric_var <- term_vars[!term_vars %in% all.vars(by_value)]
 
-    p_coef <- ggplot(preds_df, aes_string(x = numeric_var, y = paste0("exp(", term, ")"), colour = factor_var)) +
-      geom_line(aes_string(group = factor_var)) +
+    p_coef <- ggplot(preds_df, aes(x = !!rlang::sym(numeric_var), y = !!rlang::sym(term), colour = !!rlang::sym(factor_var))) +
+      geom_line(aes(group = !!rlang::sym(factor_var))) +
       geom_hline(yintercept = 1, linetype = "dashed") +
       labs(y = "Effect", colour = factor_var) +
       theme(
@@ -114,8 +114,8 @@ plot_cdi <- function(obj, term) {
     dplyr::ungroup() %>%
     dplyr::mutate(n = n / max(n, na.rm = TRUE))
 
-  p_dist <- ggplot(p_dist_data, aes_string(x = focus_var, y = term_vars[1])) +
-    geom_point(fill = "blue", size = p_dist_data$n * 10, alpha = 0.5) +
+  p_dist <- ggplot(p_dist_data, aes(x = !!rlang::sym(focus_var), y = !!rlang::sym(term_vars[1]))) +
+    geom_point(fill = "royalblue", colour = "royalblue", size = p_dist_data$n * 10, alpha = 0.5) +
     coord_flip() +
     labs(y = term_vars[1], x = focus_var)
 
@@ -125,8 +125,8 @@ plot_cdi <- function(obj, term) {
     mutate(influence = exp(influence)) %>%
     mutate(influence = influence / mean(influence))
   p_influ <- ggplot(influ_data, aes(x = level, y = influence, group = 1)) +
-    geom_line() +
-    geom_point() +
+    geom_line(colour = "royalblue", alpha = 0.5) +
+    geom_point(colour = "royalblue") +
     geom_hline(yintercept = 1, linetype = "dashed") +
     labs(y = "Influence") +
     theme(
