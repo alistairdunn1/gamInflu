@@ -80,7 +80,15 @@ plot(gi, type = "all")
 
 # CDI Plot for 's(temperature)'
 plot(gi, type = "cdi", term = 2)
+plot(gi, type = "cdi", term = 3)
 
 # CDI Plot for 'region' (a factor term)
 plot(gi, type = "cdi", term = "region")
+
+#
+plot_terms(gi, 3)
+
+
+plot_term_distribution(gi, 2)
+
 
