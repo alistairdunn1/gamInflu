@@ -34,7 +34,7 @@ plot_term_influence(obj)
 
 \item{obj}{A `gam_influence` object containing calculated indices.}
 
-\item{term}{The character name of the model term to plot (e.g., `"s(temp)"`).}
+\item{term}{The character name of the model term to plot (e.g., `"s(temp)"`). Alternatively, it can be a numeric index of the term in the model. If a numeric index is provided, it will be converted to the corresponding term name.}
 }
 \value{
 A ggplot object or a patchwork object for combined plots.

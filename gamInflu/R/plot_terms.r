@@ -1,11 +1,23 @@
 #' @title Plot Predicted Effects for Model Terms
-#' @description Plots the predicted effects for each model term, with options for single or all terms, including by-variable panels and random effects.
+#' @description Plots the predicted effects for each model term, with options for single or all terms,
+#' including by-variable panels and random effects.
 #' @param obj A `gam_influence` object containing calculated predictions and standard errors.
-#' @param term Character; the term to plot (e.g., "s(temp)"). If NULL, plots all terms.
+#' @param term The character name of the model term to plot (e.g., `"s(temp)"`). Alternatively, it can
+#' be a numeric index of the term in the model. If a numeric index is provided, it will be converted
+#' to the corresponding term name. If `NULL`, all terms will be plotted.
 #' @param type Character; for random effects, one of "point", "bar", or "violin".
 #' @return A ggplot object (or patchwork if multiple terms).
 #' @export
-plot_term_effects <- function(obj, term = NULL, type = "point") {
+plot_terms <- function(obj, term = NULL, type = "point") {
+  # --- Setup ---
+  if (is.numeric(term) && length(term) == 1 && term == as.integer(term)) {
+    all_terms <- get_terms(obj, full = TRUE)
+    if (term > length(all_terms) || term < 1) {
+      stop("Term index out of bounds. There are ", length(all_terms), " valid terms:\n  ", paste(all_terms, collapse = "\n  "), call. = FALSE)
+    }
+    term <- all_terms[term]
+  }
+
   preds_df <- obj$calculated$predictions
   se_df <- obj$calculated$prediction_se
   terms_vec <- get_terms(obj, full = TRUE)
@@ -22,8 +34,7 @@ plot_term_effects <- function(obj, term = NULL, type = "point") {
       # Random effect plot
       if (!(t %in% colnames(preds_df)) || !(term_vars[1] %in% colnames(preds_df))) {
         warning(paste("Random effect term", t, "not found in predictions."))
-        return(ggplot() +
-          labs(title = paste("Random effect", t, "not found")))
+        return(ggplot())
       }
       re_levels <- preds_df[[term_vars[1]]]
       re_effect <- preds_df[[t]]

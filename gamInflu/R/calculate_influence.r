@@ -106,7 +106,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
 
   # Sequentially add each term from the original model formula
   all_terms <- obj$terms
-  for (i in 1:length(all_terms)) {
+  for (i in seq_along(all_terms)) {
     current_terms <- all_terms[1:i]
     formula_str <- paste("~", paste(current_terms, collapse = " + "))
     model_step <- update(obj$model, as.formula(formula_str), data = obj$data)
@@ -208,28 +208,31 @@ calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
   if (!is.null(influences_df)) rownames(influences_df) <- NULL
 
   # Create step_labels: names are step_cols, values are the full term expressions from the model
-  step_labels <- tryCatch({
-    if (is.null(obj$model$formula)) {
+  step_labels <- tryCatch(
+    {
+      if (is.null(obj$model$formula)) {
+        setNames(step_cols, step_cols)
+      } else {
+        # Extract terms from model formula
+        terms_in_formula <- attr(terms(obj$model), "term.labels")
+
+        # Create mapping from step_cols to full formula terms
+        setNames(
+          sapply(step_cols, function(col) {
+            # Remove leading '+' and find matching term
+            term_pattern <- sub("^\\+", "", col)
+            matches <- grep(term_pattern, terms_in_formula, value = TRUE, fixed = TRUE)
+            if (length(matches) > 0) matches[1] else col
+          }),
+          step_cols
+        )
+      }
+    },
+    error = function(e) {
+      warning("Could not create step labels, using column names instead")
       setNames(step_cols, step_cols)
-    } else {
-      # Extract terms from model formula
-      terms_in_formula <- attr(terms(obj$model), "term.labels")
-      
-      # Create mapping from step_cols to full formula terms
-      setNames(
-        sapply(step_cols, function(col) {
-          # Remove leading '+' and find matching term
-          term_pattern <- sub("^\\+", "", col)
-          matches <- grep(term_pattern, terms_in_formula, value = TRUE, fixed = TRUE)
-          if (length(matches) > 0) matches[1] else col
-        }),
-        step_cols
-      )
     }
-  }, error = function(e) {
-    warning("Could not create step labels, using column names instead")
-    setNames(step_cols, step_cols)
-  })
+  )
 
   # --- Finalize ---
   # Store all calculated data frames in the object's 'calculated' slot
