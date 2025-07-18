@@ -1,0 +1,12 @@
+citHeader("To cite gamInflu in publications, use:")
+
+citEntry(
+  entry = "Manual",
+  title = "gamInflu: Influence Analysis for Generalized Additive Models",
+  author = person("Alistair", "Dunn", email = "alistair.dunn@OceanEnvironmental.co.nz", role = c("aut", "cre")),
+  year = "2025",
+  note = "R package version 0.1",
+  url = "https://github.com/alistairdunn1/gamInflu"
+)
+
+citFooter("Please also cite: Bentley, N., Kendrick, T. H., Starr, P. J., & Breen, P. A. (2012). Influence plots and metrics: tools for better understanding fisheries catch-per-unit-effort standardizations. ICES Journal of Marine Science, 69(1), 84–88. https://doi.org/10.1093/icesjms/fsr176")

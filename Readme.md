@@ -93,8 +93,19 @@ get_terms(gi, full=TRUE) # Full term expressions (e.g., s(temp), te(lon,lat))
 
 ## Citation
 
-This package is inspired by and builds upon concepts from Nokome Bentley's Influ package and:
-> Bentley, N.; Kendrick, T. H.; Starr, P. J.; Breen, P. A. Influence Plots and Metrics: Tools for Better Understanding Fisheries Catch-per-Unit-Effort Standardizations. ICES Journal of Marine Science 2012, 69(1), 84–88 pp.
+To cite the **gamInflu** package in publications, please use:
+
+> Dunn, A. (2025). *gamInflu: Influence Analysis Tools for Generalized Additive Models in R*. R package version 0.1.0. Available at: https://github.com/alistairdunn1/gamInflu
+
+This package is inspired by and builds upon concepts from the Influ package. If you use this package, please also cite:
+
+> Bentley, N., Kendrick, T. H., Starr, P. J., & Breen, P. A. (2012). Influence plots and metrics: tools for better understanding fisheries catch-per-unit-effort standardizations. *ICES Journal of Marine Science*, 69(1), 84–88. https://doi.org/10.1093/icesjms/fsr176
+
+You can generate a citation in R with:
+
+```r
+citation("gamInflu")
+```
 
 ## License
 
@@ -102,4 +113,4 @@ GPL (>= 3)
 
 ## Support
 
-For bug reports or feature requests, please open an issue on GitHub or contact the maintainer.
+For bug reports or feature requests, please open an issue on GitHub or contact **alistair.dunn@OceanEnvironmental.co.nz**.
