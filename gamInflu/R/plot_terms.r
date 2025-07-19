@@ -29,10 +29,14 @@ plot_terms <- function(obj, term = NULL, type = "point") {
     is_random <- grepl('bs\\s*=\\s*"re"', t)
     is_by <- grepl("by\\s*=", t)
     is_factor <- is.factor(obj$data[[term_vars[1]]])
+    is_tensor2d <- length(term_vars) == 2 && !is_by && !is_random && !is_factor
 
     if (t == obj$focus) {
       message("Plotting focus term: ", t, ".")
       subplot_focus_effect(obj, t, term_vars, cdi = FALSE)
+    } else if (is_tensor2d) {
+      message("Plotting term: ", t, " as a 2D tensor smooth effect.")
+      subplot_tensor2d_effect(obj, t, term_vars, cdi = FALSE)
     } else if (length(term_vars) == 1 && !is_by && !is_random && !is_factor) {
       message("Plotting term: ", t, " as a continuous effect.")
       subplot_continuous_effect(obj, t, term_vars, cdi = FALSE)
