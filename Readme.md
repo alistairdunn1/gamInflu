@@ -1,6 +1,6 @@
 # gamInflu
 
-**gamInflu** provides influence analysis tools for Generalized Additive Models (GAMs) fitted with the `mgcv` package in R. It supports all smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms), and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, and more to help you understand model structure and the influence of each term.
+**gamInflu** provides influence analysis tools for Generalized Additive Models (GAMs) fitted with the `mgcv` package in R. It supports all smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms), and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, diagnostics for random effects, and more to help you understand model structure and the influence of each term.
 
 ---
 
@@ -15,86 +15,142 @@ install.packages("gamInflu_0.1.0.tar.gz", repos = NULL, type = "source")
 
 ---
 
-## Quick Start
+## Main Functions and Examples
+
+### Create a gam_influence object
+
+Initializes the analysis object for your fitted GAM.
 
 ```r
-library(mgcv)
-library(gamInflu)
-
-# Fit a GAM model
-mod <- gam(y ~ year + s(temp) + s(site, bs="re"), data = mydata, family = poisson())
-
-# Create a gam_influence object
 gi <- gam_influence(mod, focus = "year", data = mydata)
+```
 
-# Calculate influence metrics
+### Calculate influence metrics
+
+Computes all indices, predictions, and influence statistics.
+
+```r
 gi <- calculate_influence(gi)
+```
 
-# Plot standardisation
+### Plot standardisation
+
+Shows the unstandardised and standardised indices for the focus term.
+
+```r
 plot_standardisation(gi)
+```
 
-# Plot stepwise index
+### Plot stepwise index
+
+Shows how the index changes as each term is added to the model.
+
+```r
 plot_stepwise_index(gi)
+```
 
-# Plot term influence
+### Plot term influence
+
+Shows the influence of each non-focus term on the focus index.
+
+```r
 plot_term_influence(gi)
+```
 
-# Plot combined step and influence
+### Plot combined step and influence
+
+Displays both the stepwise index and term influence plots side-by-side.
+
+```r
 plot_step_and_influence(gi)
+```
 
-# Plot coefficient-distribution-influence for a term
+### Plot coefficient-distribution-influence (CDI) for a term
+
+Multi-panel plot showing the effect, data distribution, and influence for a specified term.
+
+```r
 plot_cdi(gi, term = "s(temp)")
-# or reference the term by its order in the GAM
-plot_cdi(gi, term = 2)
+```
 
-# Plot predicted effects for all terms
+### Plot predicted effects for all terms
+
+Visualizes the predicted effects for each term in the model.
+
+```r
 plot_terms(gi)
+```
 
-# Plot predicted effects for a single term (with random effect options)
+### Plot predicted effects for a single term (including random effects and by-variable panels)
+
+```r
 plot_terms(gi, term = "s(site, bs='re')", type = "bar")
-# or reference the term by its order in the GAM
-plot_terms(gi, term = 3, type = "bar")
+plot_terms(gi, term = "s(temp, by=season)")
+plot_terms(gi, term = "te(lon, lat)")
+```
 
-# Plot data distribution for a term
+### Plot data distribution for a term
+
+Shows the distribution of the data for a specified model term and the focus variable.
+
+```r
 plot_term_distribution(gi, term = "s(temp)")
 ```
 
----
+### Plot random effect diagnostics (QQ plot, histogram, caterpillar plot, points)
 
-## Main Functions
+```r
+plot_re(gi, term = "site", type = "qq")
+plot_re(gi, term = "site", type = "hist")
+plot_re(gi, term = "site", type = "caterpillar")
+plot_re(gi, term = "site", type = "points")
+```
 
-- `gam_influence(model, focus, data = NULL, islog = NULL)`: Create a gam_influence object.
-- `calculate_influence(obj)`: Calculate all influence metrics and indices.
-- `plot_standardisation(obj)`: Plot unstandardised and standardised indices for the focus term.
-- `plot_stepwise_index(obj, show_previous = FALSE)`: Plot how the index changes as each term is added.
-- `plot_term_influence(obj)`: Plot the influence of each non-focus term.
-- `plot_step_and_influence(obj)`: Combined stepwise and influence plot.
-- `plot_cdi(obj, term)`: Coefficient-Distribution-Influence plot for a specified term.
-- `plot_terms(obj, term = NULL, type = "point")`: Plot predicted effects for each term, including random effects and by-variable panels.
-- `plot_term_distribution(obj, term)`: Plot the data distribution for a specified model term.
-- `get_terms(obj, full = FALSE)`: Return the terms used in the model.
+### Extract model terms
+
+Get the variable names or full term expressions used in the model.
+
+```r
+get_terms(gi)            # Variable names
+get_terms(gi, full=TRUE) # Full term expressions (e.g., s(temp), te(lon,lat))
+```
+
+### Model progression statistics
+
+Extracts a summary table of model progression statistics (AIC, R-squared, deviance explained).
+
+```r
+r2(gi)
+```
+
+### Print a summary of term contributions
+
+Prints a formatted summary table of term contributions and influence metrics.
+
+```r
+summary(gi)
+```
 
 ---
 
 ## Advanced Usage
 
-### Plotting with by-variable panels
+#### Plotting with by-variable panels
 
 ```r
 plot_terms(gi, term = "s(temp, by=season)")
 ```
 
-### Plotting random effects
+#### Plotting random effects
 
 ```r
 plot_terms(gi, term = "s(site, bs='re')", type = "violin")
 ```
 
-### Extracting model terms
+#### Plotting 2D tensor smooths
 
 ```r
-get_terms(gi)            # Variable names
-get_terms(gi, full=TRUE) # Full term expressions (e.g., s(temp), te(lon,lat))
+plot_terms(gi, term = "te(lon, lat)")
 ```
 
 ---
@@ -132,4 +188,3 @@ citation("gamInflu")
 ## Support
 
 For questions, bug reports, or feature requests, please contact the maintainer
-

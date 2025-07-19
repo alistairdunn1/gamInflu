@@ -4,10 +4,11 @@
 #'
 #' @param obj A `gam_influence` object.
 #' @param term The character name of the model term to plot (e.g., `"s(temp)"`). Alternatively, it can be a numeric index of the term in the model. If a numeric index is provided, it will be converted to the corresponding term name.
+#' @param re_type Character; for random effects, one of "points", "qq", "hist", or "caterpillar".
 #' @return A patchwork ggplot object.
 #' @export
 #'
-plot_cdi <- function(obj, term) {
+plot_cdi <- function(obj, term, re_type = "qq") {
   # --- Setup ---
   if (is.numeric(term) && length(term) == 1 && term == as.integer(term)) {
     all_terms <- get_terms(obj, full = TRUE)
@@ -44,7 +45,7 @@ plot_cdi <- function(obj, term) {
   is_random_effect <- grepl('bs\\s*=\\s*"re"', term)
 
   if (is_random_effect) {
-    p_coef <- subplot_random_effect(obj, term, term_vars, "point", cdi = TRUE)
+    p_coef <- subplot_random_effect(obj, term, term_vars, re_type = re_type, cdi = TRUE)
   } else if (is_by_factor) {
     p_coef <- subplot_by_variable(obj, term, term_vars, cdi = TRUE)
   } else if (is.factor(obj_data[[term_vars[1]]])) {

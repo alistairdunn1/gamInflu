@@ -5,10 +5,10 @@
 #' @param term The character name of the model term to plot (e.g., `"s(temp)"`). Alternatively, it can
 #' be a numeric index of the term in the model. If a numeric index is provided, it will be converted
 #' to the corresponding term name. If `NULL`, all terms will be plotted.
-#' @param type Character; for random effects, one of "point", "bar", or "violin".
+#' @param re_type Character; for random effects, one of "points", "qq", "hist", or "caterpillar".
 #' @return A ggplot object (or patchwork if multiple terms).
 #' @export
-plot_terms <- function(obj, term = NULL, type = "point") {
+plot_terms <- function(obj, term = NULL, re_type = "points") {
   # --- Setup ---
   if (is.numeric(term) && length(term) == 1 && term == as.integer(term)) {
     all_terms <- get_terms(obj, full = TRUE)
@@ -45,7 +45,7 @@ plot_terms <- function(obj, term = NULL, type = "point") {
       subplot_by_variable(obj, t, term_vars, cdi = FALSE)
     } else if (is_random && !is_by) {
       message("Plotting term: ", t, " as a random effect.")
-      subplot_random_effect(obj, t, term_vars, type = type, cdi = FALSE)
+      subplot_random_effect(obj, t, term_vars, re_type = re_type, cdi = FALSE)
     } else if (length(term_vars) == 1 && !is_by && !is_random && is_factor) {
       message("Plotting term: ", t, " as a factor effect.")
       subplot_factor_effect(obj, t, term_vars, cdi = FALSE)
