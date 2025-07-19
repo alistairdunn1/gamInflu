@@ -10,7 +10,6 @@
 #' @noRd
 subplot_continuous_effect <- function(obj, t, term_vars, cdi = FALSE) {
   islog <- isTRUE(obj$islog)
-  obj_data <- obj$data
   preds_df <- obj$calculated$predictions
   se_df <- obj$calculated$prediction_se
 
@@ -26,8 +25,15 @@ subplot_continuous_effect <- function(obj, t, term_vars, cdi = FALSE) {
   df <- data.frame(
     x = preds_df[[term_vars[1]]], effect = effect, ymin = ymin, ymax = ymax
   )
-  ggplot(df, aes(x = x, y = effect)) +
+  p_coef <- ggplot(df, aes(x = x, y = effect)) +
     geom_line(colour = "royalblue") +
     geom_ribbon(aes(ymin = ymin, ymax = ymax), alpha = 0.2, fill = "royalblue") +
-    labs(x = t, y = "Effect")
+    labs(y = "Partial effect")
+  if (cdi) {
+    p_coef <- p_coef + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank(), legend.title = element_blank())
+  } else {
+    p_coef <- p_coef +
+      xlab(term_vars[1])
+  }
+  return(p_coef)
 }

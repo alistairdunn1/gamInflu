@@ -41,7 +41,7 @@ plot_terms <- function(obj, term = NULL, type = "point") {
       subplot_by_variable(obj, t, term_vars, cdi = FALSE)
     } else if (is_random && !is_by) {
       message("Plotting term: ", t, " as a random effect.")
-      subplot_random_effect(obj, t, type, term_vars, cdi = FALSE)
+      subplot_random_effect(obj, t, term_vars, type = type, cdi = FALSE)
     } else if (length(term_vars) == 1 && !is_by && !is_random && is_factor) {
       message("Plotting term: ", t, " as a factor effect.")
       subplot_factor_effect(obj, t, term_vars, cdi = FALSE)

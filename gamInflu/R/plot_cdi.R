@@ -44,7 +44,7 @@ plot_cdi <- function(obj, term) {
   is_random_effect <- grepl('bs\\s*=\\s*"re"', term)
 
   if (is_random_effect) {
-    p_coef <- subplot_random_effect(obj, term, "point", term_vars, cdi = TRUE)
+    p_coef <- subplot_random_effect(obj, term, term_vars, "point", cdi = TRUE)
   } else if (is_by_factor) {
     p_coef <- subplot_by_variable(obj, term, term_vars, cdi = TRUE)
   } else if (is.factor(obj_data[[term_vars[1]]])) {
@@ -57,7 +57,7 @@ plot_cdi <- function(obj, term) {
   }
 
   # --- Plot 2: Distribution Plot ---
-  p_dist <- subplot_distribution(obj_data, term, focus_var)
+  p_dist <- subplot_distribution(obj, term, focus_var)
 
   # --- Plot 3: Influence Plot ---
   influ_data <- subset(obj$calculated$influences, term %in% term_vars_in_model) %>%

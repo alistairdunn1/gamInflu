@@ -20,7 +20,7 @@ plot_term_distribution <- function(obj, term) {
   if (term == focus_var) {
     stop("The distribution plot cannot be generated for the focus term itself.", call. = FALSE)
   }
-  p_dist <- subplot_distribution(obj_data, term, focus_var)
+  p_dist <- subplot_distribution(obj, term, focus_var)
   return(p_dist)
 }
 
@@ -30,14 +30,12 @@ plot_term_distribution <- function(obj, term) {
 #' @param focus_var The focus variable name.
 #' @param term_var The term variable name.
 #' @noRd
-subplot_distribution <- function(obj_data, term, focus_var) {
+subplot_distribution <- function(obj, term, focus_var) {
   term_vars <- all.vars(rlang::parse_expr(term))
-  call_obj <- rlang::parse_expr(term)
-  call_list <- as.list(call_obj)
 
-  if (is.numeric(obj_data[[term_vars[1]]])) {
+  if (is.numeric(obj$data[[term_vars[1]]])) {
     # Cut numeric variable into 10 factor levels and label by midpoint
-    cuts <- cut(obj_data[[term_vars[1]]], breaks = 10, include.lowest = TRUE)
+    cuts <- cut(obj$data[[term_vars[1]]], breaks = 10, include.lowest = TRUE)
     # Get midpoints for each interval
     cut_levels <- levels(cuts)
     cut_midpoints <- sapply(strsplit(gsub("\\[|\\]|\\(|\\)", "", cut_levels), ","), function(x) {
@@ -45,9 +43,9 @@ subplot_distribution <- function(obj_data, term, focus_var) {
     })
     # Relabel factor levels with midpoints
     levels(cuts) <- round(cut_midpoints, 2)
-    obj_data[[term_vars[1]]] <- cuts
+    obj$data[[term_vars[1]]] <- cuts
   }
-  p_dist_data <- obj_data %>%
+  p_dist_data <- obj$data %>%
     dplyr::group_by(.data[[focus_var]], .data[[term_vars[1]]]) %>%
     dplyr::summarise(n = dplyr::n(), .groups = "keep") %>%
     dplyr::ungroup() %>%
@@ -56,11 +54,9 @@ subplot_distribution <- function(obj_data, term, focus_var) {
       n = if (length(unique(n)) == 1) 1 else n
     )
 
-
   p_dist <- ggplot(p_dist_data, aes(x = !!rlang::sym(focus_var), y = !!rlang::sym(term_vars[1]))) +
     geom_point(colour = "royalblue", size = p_dist_data$n, alpha = 0.5) +
     coord_flip() +
     labs(y = term_vars[1], x = focus_var)
-
   return(p_dist)
 }

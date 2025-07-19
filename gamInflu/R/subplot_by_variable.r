@@ -10,9 +10,7 @@
 #' @noRd
 subplot_by_variable <- function(obj, t, term_vars, cdi = FALSE) {
   islog <- isTRUE(obj$islog)
-  obj_data <- obj$data
   by_var <- sub(".*by\\s*=\\s*([^,\\)]+).*", "\\1", t)
-  main_var <- term_vars[1]
   preds_df <- obj$calculated$predictions
   se_df <- obj$calculated$prediction_se
 
@@ -21,10 +19,10 @@ subplot_by_variable <- function(obj, t, term_vars, cdi = FALSE) {
       grepl(term_vars[1], nm) && grepl(by_var, nm)
     }, logical(1))
   ]
-  pred_long <- cbind(preds_df, by_var = obj_data[[by_var]], this_term = obj_data[[term_vars[1]]]) %>% pivot_longer(cols = all_of(matching_cols), names_to = "term", values_to = "effect")
+  pred_long <- cbind(preds_df, by_var = obj$data[[by_var]], this_term = obj$data[[term_vars[1]]]) %>% pivot_longer(cols = all_of(matching_cols), names_to = "term", values_to = "effect")
   pred_long <- pred_long[mapply(grepl, pred_long$by_var, pred_long$term), ]
   pred_long <- aggregate(x = pred_long$effect, by = list(var1 = pred_long$by_var, var2 = pred_long$this_term), FUN = mean)
-  se_long <- cbind(se_df, by_var = obj_data[[by_var]], this_term = obj_data[[term_vars[1]]]) %>% pivot_longer(cols = all_of(matching_cols), names_to = "term", values_to = "effect")
+  se_long <- cbind(se_df, by_var = obj$data[[by_var]], this_term = obj$data[[term_vars[1]]]) %>% pivot_longer(cols = all_of(matching_cols), names_to = "term", values_to = "effect")
   se_long <- se_long[mapply(grepl, se_long$by_var, se_long$term), ]
   se_long <- aggregate(x = se_long$effect, by = list(var1 = se_long$by_var, var2 = se_long$this_term), FUN = mean)
   pred_long$lower <- pred_long$x - 1.96 * se_long$x
@@ -41,13 +39,14 @@ subplot_by_variable <- function(obj, t, term_vars, cdi = FALSE) {
   p_coef <- ggplot(pred_long, aes(x = var2, y = x, group = var1)) +
     geom_line(aes(colour = var1)) +
     geom_ribbon(aes(fill = var1, ymin = lower, ymax = upper), alpha = 0.2, show.legend = FALSE) +
-    labs(y = "Effect", colour = by_var) +
+    labs(y = "Partial effect", colour = by_var) +
     ylim(ylim)
   if (cdi) {
     p_coef <- p_coef + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank(), legend.title = element_blank(), legend.position = "top")
   } else {
     p_coef <- p_coef +
-      xlab(main_var) +
+      xlab(term_vars[1]) +
       theme(legend.title = element_blank(), legend.position = "bottom")
   }
+  return(p_coef)
 }
