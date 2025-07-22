@@ -9,6 +9,7 @@
 #' @param islog Logical; if TRUE, exponentiate effects.
 #' @noRd
 subplot_by_variable <- function(obj, t, term_vars, cdi = FALSE) {
+  message("Plotting by-variable effects for term: ", t)
   islog <- isTRUE(obj$islog)
   by_var <- sub(".*by\\s*=\\s*([^,\\)]+).*", "\\1", t)
   preds_df <- obj$calculated$predictions

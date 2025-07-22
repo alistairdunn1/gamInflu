@@ -15,7 +15,7 @@
 #' @export
 plot.gam_influence <- function(x, type = "all", ...) {
   if (is.null(x$calculated)) {
-    stop("Calculations not performed. Please run `calculate_influence()` first.", call. = FALSE)
+    stop("Calculations not performed. Please run `calculate_influence()` first.")
   }
 
   switch(type,
@@ -24,6 +24,6 @@ plot.gam_influence <- function(x, type = "all", ...) {
     influ = plot_term_influence(x, ...),
     cdi = plot_cdi(x, ...),
     all = plot_step_and_influence(x, ...),
-    stop("Invalid plot type. Choose from 'stan', 'step', 'influ', 'cdi', 'all'.", call. = FALSE)
+    stop("Invalid plot type. Choose from 'stan', 'step', 'influ', 'cdi', 'all'.")
   )
 }

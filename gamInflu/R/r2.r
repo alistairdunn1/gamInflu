@@ -17,7 +17,7 @@ r2 <- function(obj, ...) {
 #' @describeIn r2 Method for `gam_influence` class.
 r2.gam_influence <- function(obj, ...) {
   if (is.null(obj$calculated$summary)) {
-    stop("Model progression has not been calculated. Please run `calculate_influence()` first.", call. = FALSE)
+    stop("Model progression has not been calculated. Please run `calculate_influence()` first.")
   }
   return(obj$calculated$summary)
 }
@@ -34,7 +34,7 @@ r2.gam_influence <- function(obj, ...) {
 #'
 summary.gam_influence <- function(object, ...) {
   if (is.null(object$calculated)) {
-    stop("Calculations not performed. Please run `calculate_influence()` first.", call. = FALSE)
+    stop("Calculations not performed. Please run `calculate_influence()` first.")
   }
   cat("Influence Analysis Summary\n")
   cat("==========================\n")

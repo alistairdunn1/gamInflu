@@ -72,6 +72,10 @@ Multi-panel plot showing the effect, data distribution, and influence for a spec
 ```r
 plot_cdi(gi, term = "s(temp)")
 ```
+or use an integer index to refer to the term,
+```r
+plot_cdi(gi, term = 2)
+```
 
 ### Plot predicted effects for all terms
 
@@ -87,6 +91,12 @@ plot_terms(gi)
 plot_terms(gi, term = "s(site, bs='re')", type = "bar")
 plot_terms(gi, term = "s(temp, by=season)")
 plot_terms(gi, term = "te(lon, lat)")
+```
+or
+```r
+plot_terms(gi, term = 3, type = "bar")
+plot_terms(gi, term = 4)
+plot_terms(gi, term = 5)
 ```
 
 ### Plot data distribution for a term

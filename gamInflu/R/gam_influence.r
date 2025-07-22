@@ -30,19 +30,19 @@ gam_influence <- function(model, focus, data = NULL, islog = NULL) {
         data <- eval(model$call$data, environment(formula(model)))
       },
       error = function(e) {
-        stop("Could not find model data. Please supply it using the 'data' argument.", call. = FALSE)
+        stop("Could not find model data. Please supply it using the 'data' argument.")
       }
     )
   }
   if (is.null(data)) {
-    stop("Failed to extract or find the data frame used for the model.", call. = FALSE)
+    stop("Failed to extract or find the data frame used for the model.")
   }
 
   if (!focus %in% names(data)) {
-    stop(paste0("Focus term '", focus, "' not found in the provided data."), call. = FALSE)
+    stop(paste0("Focus term '", focus, "' not found in the provided data."))
   }
   if (!is.factor(data[[focus]])) {
-    stop(paste0("The focus term '", focus, "' must be a factor."), call. = FALSE)
+    stop(paste0("The focus term '", focus, "' must be a factor."))
   }
 
   # --- Term and Response Variable Extraction ---

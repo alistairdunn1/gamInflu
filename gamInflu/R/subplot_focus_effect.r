@@ -9,6 +9,7 @@
 #' @param islog Logical; if TRUE, exponentiate effects.
 #' @noRd
 subplot_focus_effect <- function(obj, t, term_vars, cdi = FALSE) {
+  message("Plotting focus effect for term: ", t)
   if (t != obj$focus) {
     message(paste(t, " is not a focus term", sep = ""))
     return(NULL)

@@ -65,7 +65,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
   focus_term_cols_se <- grep(paste0("^", obj$focus), colnames(preds_full$se.fit), value = TRUE)
 
   if (length(focus_term_cols_fit) == 0) {
-    stop(paste0("Could not find any columns for focus term '", obj$focus, "' in model predictions (type='terms'). This might indicate the focus term is not handled as expected or is part of a complex smooth that needs different extraction."), call. = FALSE)
+    stop(paste0("Could not find any columns for focus term '", obj$focus, "' in model predictions (type='terms'). This might indicate the focus term is not handled as expected or is part of a complex smooth that needs different extraction."))
   }
 
   # Calculate the sum of effects for the focus term
@@ -116,7 +116,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
       step_preds <- predict(model_step, type = "terms")
       focus_cols <- grep(paste0("^", obj$focus), colnames(step_preds), value = TRUE)
       if (length(focus_cols) == 0) {
-        stop(paste0("Could not find any columns for focus term '", obj$focus, "' in step-wise model predictions (type='terms')."), call. = FALSE)
+        stop(paste0("Could not find any columns for focus term '", obj$focus, "' in step-wise model predictions (type='terms')."))
       }
       focus_effect_sum <- rowSums(step_preds[, focus_cols, drop = FALSE])
       step_focus_effects <- aggregate(focus_effect_sum ~ obj$data[[obj$focus]], FUN = mean)

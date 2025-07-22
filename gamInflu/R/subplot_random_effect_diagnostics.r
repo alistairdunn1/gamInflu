@@ -4,11 +4,12 @@
 #' @param term Random effect term name.
 #' @noRd
 subplot_random_effect_qq <- function(obj, term) {
+  message("Plotting QQ plot for random effect term: ", term)
   re_list <- extract_random_effects(obj)
   re_label <- .match_re_label(term, re_list)
   if (is.null(re_label)) {
     message("No random effect found for term: ", term)
-    return(plot_spacer())
+    return(patchwork::plot_spacer())
   }
   re_info <- re_list[[re_label]]
   coeffs <- re_info$coefficients
@@ -29,11 +30,12 @@ subplot_random_effect_qq <- function(obj, term) {
 #' @param term Random effect term name.
 #' @noRd
 subplot_random_effect_histogram <- function(obj, term) {
+  message("Plotting histogram for random effect term: ", term)
   re_list <- extract_random_effects(obj)
   re_label <- .match_re_label(term, re_list)
   if (is.null(re_label)) {
     message("No random effect found for term: ", term)
-    return(plot_spacer())
+    return(patchwork::plot_spacer())
   }
   re_info <- re_list[[re_label]]
   coeffs <- re_info$coefficients
@@ -51,12 +53,14 @@ subplot_random_effect_histogram <- function(obj, term) {
 #' @param obj A `gam_influence` object.
 #' @param term Random effect term name.
 #' @noRd
+
 subplot_random_effect_points <- function(obj, term) {
+  message("Plotting points for random effect term: ", term)
   re_list <- extract_random_effects(obj)
   re_label <- .match_re_label(term, re_list)
   if (is.null(re_label)) {
     message("No random effect found for term: ", term)
-    return(plot_spacer())
+    return(patchwork::plot_spacer())
   }
   re_info <- re_list[[re_label]]
   coeffs <- re_info$coefficients
@@ -72,7 +76,10 @@ subplot_random_effect_points <- function(obj, term) {
   p_re <- ggplot(df, aes(x = ID, y = coefficient)) +
     geom_point(colour = "royalblue") +
     geom_errorbar(aes(ymin = lower, ymax = upper), colour = "royalblue", alpha = 0.5, width = 0.2) +
-    labs(x = "Random Effect Coefficient", y = "Density")
+    labs(x = "Level", y = "Random effect")
+  if (obj$islog) {
+    p_re <- p_re + ylim(0, NA)
+  }
   return(p_re)
 }
 
@@ -83,11 +90,12 @@ subplot_random_effect_points <- function(obj, term) {
 #' @param conf_level Confidence level for error bars.
 #' @noRd
 subplot_random_effect_caterpillar <- function(obj, term, conf_level = 0.95) {
+  message("Plotting caterpillar plot for random effect term: ", term)
   re_list <- extract_random_effects(obj)
   re_label <- .match_re_label(term, re_list)
   if (is.null(re_label)) {
     message("No random effect found for term: ", term)
-    return(plot_spacer())
+    return(patchwork::plot_spacer())
   }
   re_info <- re_list[[re_label]]
   coeffs <- re_info$coefficients

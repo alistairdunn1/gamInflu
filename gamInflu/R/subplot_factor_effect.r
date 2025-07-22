@@ -9,6 +9,7 @@
 #' @param islog Logical; if TRUE, exponentiate effects.
 #' @noRd
 subplot_factor_effect <- function(obj, t, term_vars, cdi = FALSE) {
+  message("Plotting factor effects for term: ", t)
   islog <- isTRUE(obj$islog)
   preds_df <- obj$calculated$predictions
   se_df <- obj$calculated$prediction_se

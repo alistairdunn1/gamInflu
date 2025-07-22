@@ -33,7 +33,8 @@ plot_standardisation <- function(obj) {
     geom_point(aes(y = unstan, colour = "Unstandardised")) +
     geom_line(aes(y = stan, colour = "Standardised")) +
     geom_point(aes(y = stan, colour = "Standardised")) +
-    geom_ribbon(aes(ymin = stanLower, ymax = stanUpper), alpha = 0.2, fill = "royalblue") +
+    geom_ribbon(aes(ymin = stanLower, ymax = stanUpper), fill = "royalblue", alpha = 0.2) +
     labs(x = obj$focus, y = "Index", colour = "") +
+    scale_colour_manual(values = c("Unstandardised" = "grey40", "Standardised" = "royalblue")) +
     scale_y_continuous(limits = c(0, NA))
 }

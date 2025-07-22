@@ -5,11 +5,12 @@
 #' @return A ggplot object showing the data distribution.
 #' @export
 plot_term_distribution <- function(obj, term) {
+  message("Plotting data distribution for term: ", term)
   # --- Setup ---
   if (is.numeric(term) && length(term) == 1 && term == as.integer(term)) {
     all_terms <- get_terms(obj, full = TRUE)
     if (term > length(all_terms) || term < 1) {
-      stop("Term index out of bounds. There are ", length(all_terms), " valid terms:\n  ", paste(all_terms, collapse = "\n  "), call. = FALSE)
+      stop("Term index out of bounds. There are ", length(all_terms), " valid terms:\n  ", paste(all_terms, collapse = "\n  "))
     }
     term <- all_terms[term]
   }
@@ -18,7 +19,7 @@ plot_term_distribution <- function(obj, term) {
   obj_data <- obj$data
   focus_var <- obj$focus
   if (term == focus_var) {
-    stop("The distribution plot cannot be generated for the focus term itself.", call. = FALSE)
+    stop("The distribution plot cannot be generated for the focus term itself.")
   }
   p_dist <- subplot_distribution(obj, term, focus_var)
   return(p_dist)
@@ -35,15 +36,19 @@ subplot_distribution <- function(obj, term, focus_var) {
 
   if (is.numeric(obj$data[[term_vars[1]]])) {
     # Cut numeric variable into 10 factor levels and label by midpoint
-    cuts <- cut(obj$data[[term_vars[1]]], breaks = 10, include.lowest = TRUE)
-    # Get midpoints for each interval
-    cut_levels <- levels(cuts)
-    cut_midpoints <- sapply(strsplit(gsub("\\[|\\]|\\(|\\)", "", cut_levels), ","), function(x) {
-      mean(as.numeric(x))
-    })
-    # Relabel factor levels with midpoints
-    levels(cuts) <- round(cut_midpoints, 2)
-    obj$data[[term_vars[1]]] <- cuts
+    n <- unique(obj$data[[term_vars[1]]])
+    if (length(n) > 15) {
+      breaks <- 10
+      cuts <- cut(obj$data[[term_vars[1]]], breaks = breaks, include.lowest = TRUE)
+      # Get midpoints for each interval
+      cut_levels <- levels(cuts)
+      cut_midpoints <- sapply(strsplit(gsub("\\[|\\]|\\(|\\)", "", cut_levels), ","), function(x) {
+        mean(as.numeric(x))
+      })
+      # Relabel factor levels with midpoints
+      levels(cuts) <- round(cut_midpoints, 2)
+      obj$data[[term_vars[1]]] <- cuts
+    }
   }
   p_dist_data <- obj$data %>%
     dplyr::group_by(.data[[focus_var]], .data[[term_vars[1]]]) %>%

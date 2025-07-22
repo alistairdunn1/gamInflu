@@ -14,7 +14,7 @@ subplot_random_effect <- function(obj, t, term_vars, re_type = "qq", cdi = FALSE
   re_type <- pmatch(re_type, c("points", "qq", "hist", "caterpillar"), nomatch = NA)
   if (is.na(re_type)) {
     message("Unsupported re_type for random effect plot. Use 'points', 'qq', 'hist', or 'caterpillar'")
-    p_coef <- plot_spacer()
+    p_coef <- patchwork::plot_spacer()
   } else if (re_type == 1) {
     p_coef <- subplot_random_effect_points(obj, term_vars)
   } else if (re_type == 2) {

@@ -4,7 +4,7 @@
 \alias{plot_terms}
 \title{Plot Predicted Effects for Model Terms}
 \usage{
-plot_terms(obj, term = NULL, re_type = "points")
+plot_terms(obj, term = NULL, re_type = "points", cdi = FALSE)
 }
 \arguments{
 \item{obj}{A `gam_influence` object containing calculated predictions and standard errors.}
@@ -14,6 +14,8 @@ be a numeric index of the term in the model. If a numeric index is provided, it 
 to the corresponding term name. If `NULL`, all terms will be plotted.}
 
 \item{re_type}{Character; for random effects, one of "points", "qq", "hist", or "caterpillar".}
+
+\item{cdi}{Logical; if TRUE, use CDI plot style.}
 }
 \value{
 A ggplot object (or patchwork if multiple terms).

@@ -13,7 +13,7 @@ plot_cdi <- function(obj, term, re_type = "qq") {
   if (is.numeric(term) && length(term) == 1 && term == as.integer(term)) {
     all_terms <- get_terms(obj, full = TRUE)
     if (term > length(all_terms) || term < 1) {
-      stop("Term index out of bounds. There are ", length(all_terms), " valid terms:\n  ", paste(all_terms, collapse = "\n  "), call. = FALSE)
+      stop("Term index out of bounds. There are ", length(all_terms), " valid terms:\n  ", paste(all_terms, collapse = "\n  "))
     }
     term <- all_terms[term]
   }
@@ -32,30 +32,14 @@ plot_cdi <- function(obj, term, re_type = "qq") {
     stop(paste0(
       "None of the variables in the supplied term ('", term, "') match the model term.\n",
       "Valid terms are: ", paste(setdiff(model_terms, obj$focus), collapse = ", ")
-    ), call. = FALSE)
+    ))
   }
   if (any(term_vars_in_model == focus_var)) {
-    stop("CDI plot cannot be generated for the focus term itself.", call. = FALSE)
+    stop("CDI plot cannot be generated for the focus term itself.")
   }
 
   # --- Plot 1: Coefficient Plot (The term's effect) ---
-  call_obj <- rlang::parse_expr(term)
-  call_list <- as.list(call_obj)
-  is_by_factor <- "by" %in% names(call_list) && !is.null(call_list$by)
-  is_random_effect <- grepl('bs\\s*=\\s*"re"', term)
-
-  if (is_random_effect) {
-    p_coef <- subplot_random_effect(obj, term, term_vars, re_type = re_type, cdi = TRUE)
-  } else if (is_by_factor) {
-    p_coef <- subplot_by_variable(obj, term, term_vars, cdi = TRUE)
-  } else if (is.factor(obj_data[[term_vars[1]]])) {
-    p_coef <- subplot_factor_effect(obj, term, term_vars, cdi = TRUE)
-  } else if (length(term_vars) == 1 && is.numeric(obj_data[[term_vars[1]]])) {
-    p_coef <- subplot_continuous_effect(obj, term, term_vars, cdi = TRUE)
-  } else {
-    message("Unsupported term type for CDI plot. Only continuous, factor, or random effects are supported.", call. = FALSE)
-    p_coef <- plot_spacer()
-  }
+  p_coef <- plot_terms(obj, term = term, re_type = re_type, cdi = TRUE)
 
   # --- Plot 2: Distribution Plot ---
   p_dist <- subplot_distribution(obj, term, focus_var)
@@ -64,6 +48,12 @@ plot_cdi <- function(obj, term, re_type = "qq") {
   influ_data <- subset(obj$calculated$influences, term %in% term_vars_in_model) %>%
     dplyr::mutate(influence = exp(influence)) %>%
     dplyr::mutate(influence = influence / mean(influence))
+
+  ylim <- c(
+    pmin(0.5, min(influ_data$influence, na.rm = TRUE)),
+    pmax(1.5, max(influ_data$influence, na.rm = TRUE))
+  )
+
   p_influ <- ggplot(influ_data, aes(x = level, y = influence, group = 1)) +
     geom_line(colour = "royalblue", alpha = 0.5) +
     geom_point(colour = "royalblue") +
@@ -74,6 +64,7 @@ plot_cdi <- function(obj, term, re_type = "qq") {
       axis.text.y = element_blank(),
       axis.title.y = element_blank()
     ) +
+    ylim(ylim) +
     coord_flip()
 
   # --- Combine with Patchwork: p_coef on top left, p_dist bottom left, p_influ right ---
@@ -84,7 +75,7 @@ plot_cdi <- function(obj, term, re_type = "qq") {
 
   patchwork::wrap_plots(
     A = p_coef,
-    B = plot_spacer(),
+    B = patchwork::plot_spacer(),
     C = p_dist,
     D = p_influ,
     design = layout,

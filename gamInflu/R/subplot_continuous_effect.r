@@ -2,32 +2,38 @@
 #' @description Internal function to plot predicted effects for continuous terms.
 #' @param obj A `gam_influence` object.
 #' @param t The term name.
-#' @param preds_df Data frame of predictions.
-#' @param se_df Data frame of standard errors.
 #' @param term_vars Variables in the term.
-#' @param se_col Standard error column(s).
-#' @param islog Logical; if TRUE, exponentiate effects.
+#' @param cdi Logical indicating if the plot is for a continuous derivative influence (CDI).
 #' @noRd
 subplot_continuous_effect <- function(obj, t, term_vars, cdi = FALSE) {
+  message("Plotting continuous effects for term: ", t)
   islog <- isTRUE(obj$islog)
   preds_df <- obj$calculated$predictions
   se_df <- obj$calculated$prediction_se
 
-  effect <- preds_df[[t]]
-  se <- if (length(se_col) > 0) se_df[[se_col[1]]] else NA
-  ymin <- effect - 1.96 * se
-  ymax <- effect + 1.96 * se
+  matching_cols <- names(preds_df)[
+    vapply(names(preds_df), function(nm) {
+      grepl(term_vars[1], nm)
+    }, logical(1))
+  ]
+  preds_df$effect <- preds_df[[matching_cols[1]]]
+  preds_df$lower <- preds_df$effect - 1.96 * se_df[[matching_cols[1]]]
+  preds_df$upper <- preds_df$effect + 1.96 * se_df[[matching_cols[1]]]
+
   if (islog) {
-    effect <- exp(effect)
-    ymin <- exp(ymin)
-    ymax <- exp(ymax)
+    preds_df$effect <- exp(preds_df$effect)
+    preds_df$lower <- exp(preds_df$lower)
+    preds_df$upper <- exp(preds_df$upper)
+    ylim <- c(0, NA)
+  } else {
+    ylim <- c(NA, NA)
   }
   df <- data.frame(
-    x = preds_df[[term_vars[1]]], effect = effect, ymin = ymin, ymax = ymax
+    x = obj$data[[term_vars[1]]], effect = preds_df$effect, lower = preds_df$lower, upper = preds_df$upper
   )
   p_coef <- ggplot(df, aes(x = x, y = effect)) +
     geom_line(colour = "royalblue") +
-    geom_ribbon(aes(ymin = ymin, ymax = ymax), alpha = 0.2, fill = "royalblue") +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, fill = "royalblue") +
     labs(y = "Partial effect")
   if (cdi) {
     p_coef <- p_coef + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank(), legend.title = element_blank())
