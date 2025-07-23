@@ -12,7 +12,7 @@
 \usage{
 \method{plot}{gam_influence}(x, type = "all", ...)
 
-plot_cdi(obj, term, re_type = "qq")
+plot_cdi(obj, term, re_type = "points")
 
 plot_standardisation(obj)
 

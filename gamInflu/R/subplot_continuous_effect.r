@@ -34,9 +34,15 @@ subplot_continuous_effect <- function(obj, t, term_vars, cdi = FALSE) {
   p_coef <- ggplot(df, aes(x = x, y = effect)) +
     geom_line(colour = "royalblue") +
     geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, fill = "royalblue") +
-    labs(y = "Partial effect")
+    labs(y = "Partial effect") +
+    ylim(ylim)
   if (cdi) {
-    p_coef <- p_coef + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank(), legend.title = element_blank())
+    p_coef <- p_coef + theme(
+      axis.ticks.x = element_blank(),
+      axis.text.x = element_blank(),
+      axis.title.x = element_blank(),
+      legend.title = element_blank()
+    )
   } else {
     p_coef <- p_coef +
       xlab(term_vars[1])

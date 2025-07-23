@@ -46,8 +46,10 @@ subplot_tensor2d_effect <- function(obj, t, term_vars, cdi = FALSE) {
 
   p <- ggplot(df, aes(x = x, y = y, fill = z)) +
     geom_raster() +
-    scale_fill_viridis_c() +
-    labs(x = term_vars[1], y = term_vars[2], fill = "Effect")
+    scale_fill_viridis_c(begin = 0, end = 1, option = "D", na.value = "grey90", limits = if (islog) c(0, NA) else NULL) +
+    labs(x = term_vars[1], y = term_vars[2], fill = "Effect") +
+    theme(panel.grid = element_blank())
+
 
   if (cdi) {
     p <- p +
@@ -58,8 +60,11 @@ subplot_tensor2d_effect <- function(obj, t, term_vars, cdi = FALSE) {
         axis.ticks.y = element_blank(),
         axis.text.y = element_blank(),
         axis.title.y = element_blank(),
-        legend.position = "inside",
-        legend.justification = "top",
+        legend.position = "top",
+        legend.direction = "horizontal",
+        legend.key.height = unit(0.5, "lines"),
+        legend.key.width = unit(1.5, "lines"),
+        legend.text = element_text(size = rel(0.75))
       )
   }
   return(p)

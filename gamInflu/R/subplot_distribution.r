@@ -35,7 +35,6 @@ subplot_distribution <- function(obj, term, focus_var) {
   term_vars <- all.vars(rlang::parse_expr(term))
 
   if (is.numeric(obj$data[[term_vars[1]]])) {
-    # Cut numeric variable into 10 factor levels and label by midpoint
     n <- unique(obj$data[[term_vars[1]]])
     if (length(n) > 15) {
       breaks <- 10
@@ -48,6 +47,9 @@ subplot_distribution <- function(obj, term, focus_var) {
       # Relabel factor levels with midpoints
       levels(cuts) <- round(cut_midpoints, 2)
       obj$data[[term_vars[1]]] <- cuts
+    } else {
+      # For 15 or fewer unique values, use the actual values as factor levels
+      obj$data[[term_vars[1]]] <- factor(obj$data[[term_vars[1]]], levels = sort(n))
     }
   }
   p_dist_data <- obj$data %>%

@@ -43,7 +43,15 @@ subplot_by_variable <- function(obj, t, term_vars, cdi = FALSE) {
     labs(y = "Partial effect", colour = by_var) +
     ylim(ylim)
   if (cdi) {
-    p_coef <- p_coef + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank(), legend.title = element_blank(), legend.position = "top")
+    p_coef <- p_coef + theme(
+      axis.ticks.x = element_blank(),
+      axis.text.x = element_blank(),
+      axis.title.x = element_blank(),
+      legend.title = element_blank(),
+      legend.position = "top",
+      legend.key.size = unit(0.8, "lines"),
+      legend.text = element_text(size = rel(0.8))
+    )
   } else {
     p_coef <- p_coef +
       xlab(term_vars[1]) +

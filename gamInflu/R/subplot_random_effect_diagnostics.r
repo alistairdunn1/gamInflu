@@ -65,21 +65,24 @@ subplot_random_effect_points <- function(obj, term) {
   re_info <- re_list[[re_label]]
   coeffs <- re_info$coefficients
   df <- data.frame(coefficient = as.numeric(coeffs), ID = seq_along(coeffs))
+
   if (obj$islog) {
     df$lower <- exp(df$coefficient - 1.96 * re_info$std_errors)
     df$upper <- exp(df$coefficient + 1.96 * re_info$std_errors)
     df$coefficient <- exp(df$coefficient)
+    ylim <- c(0, NA)
   } else {
     df$lower <- df$coefficient - 1.96 * re_info$std_errors
     df$upper <- df$coefficient + 1.96 * re_info$std_errors
+    ylim <- c(NA, NA)
   }
+
   p_re <- ggplot(df, aes(x = ID, y = coefficient)) +
     geom_point(colour = "royalblue") +
     geom_errorbar(aes(ymin = lower, ymax = upper), colour = "royalblue", alpha = 0.5, width = 0.2) +
-    labs(x = "Level", y = "Random effect")
-  if (obj$islog) {
-    p_re <- p_re + ylim(0, NA)
-  }
+    labs(x = "Level", y = "Random effect") +
+    ylim(ylim)
+
   return(p_re)
 }
 

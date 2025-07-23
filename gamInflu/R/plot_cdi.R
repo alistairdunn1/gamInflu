@@ -8,7 +8,7 @@
 #' @return A patchwork ggplot object.
 #' @export
 #'
-plot_cdi <- function(obj, term, re_type = "qq") {
+plot_cdi <- function(obj, term, re_type = "points") {
   # --- Setup ---
   if (is.numeric(term) && length(term) == 1 && term == as.integer(term)) {
     all_terms <- get_terms(obj, full = TRUE)
@@ -42,30 +42,10 @@ plot_cdi <- function(obj, term, re_type = "qq") {
   p_coef <- plot_terms(obj, term = term, re_type = re_type, cdi = TRUE)
 
   # --- Plot 2: Distribution Plot ---
-  p_dist <- subplot_distribution(obj, term, focus_var)
+  p_dist <- subplot_distribution(obj = obj, term = term, focus_var = focus_var)
 
   # --- Plot 3: Influence Plot ---
-  influ_data <- subset(obj$calculated$influences, term %in% term_vars_in_model) %>%
-    dplyr::mutate(influence = exp(influence)) %>%
-    dplyr::mutate(influence = influence / mean(influence))
-
-  ylim <- c(
-    pmin(0.5, min(influ_data$influence, na.rm = TRUE)),
-    pmax(1.5, max(influ_data$influence, na.rm = TRUE))
-  )
-
-  p_influ <- ggplot(influ_data, aes(x = level, y = influence, group = 1)) +
-    geom_line(colour = "royalblue", alpha = 0.5) +
-    geom_point(colour = "royalblue") +
-    geom_hline(yintercept = 1, linetype = "dashed") +
-    labs(y = "Influence") +
-    theme(
-      axis.ticks.y = element_blank(),
-      axis.text.y = element_blank(),
-      axis.title.y = element_blank()
-    ) +
-    ylim(ylim) +
-    coord_flip()
+  p_influ <- subplot_influence(obj = obj, term = term, focus_var = focus_var, cdi = TRUE)
 
   # --- Combine with Patchwork: p_coef on top left, p_dist bottom left, p_influ right ---
   layout <- "

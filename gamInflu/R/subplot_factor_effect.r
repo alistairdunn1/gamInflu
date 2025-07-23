@@ -34,7 +34,12 @@ subplot_factor_effect <- function(obj, t, term_vars, cdi = FALSE) {
     ylim(ylim) +
     labs(y = "Partial effect")
   if (cdi) {
-    p_coef <- p_coef + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank(), legend.title = element_blank())
+    p_coef <- p_coef + theme(
+      axis.ticks.x = element_blank(),
+      axis.text.x = element_blank(),
+      axis.title.x = element_blank(),
+      legend.title = element_blank()
+    )
   } else {
     p_coef <- p_coef +
       xlab(term_vars[1])
