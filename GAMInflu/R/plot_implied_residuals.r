@@ -1,9 +1,9 @@
 #' @title Implied Residuals Plot
-#' @description Creates a multi-panel plot showing the relationship between the focus term and another variable, including predicted values and observed means/quantiles.
-#' @param obj A `gam_influence` object containing calculated indices.
-#' @param var The name of the variable for which to compute mean and quantiles (y-axis).
+#' @description Creates a multi-panel implied residual plot showing the relationship between the focus term and a non-modelled variable. The implied coefficients are calculated as the normalised focus_term coefficient plus the mean of the standardised residuals for each group of the non-modelled variable.
+#' @param obj A `gam_influence` object containing calculated indices and model data.
+#' @param var The name of the variable for which to compute implied residual mean and quantiles.
 #' @param nbins (Optional) Number of bins if `var` is not a factor.
-#' @param islog Logical indicating if the response variable should be log-transformed.
+#' @param islog Logical indicating if the response variable is log-transformed.
 #' @param ylim (Optional) The y-axis limits for the plot.
 #' @param n.exclude (Optional) Minimum number of records required to include a group in the plot.
 #' @return A ggplot object (multi-panel plot).
@@ -39,63 +39,68 @@ plot_implied_residuals <- function(obj, var, nbins = 6, islog = NULL, ylim = NUL
     observed = data[[response_var]]
   )
 
-  # Compute mean and quantiles for 'var'
-  var_summary <- predictions %>%
-    dplyr::group_by(group, focus_var) %>%
+  # Calculate residuals and standardised residuals
+  predictions$residual <- predictions$observed - predictions$predicted
+  predictions$std_residual <- predictions$residual / sd(predictions$residual, na.rm = TRUE)
+  predictions$focus_coef <- predictions$predicted
+
+  # Calculate mean standardised residual per group
+  df <- predictions %>%
+    dplyr::group_by(focus_var, group) %>%
     dplyr::summarise(
-      predicted = mean(predicted, na.rm = TRUE),
-      p_q025 = quantile(predicted, 0.025, na.rm = TRUE),
-      p_q975 = quantile(predicted, 0.975, na.rm = TRUE),
-      x_mean = mean(observed, na.rm = TRUE),
-      x_CI025 = x_mean - 1.96 * sd(observed, na.rm = TRUE) / sqrt(dplyr::n()),
-      x_CI975 = x_mean + 1.96 * sd(observed, na.rm = TRUE) / sqrt(dplyr::n()),
-      x_q025 = quantile(observed, 0.025, na.rm = TRUE),
-      x_q975 = quantile(observed, 0.975, na.rm = TRUE),
-      n_records = dplyr::n(),
-      .groups = "drop"
+      mean_std_resid = mean(std_residual, na.rm = TRUE),
+      focus_coef = mean(focus_coef, na.rm = TRUE),
+      n_records = n()
     )
-  if (!is.null(n.exclude)) {
-    var_summary <- var_summary %>% dplyr::filter(n_records > n.exclude)
-  }
+
+  # Calculate implied coefficient per group
+  df$implied_coef <- df$focus_coef + df$mean_std_resid
+  df$q025 <- df$implied_coef - 1.96 * df$mean_std_resid
+  df$q975 <- df$implied_coef + 1.96 * df$mean_std_resid
 
   # Apply log transformation if needed
   if (islog) {
-    var_summary$predicted <- exp(var_summary$predicted)
-    var_summary$p_q025 <- exp(var_summary$p_q025)
-    var_summary$p_q975 <- exp(var_summary$p_q975)
-    var_summary$x_mean <- exp(var_summary$x_mean)
-    var_summary$x_CI025 <- exp(var_summary$x_CI025)
-    var_summary$x_CI975 <- exp(var_summary$x_CI975)
-    var_summary$x_q025 <- exp(var_summary$x_q025)
-    var_summary$x_q975 <- exp(var_summary$x_q975)
+    df$focus_coef <- exp(df$focus_coef)
+    focus_mean <- mean(df$focus_coef, na.rm = TRUE)
+    df$focus_coef <- df$focus_coef / focus_mean
+    df$implied_coef <- exp(df$implied_coef) / focus_mean
+    df$q025 <- exp(df$q025) / focus_mean
+    df$q975 <- exp(df$q975) / focus_mean
+  } else {
+    focus_mean <- mean(df$focus_coef, na.rm = TRUE)
+    df$focus_coef <- df$focus_coef / focus_mean
+    df$implied_coef <- df$implied_coef / focus_mean
+    df$q025 <- df$q025 / focus_mean
+    df$q975 <- df$q975 / focus_mean
   }
 
   # Set y-axis limits
   if (is.null(ylim)) {
-    ylim <- c(min(var_summary$x_CI025, na.rm = TRUE), max(var_summary$x_CI975, na.rm = TRUE) * 1.04)
+    ylim <- c(NA, NA)
     if (islog) ylim[1] <- 0
-  } else {
-    var_summary$x_CI025 <- pmax(var_summary$x_CI025, ylim[1])
-    var_summary$x_CI975 <- pmin(var_summary$x_CI975, ylim[2])
   }
 
   # Normalise bar heights for record count
-  var_summary$N <- var_summary$n_records / max(var_summary$n_records) * ylim[2] * 0.3
+  df$N <- df$n_records / max(df$n_records) * ylim[2] # * 0.3
 
-  # Convert focus_var to numeric if possible
-  n_focus_var <- suppressWarnings(as.numeric(as.character(var_summary$focus_var)))
-  if (!any(is.na(n_focus_var))) var_summary$focus_var <- n_focus_var
+  # Convert focus to numeric if possible
+  if (is.factor(df$focus_var) && all(!is.na(as.numeric(as.character(levels(df$focus_var)))))) {
+    df$focus_var <- as.numeric(as.character(df$focus_var))
+  }
 
   # Create the multi-panel plot
-  p <- ggplot(var_summary, aes(x = focus_var, y = x_mean, group = 1)) +
-    geom_ribbon(aes(ymin = x_CI025, ymax = x_CI975), fill = "blue", alpha = 0.4) +
-    geom_line(colour = "blue") +
-    geom_line(aes(y = predicted, colour = "Predicted"), size = 1) +
-    geom_col(aes(y = N), fill = "black", alpha = 0.3) +
-    facet_wrap(~group, scales = "free_y") +
-    coord_cartesian(ylim = ylim) +
-    labs(x = focus_var, y = "Predicted Value", colour = "") +
-    theme(legend.position = "bottom")
+  # Plot implied_coef by group
+  p <- ggplot(df, aes(x = focus_var)) +
+    geom_errorbar(aes(ymin = q025, ymax = q975, colour = "Implied"), alpha = 0.6) +
+    geom_point(aes(y = implied_coef, colour = "Implied")) +
+    geom_line(aes(y = focus_coef, colour = "Expected")) +
+    geom_col(aes(y = N, fill = "Observations"), width = 1, alpha = 0.3) +
+    scale_colour_manual(values = c("Implied" = "royalblue", "Expected" = "black")) +
+    facet_wrap(~group, scales = "fixed") +
+    ylab("Implied coefficient") +
+    xlab(focus_var) +
+    coord_cartesian(ylim = ylim)
+
   # Return the plot
   return(p)
 }

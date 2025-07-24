@@ -177,9 +177,8 @@ calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
   non_focus_terms <- setdiff(all_terms, obj$focus)
 
   for (term in non_focus_terms) {
-    # Find all columns in all_preds_df that correspond to this term
-    # This matches s(x), te(x, y), or factor levels like year1990, etc.
-    term_cols <- grep(paste0("(^|\\(|\\:)", term, "($|\\)|\\:|\\d+)"), colnames(all_preds_df), value = TRUE)
+    # Use the robust helper to find all relevant columns
+    term_cols <- find_term_columns(term, colnames(all_preds_df))
     if (length(term_cols) == 0) next # Skip if no columns found for this term
 
     # Sum across all columns for this term (handles smooths and factors)
@@ -246,4 +245,21 @@ calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
   )
 
   return(obj)
+}
+
+# Helper to robustly match model terms to prediction columns
+find_term_columns <- function(term, colnames_vec) {
+  # Try exact match first
+  cols <- which(colnames_vec == term)
+  if (length(cols) > 0) {
+    return(colnames_vec[cols])
+  }
+  # Try partial match (for factors, by-variables, etc.)
+  cols <- grep(paste0("(^|\\(|\\:)", term, "($|\\)|\\:|\\d+)"), colnames_vec, value = TRUE)
+  if (length(cols) > 0) {
+    return(cols)
+  }
+  # Try contains (for factor levels, e.g., year1990)
+  cols <- grep(term, colnames_vec, value = TRUE, fixed = TRUE)
+  return(cols)
 }

@@ -27,6 +27,7 @@ subplot_factor_effect <- function(obj, t, term_vars, cdi = FALSE) {
     ylim <- c(NA, NA)
   }
   df <- data.frame(level = obj$data[[term_vars[1]]], effect = effect, lower = lower, upper = upper)
+  df <- df[!is.na(df$level), ]
 
   p_coef <- ggplot(df, aes(x = level, y = effect)) +
     geom_point(size = 3, colour = "royalblue") +

@@ -14,13 +14,13 @@ plot_implied_residuals(
 )
 }
 \arguments{
-\item{obj}{A `gam_influence` object containing calculated indices.}
+\item{obj}{A `gam_influence` object containing calculated indices and model data.}
 
-\item{var}{The name of the variable for which to compute mean and quantiles (y-axis).}
+\item{var}{The name of the variable for which to compute implied residual mean and quantiles.}
 
 \item{nbins}{(Optional) Number of bins if `var` is not a factor.}
 
-\item{islog}{Logical indicating if the response variable should be log-transformed.}
+\item{islog}{Logical indicating if the response variable is log-transformed.}
 
 \item{ylim}{(Optional) The y-axis limits for the plot.}
 
@@ -30,5 +30,5 @@ plot_implied_residuals(
 A ggplot object (multi-panel plot).
 }
 \description{
-Creates a multi-panel plot showing the relationship between the focus term and another variable, including predicted values and observed means/quantiles.
+Creates a multi-panel implied residual plot showing the relationship between the focus term and a non-modelled variable. The implied coefficients are calculated as the normalised focus_term coefficient plus the mean of the standardised residuals for each group of the non-modelled variable.
 }
