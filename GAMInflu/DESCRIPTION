@@ -16,17 +16,10 @@ Depends:
     R (>= 4.0.0)
 Imports:
     mgcv,
-    rlang,
-    stats,
-    utils
-Suggests:
-    dplyr,
     ggplot2,
-    gridExtra,
-    patchwork,
-    plotly,
-    RColorBrewer,
-    rmarkdown,
-    testthat,
+    dplyr,
     tidyr,
-    viridis
+    rlang,
+    patchwork
+Suggests:
+    testthat (>= 3.0.0)
