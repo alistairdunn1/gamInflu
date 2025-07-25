@@ -1,8 +1,6 @@
-#' Generic Plot Method for 'gam_influence' Objects
-#'
-#' Dispatches to specific plotting functions based on the `type` argument. This
+#' @title Generic Plot Method for gam_influence Objects
+#' @description Dispatches to specific plotting functions based on the `type` argument. This
 #' is the primary user-facing function for creating visualizations.
-#'
 #' @param x A `gam_influence` object that has been processed by `calculate_influence()`.
 #' @param type The type of plot to generate. Can be one of:
 #'   - `"stan"`: Standardisation plot.
@@ -15,7 +13,7 @@
 #' @export
 plot.gam_influence <- function(x, type = "all", ...) {
   if (is.null(x$calculated)) {
-    stop("Calculations not performed. Please run `calculate_influence()` first.")
+    stop("Calculations not performed. Please run `calculate_influence()` first.", call. = FALSE)
   }
 
   switch(type,
@@ -24,6 +22,6 @@ plot.gam_influence <- function(x, type = "all", ...) {
     influ = plot_term_influence(x, ...),
     cdi = plot_cdi(x, ...),
     all = plot_step_and_influence(x, ...),
-    stop("Invalid plot type. Choose from 'stan', 'step', 'influ', 'cdi', 'all'.")
+    stop("Invalid plot type. Choose from 'stan', 'step', 'influ', 'cdi', 'all'.", call. = FALSE)
   )
 }

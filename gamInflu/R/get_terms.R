@@ -3,6 +3,8 @@
 #' @param obj A `gam_influence` object or a fitted model object.
 #' @param full Logical; if TRUE, returns the full term expressions (e.g., s(term, ...)), otherwise returns variable names.
 #' @return A character vector of model terms.
+#' @importFrom stats terms formula
+#' @importFrom rlang parse_expr
 #' @export
 get_terms <- function(obj, full = FALSE) {
   if ("gam_influence" %in% class(obj)) {
@@ -22,8 +24,7 @@ get_terms <- function(obj, full = FALSE) {
         vars[1]
       }))))
     }
-    return(obj$terms)
   } else {
-    stop("Input must be a gam_influence object.")
+    stop("Input must be a gam_influence object.", call. = FALSE)
   }
 }

@@ -1,3 +1,8 @@
+#' @importFrom ggplot2 ggplot aes geom_point geom_abline geom_histogram geom_density geom_vline geom_errorbar geom_hline labs ylim after_stat
+#' @importFrom patchwork plot_spacer
+#' @importFrom stats qnorm ppoints sd
+#' @importFrom rlang .data
+
 #' @title QQ Plot for Random Effects
 #' @description QQ plot for random effect coefficients in a gam_influence object.
 #' @param obj A `gam_influence` object.
@@ -17,7 +22,7 @@ subplot_random_effect_qq <- function(obj, term) {
   n <- length(coeffs_std)
   theoretical <- qnorm(ppoints(n))
   df <- data.frame(theoretical = sort(theoretical), sample = sort(coeffs_std))
-  p_re <- ggplot(df, aes(x = theoretical, y = sample)) +
+  p_re <- ggplot(df, aes(x = .data$theoretical, y = .data$sample)) +
     geom_point(color = "royalblue") +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
     labs(x = "Theoretical Quantiles", y = "Sample quantiles")
@@ -40,7 +45,7 @@ subplot_random_effect_histogram <- function(obj, term) {
   re_info <- re_list[[re_label]]
   coeffs <- re_info$coefficients
   df <- data.frame(coefficient = as.numeric(coeffs))
-  p_re <- ggplot(df, aes(x = coefficient)) +
+  p_re <- ggplot(df, aes(x = .data$coefficient)) +
     geom_histogram(aes(y = after_stat(density)), bins = 15, alpha = 0.7, fill = "royalblue") +
     geom_density(color = "royalblue") +
     geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
@@ -53,7 +58,6 @@ subplot_random_effect_histogram <- function(obj, term) {
 #' @param obj A `gam_influence` object.
 #' @param term Random effect term name.
 #' @noRd
-
 subplot_random_effect_points <- function(obj, term) {
   message("Plotting points for random effect term: ", term)
   re_list <- extract_random_effects(obj)
@@ -138,7 +142,12 @@ extract_random_effects <- function(obj) {
   return(re_list)
 }
 
-# Helper to match term to smooth label
+#' @title Match Random Effect Label
+#' @description Helper function to match a term name to a random effect label in the extracted random effects list.
+#' @param term Character string of the term name to match.
+#' @param re_list Named list of random effects from extract_random_effects().
+#' @return Character string of the matched label, or NULL if no match found.
+#' @noRd
 .match_re_label <- function(term, re_list) {
   idx <- which(vapply(names(re_list), function(nm) grepl(term, nm, fixed = TRUE), logical(1)))
   if (length(idx) == 0) {

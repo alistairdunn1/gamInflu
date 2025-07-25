@@ -1,19 +1,20 @@
-#' @describeIn plot.gam_influence Creates a Coefficient-Distribution-Influence (CDI) plot.
+#' @title Coefficient-Distribution-Influence (CDI) Plot
+#' @description Creates a Coefficient-Distribution-Influence (CDI) plot.
 #' This is a multi-panel plot that visualizes a term's effect, its data
 #' distribution, and its influence on the focus term.
-#'
 #' @param obj A `gam_influence` object.
 #' @param term The character name of the model term to plot (e.g., `"s(temp)"`). Alternatively, it can be a numeric index of the term in the model. If a numeric index is provided, it will be converted to the corresponding term name.
 #' @param re_type Character; for random effects, one of "points", "qq", "hist", or "caterpillar".
 #' @return A patchwork ggplot object.
+#' @importFrom rlang parse_expr
+#' @importFrom patchwork wrap_plots plot_spacer
 #' @export
-#'
 plot_cdi <- function(obj, term, re_type = "points") {
   # --- Setup ---
   if (is.numeric(term) && length(term) == 1 && term == as.integer(term)) {
     all_terms <- get_terms(obj, full = TRUE)
     if (term > length(all_terms) || term < 1) {
-      stop("Term index out of bounds. There are ", length(all_terms), " valid terms:\n  ", paste(all_terms, collapse = "\n  "))
+      stop("Term index out of bounds. There are ", length(all_terms), " valid terms:\n  ", paste(all_terms, collapse = "\n  "), call. = FALSE)
     }
     term <- all_terms[term]
   }
@@ -32,10 +33,10 @@ plot_cdi <- function(obj, term, re_type = "points") {
     stop(paste0(
       "None of the variables in the supplied term ('", term, "') match the model term.\n",
       "Valid terms are: ", paste(setdiff(model_terms, obj$focus), collapse = ", ")
-    ))
+    ), call. = FALSE)
   }
   if (any(term_vars_in_model == focus_var)) {
-    stop("CDI plot cannot be generated for the focus term itself.")
+    stop("CDI plot cannot be generated for the focus term itself.", call. = FALSE)
   }
 
   # --- Plot 1: Coefficient Plot (The term's effect) ---

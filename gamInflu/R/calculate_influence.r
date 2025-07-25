@@ -1,29 +1,25 @@
-#' Perform Influence Calculations
-#'
-#' A generic S3 function to perform calculations on a `gam_influence` object.
-#'
+#' @title Perform Influence Calculations
+#' @description A generic S3 function to perform calculations on a `gam_influence` object.
 #' @param obj An object for which to perform calculations.
 #' @param ... Additional arguments passed to methods.
 #' @export
-#'
 calculate_influence <- function(obj, ...) {
   UseMethod("calculate_influence")
 }
 
-#' @describeIn calculate_influence Perform influence calculations for a `gam_influence` object.
-#'
-#' This is the core function that computes all necessary metrics for the plots
+#' @title Perform influence calculations for a gam_influence object
+#' @description This is the core function that computes all necessary metrics for the plots
 #' and summaries. It calculates the unstandardised and standardised indices,
 #' performs a step-wise model build to assess term contributions, and computes
 #' influence statistics (overall and trend).
-#'
 #' @param obj A `gam_influence` object.
 #' @param islog Logical. Is the response variable log-transformed? If NULL (default),
 #'   the function infers this by checking if the response name starts with "log(".
+#' @param ... Additional arguments (currently unused).
 #' @return The `gam_influence` object, now containing a `calculated` list with data frames
 #'   for indices, summary stats, influences, predictions, and s.e. of predictions.
+#' @importFrom stats predict aggregate logLik AIC deviance terms update as.formula var cov setNames
 #' @export
-#'
 calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
   # --- Setup ---
   if (is.null(islog)) {
@@ -247,7 +243,12 @@ calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
   return(obj)
 }
 
-# Helper to robustly match model terms to prediction columns
+#' @title Helper to robustly match model terms to prediction columns
+#' @description Internal helper function to find column names that correspond to a given term.
+#' @param term Character string of the term name to match.
+#' @param colnames_vec Character vector of column names to search in.
+#' @return Character vector of matching column names.
+#' @noRd
 find_term_columns <- function(term, colnames_vec) {
   # Try exact match first
   cols <- which(colnames_vec == term)

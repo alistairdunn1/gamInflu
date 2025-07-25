@@ -10,16 +10,15 @@ Description: Influence analysis tools for Generalized Additive Models (GAMs) fit
     This package is inspired by and builds upon concepts from Bentley, N.; Kendrick, T. H.; Starr, P. J.; Breen, P. A. Influence Plots and Metrics: Tools for Better Understanding Fisheries Catch-per-Unit-Effort Standardizations. ICES Journal of Marine Science 2012, 69(1), 84–88 pp.
 License: GPL (>= 3)
 Encoding: UTF-8
-LazyData: true
 RoxygenNote: 7.3.2
 Depends: 
     R (>= 4.0.0)
 Imports:
-    mgcv,
     ggplot2,
     dplyr,
     tidyr,
     rlang,
-    patchwork
+    patchwork,
+    stats
 Suggests:
     testthat (>= 3.0.0)

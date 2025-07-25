@@ -1,15 +1,17 @@
 #' @title Random Effects Diagnostics
 #' @description Plot diagnostics for random effects in a gam_influence object.
 #' @param obj A `gam_influence` object.
-#' @param term Random effect term name.
-#' @param re_type Type of diagnostic: "points", "qq", "hist", or "caterpillar"
+#' @param term Random effect term name or numeric index of the term in the model.
+#' @param re_type Type of diagnostic: "points", "qq", "hist", or "caterpillar". Default is "qq".
+#' @return A ggplot object showing the requested random effect diagnostic plot.
+#' @importFrom patchwork plot_spacer
 #' @export
 plot_re <- function(obj, term, re_type = "qq") {
   # --- Setup ---
   if (is.numeric(term) && length(term) == 1 && term == as.integer(term)) {
     all_terms <- get_terms(obj, full = TRUE)
     if (term > length(all_terms) || term < 1) {
-      stop("Term index out of bounds. There are ", length(all_terms), " valid terms:\n  ", paste(all_terms, collapse = "\n  "))
+      stop("Term index out of bounds. There are ", length(all_terms), " valid terms:\n  ", paste(all_terms, collapse = "\n  "), call. = FALSE)
     }
     term <- all_terms[term]
   }

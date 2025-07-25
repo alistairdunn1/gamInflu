@@ -3,6 +3,8 @@
 #' @param obj A `gam_influence` object containing calculated indices.
 #' @param show_previous Logical; if TRUE, shows previous steps on each panel in colour with a legend.
 #' @return A ggplot object with stepwise index plots for each term added.
+#' @importFrom dplyr all_of
+#' @importFrom ggplot2 theme element_text
 #' @export
 plot_stepwise_index <- function(obj, show_previous = FALSE) {
   # Select only the columns representing step-wise indices
@@ -34,7 +36,8 @@ plot_stepwise_index <- function(obj, show_previous = FALSE) {
       subset(df_long, term %in% prev_terms)[, c("level", "index", "term", "label")]
     }))
     expanded$shown_term <- factor(rep(term_levels, sapply(seq_along(term_levels), function(i) sum(df_long$term %in% term_levels[1:i]))),
-                                  levels = term_levels)
+      levels = term_levels
+    )
     expanded$shown_label <- factor(label_map[as.character(expanded$shown_term)], levels = label_map[term_levels])
     ggplot(expanded, aes(x = level, y = index, group = term, colour = term)) +
       geom_hline(yintercept = 1, linetype = "dashed", colour = "grey") +
@@ -55,5 +58,3 @@ plot_stepwise_index <- function(obj, show_previous = FALSE) {
       ylim(0, NA)
   }
 }
-
-
