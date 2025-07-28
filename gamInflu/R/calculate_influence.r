@@ -1,3 +1,54 @@
+#' @title Validate gam_influence object
+#' @description Internal function to validate gam_influence objects and check family compatibility
+#' @param obj A gam_influence object to validate
+#' @return TRUE if valid, otherwise throws an error
+#' @noRd
+validate_gam_influence <- function(obj) {
+  if (!inherits(obj, "gam_influence")) {
+    stop("Object must be of class 'gam_influence'", call. = FALSE)
+  }
+  if (!inherits(obj$model, "gam")) {
+    stop("Model must be a GAM object from mgcv package", call. = FALSE)
+  }
+  if (!obj$focus %in% obj$terms) {
+    stop("Focus term must be present in model terms", call. = FALSE)
+  }
+  if (nrow(obj$data) == 0) {
+    stop("Data cannot be empty", call. = FALSE)
+  }
+
+  # Check family compatibility
+  if (!is.null(obj$model$family)) {
+    family_name <- obj$model$family$family
+    supported_families <- c("gaussian", "binomial", "Gamma", "gamma", "poisson", "quasi", "quasipoisson", "quasibinomial")
+
+    if (!family_name %in% supported_families) {
+      warning("Family '", family_name, "' may not be fully supported. Supported families: ",
+        paste(supported_families, collapse = ", "),
+        call. = FALSE
+      )
+    }
+
+    # Check for common issues
+    observed <- obj$data[[obj$response]]
+    if (family_name == "binomial" && !all(observed >= 0 & observed <= 1)) {
+      if (!all(observed %in% c(0, 1))) {
+        warning("Binomial family detected but response values are not between 0-1 or binary. This may cause issues.", call. = FALSE)
+      }
+    }
+
+    if (family_name %in% c("Gamma", "gamma") && any(observed <= 0)) {
+      warning("Gamma family detected but response contains non-positive values. This may cause issues.", call. = FALSE)
+    }
+
+    if (family_name == "poisson" && any(observed < 0)) {
+      warning("Poisson family detected but response contains negative values. This may cause issues.", call. = FALSE)
+    }
+  }
+
+  TRUE
+}
+
 #' @title Perform Influence Calculations
 #' @description A generic S3 function to perform calculations on a `gam_influence` object.
 #' @param obj An object for which to perform calculations.
@@ -11,21 +62,88 @@ calculate_influence <- function(obj, ...) {
 #' @description This is the core function that computes all necessary metrics for the plots
 #' and summaries. It calculates the unstandardised and standardised indices,
 #' performs a step-wise model build to assess term contributions, and computes
-#' influence statistics (overall and trend).
+#' influence statistics (overall and trend). Enhanced with comprehensive support
+#' for multiple GLM families including binomial, gamma, and Poisson distributions.
 #' @param obj A `gam_influence` object.
 #' @param islog Logical. Is the response variable log-transformed? If NULL (default),
-#'   the function infers this by checking if the response name starts with "log(".
+#'   the function infers this by checking if the response name starts with "log(" or model family.
+#' @param rescale_method Character. How to rescale the indices. Options: "geometric_mean" (default),
+#'   "arithmetic_mean", "raw", or "custom".
+#' @param custom_rescale_value Numeric. Custom rescaling value when rescale_method = "custom".
+#' @param confidence_level Numeric. Confidence level for standardized index intervals (default 0.95).
+#' @param family_method Character. How to handle different GLM families. Options: "auto" (default),
+#'   "gaussian", "binomial", "gamma", "poisson". When "auto", family is detected from model.
 #' @param ... Additional arguments (currently unused).
 #' @return The `gam_influence` object, now containing a `calculated` list with data frames
 #'   for indices, summary stats, influences, predictions, and s.e. of predictions.
-#' @importFrom stats predict aggregate logLik AIC deviance terms update as.formula var cov setNames
+#' @details
+#' The influence calculation follows Bentley et al. (2012):
+#' - Overall influence: exp(mean(|effects|)) - 1
+#' - Trend influence: exp(cov(levels, effects)/var(levels)) - 1
+#'
+#' **Enhanced Family Support:**
+#'
+#' The package now supports multiple GLM families with family-specific index calculations:
+#' - **Gaussian**: Traditional geometric mean for log-transformed data, arithmetic for linear
+#' - **Binomial**: Proportion-based indices for presence/absence or binary data
+#' - **Gamma**: Geometric mean aggregation for positive continuous data (biomass, CPUE)
+#' - **Poisson**: Count-appropriate methods for abundance or catch numbers
+#' - **Automatic Detection**: Family is auto-detected from model object when family_method="auto"
+#'
+#' Each family uses statistically appropriate aggregation methods and handles edge cases
+#' like zeros in count data or proportions in binomial models. The standardized index
+#' uses model predictions with proper uncertainty quantification for all families.
+#' @importFrom stats predict aggregate logLik AIC deviance terms update as.formula var cov setNames qnorm
 #' @export
-calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
-  # --- Setup ---
+calculate_influence.gam_influence <- function(obj, islog = NULL,
+                                              rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+                                              custom_rescale_value = 1,
+                                              confidence_level = 0.95,
+                                              family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"), ...) {
+  # Validate inputs
+  validate_gam_influence(obj)
+  if (confidence_level <= 0 || confidence_level >= 1) {
+    stop("confidence_level must be between 0 and 1", call. = FALSE)
+  }
+
+  # --- Setup and Family Detection ---
+  family_method <- match.arg(family_method)
+
+  # Detect model family
+  if (family_method == "auto") {
+    model_family <- obj$model$family$family
+    model_link <- obj$model$family$link
+
+    # Map common families
+    family_detected <- switch(model_family,
+      "gaussian" = "gaussian",
+      "binomial" = "binomial",
+      "Gamma" = "gamma",
+      "gamma" = "gamma",
+      "poisson" = "poisson",
+      "quasi" = "gaussian", # Default for quasi families
+      "gaussian" # Default fallback
+    )
+    family_method <- family_detected
+    message("Detected model family: ", model_family, " with link: ", model_link)
+    message("Using family_method: ", family_method)
+  }
+
+  # Enhanced islog detection based on family and response name
   if (is.null(islog)) {
     if (is.null(obj$islog)) {
-      islog <- substr(obj$response, 1, 4) == "log("
-      message("Assuming islog = ", islog, " based on response name '", obj$response, "'.")
+      # Check response name for log transformation
+      response_log <- substr(obj$response, 1, 4) == "log("
+
+      # Check if family typically uses log transformation
+      family_log <- family_method %in% c("gamma", "poisson") &&
+        (!is.null(obj$model$family$link) && obj$model$family$link == "log")
+
+      islog <- response_log || family_log
+      message(
+        "Assuming islog = ", islog, " based on response name '", obj$response,
+        "' and family '", family_method, "'."
+      )
     } else {
       islog <- obj$islog
     }
@@ -37,15 +155,8 @@ calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
 
   # --- 1. Unstandardised Index ---
   # Calculate the raw, unadjusted index for the focus term.
-  # Uses geometric mean for log-transformed data, arithmetic mean otherwise.
-  if (islog) {
-    agg_df <- aggregate(list(unstan = observed), list(level = obj$data[[obj$focus]]), mean)
-    agg_df$unstan <- exp(agg_df$unstan - mean(agg_df$unstan))
-  } else {
-    agg_df <- aggregate(list(unstan = observed), list(level = obj$data[[obj$focus]]), mean)
-    agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
-  }
-  indices_df <- data.frame(level = agg_df$level, unstan = agg_df$unstan)
+  # Uses family-appropriate methods for different GLM families.
+  indices_df <- calculate_unstandardized_index(observed, obj$data[[obj$focus]], islog, family_method)
 
   # --- 2. Standardised Index (from the full model) ---
   # This is the final index after accounting for all terms in the model.
@@ -79,8 +190,20 @@ calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
   stan_df <- aggregate(cbind(fit, se) ~ level, data = focus_pred_df, FUN = mean)
   base <- mean(stan_df$fit)
   stan_df$stan <- exp(stan_df$fit - base)
-  stan_df$stanLower <- exp(stan_df$fit - base - 2 * stan_df$se)
-  stan_df$stanUpper <- exp(stan_df$fit - base + 2 * stan_df$se)
+
+  # Add proper confidence intervals using the specified confidence level
+  rescale_method <- match.arg(rescale_method)
+  alpha <- 1 - confidence_level
+  z_score <- qnorm(1 - alpha / 2)
+
+  stan_df$stanLower <- exp(stan_df$fit - base - z_score * stan_df$se)
+  stan_df$stanUpper <- exp(stan_df$fit - base + z_score * stan_df$se)
+
+  # Apply rescaling to both unstandardized and standardized indices
+  indices_df$unstan <- rescale_index(indices_df$unstan, rescale_method, custom_rescale_value)
+  stan_df$stan <- rescale_index(stan_df$stan, rescale_method, custom_rescale_value)
+  stan_df$stanLower <- rescale_index(stan_df$stanLower, rescale_method, custom_rescale_value)
+  stan_df$stanUpper <- rescale_index(stan_df$stanUpper, rescale_method, custom_rescale_value)
 
   indices_df <- merge(indices_df, stan_df[, c("level", "stan", "stanLower", "stanUpper")], by = "level")
 
@@ -229,6 +352,17 @@ calculate_influence.gam_influence <- function(obj, islog = NULL, ...) {
     }
   )
 
+  # Rename standardized index columns for consistency with package API
+  if ("stan" %in% names(indices_df)) {
+    names(indices_df)[names(indices_df) == "stan"] <- "standardized_index"
+  }
+  if ("stanLower" %in% names(indices_df)) {
+    names(indices_df)[names(indices_df) == "stanLower"] <- "stan_lower"
+  }
+  if ("stanUpper" %in% names(indices_df)) {
+    names(indices_df)[names(indices_df) == "stanUpper"] <- "stan_upper"
+  }
+
   # --- Finalize ---
   # Store all calculated data frames in the object's 'calculated' slot
   obj$calculated <- list(
@@ -262,5 +396,169 @@ find_term_columns <- function(term, colnames_vec) {
   }
   # Try contains (for factor levels, e.g., year1990)
   cols <- grep(term, colnames_vec, value = TRUE, fixed = TRUE)
+
+  # Enhanced error handling
+  if (length(cols) == 0) {
+    available_terms <- paste(colnames_vec, collapse = ", ")
+    stop(sprintf(
+      "Could not find columns for term '%s'. Available columns: %s",
+      term, available_terms
+    ), call. = FALSE)
+  }
   return(cols)
+}
+
+#' @title Geometric Mean
+#' @description Calculate the geometric mean of a numeric vector, with robust handling of
+#'   missing values and non-positive values. Essential for family-specific index calculations
+#'   in gamma and log-normal models where multiplicative processes are expected.
+#' @param x A numeric vector.
+#' @param na.rm Logical. Should missing values be removed before calculation? Default is TRUE.
+#' @return The geometric mean of the input vector. If non-positive values are present,
+#'   issues a warning and returns the arithmetic mean as a fallback.
+#' @details
+#' The geometric mean is calculated as exp(mean(log(x))) and is appropriate for:
+#' - Gamma family models with positive data
+#' - Log-normal processes in fisheries CPUE standardization
+#' - Multiplicative effects and indices
+#'
+#' When non-positive values are encountered, the function automatically falls back
+#' to the arithmetic mean to ensure robust calculations across different data types.
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' geometric_mean(c(1, 2, 4, 8)) # Returns 2.83
+#'
+#' # With zeros (falls back to arithmetic mean)
+#' geometric_mean(c(0, 1, 2, 4)) # Warning + arithmetic mean
+#'
+#' # In index calculations
+#' index_values <- c(0.8, 1.2, 1.1, 0.9)
+#' standardized <- index_values / geometric_mean(index_values)
+#' }
+#' @export
+geometric_mean <- function(x, na.rm = TRUE) {
+  if (na.rm) x <- x[!is.na(x)]
+  if (any(x <= 0)) {
+    warning("Non-positive values detected, using arithmetic mean")
+    return(mean(x))
+  }
+  exp(mean(log(x)))
+}
+
+#' @title Rescale Index
+#' @description Rescale an index using different methods
+#' @param index Numeric vector to rescale
+#' @param method Character. Rescaling method
+#' @param custom_value Numeric. Custom rescaling value when method = "custom"
+#' @return Rescaled index vector
+#' @noRd
+rescale_index <- function(index, method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+                          custom_value = 1) {
+  method <- match.arg(method)
+  switch(method,
+    "geometric_mean" = index / geometric_mean(index),
+    "arithmetic_mean" = index / mean(index),
+    "raw" = index,
+    "custom" = index / geometric_mean(index) * custom_value
+  )
+}
+
+#' @title Calculate Unstandardized Index
+#' @description Calculate the unstandardized index with robust zero handling and family-specific methods
+#' @param observed Numeric vector of observed values
+#' @param focus_var Factor or numeric vector of focus variable levels
+#' @param islog Logical. Whether to use log transformation
+#' @param family_method Character. GLM family method to use
+#' @return Data frame with level and unstan columns
+#' @noRd
+calculate_unstandardized_index <- function(observed, focus_var, islog = NULL, family_method = "gaussian") {
+  if (is.null(islog)) {
+    islog <- all(observed > 0) && !any(observed == 0)
+  }
+
+  # Family-specific index calculations
+  if (family_method == "binomial") {
+    # For binomial models, work with proportions
+    # Convert binary data to proportions by group
+    if (all(observed %in% c(0, 1))) {
+      # Binary data - calculate proportions
+      agg_df <- aggregate(
+        list(unstan = observed),
+        list(level = focus_var),
+        function(x) sum(x) / length(x) # Calculate proportion
+      )
+      # Convert to relative scale (divide by overall proportion)
+      overall_prop <- mean(observed)
+      if (overall_prop > 0 && overall_prop < 1) {
+        agg_df$unstan <- agg_df$unstan / overall_prop
+      } else {
+        agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
+      }
+    } else {
+      # Already proportions or continuous data between 0-1
+      agg_df <- aggregate(
+        list(unstan = observed),
+        list(level = focus_var), mean
+      )
+      agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
+    }
+  } else if (family_method == "gamma") {
+    # For gamma models, always use geometric mean (positive data expected)
+    if (any(observed <= 0)) {
+      warning("Gamma family expects positive values. Using arithmetic mean for non-positive data.")
+      agg_df <- aggregate(
+        list(unstan = observed),
+        list(level = focus_var), mean
+      )
+      agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
+    } else {
+      # Use geometric mean for positive gamma data
+      agg_df <- aggregate(
+        list(unstan = log(observed)),
+        list(level = focus_var), mean
+      )
+      agg_df$unstan <- exp(agg_df$unstan - mean(agg_df$unstan))
+    }
+  } else if (family_method == "poisson") {
+    # For Poisson models, use geometric mean if positive, arithmetic if zeros present
+    if (any(observed < 0)) {
+      warning("Poisson family expects non-negative values.")
+    }
+
+    if (all(observed > 0)) {
+      # Use geometric mean for positive count data
+      agg_df <- aggregate(
+        list(unstan = log(observed)),
+        list(level = focus_var), mean
+      )
+      agg_df$unstan <- exp(agg_df$unstan - mean(agg_df$unstan))
+    } else {
+      # Use arithmetic mean when zeros present
+      agg_df <- aggregate(
+        list(unstan = observed),
+        list(level = focus_var), mean
+      )
+      agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
+    }
+  } else {
+    # Gaussian or other families - original logic
+    if (islog && all(observed > 0)) {
+      # Use geometric mean for positive data
+      agg_df <- aggregate(
+        list(unstan = log(observed)),
+        list(level = focus_var), mean
+      )
+      agg_df$unstan <- exp(agg_df$unstan - mean(agg_df$unstan))
+    } else {
+      # Fallback to arithmetic mean for data with zeros or non-log
+      agg_df <- aggregate(
+        list(unstan = observed),
+        list(level = focus_var), mean
+      )
+      agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
+    }
+  }
+
+  data.frame(level = agg_df$level, unstan = agg_df$unstan)
 }

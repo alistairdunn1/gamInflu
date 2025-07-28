@@ -4,13 +4,31 @@
 \alias{calculate_influence.gam_influence}
 \title{Perform influence calculations for a gam_influence object}
 \usage{
-\method{calculate_influence}{gam_influence}(obj, islog = NULL, ...)
+\method{calculate_influence}{gam_influence}(
+  obj,
+  islog = NULL,
+  rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+  custom_rescale_value = 1,
+  confidence_level = 0.95,
+  family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+  ...
+)
 }
 \arguments{
 \item{obj}{A `gam_influence` object.}
 
 \item{islog}{Logical. Is the response variable log-transformed? If NULL (default),
-the function infers this by checking if the response name starts with "log(".}
+the function infers this by checking if the response name starts with "log(" or model family.}
+
+\item{rescale_method}{Character. How to rescale the indices. Options: "geometric_mean" (default),
+"arithmetic_mean", "raw", or "custom".}
+
+\item{custom_rescale_value}{Numeric. Custom rescaling value when rescale_method = "custom".}
+
+\item{confidence_level}{Numeric. Confidence level for standardized index intervals (default 0.95).}
+
+\item{family_method}{Character. How to handle different GLM families. Options: "auto" (default),
+"gaussian", "binomial", "gamma", "poisson". When "auto", family is detected from model.}
 
 \item{...}{Additional arguments (currently unused).}
 }
@@ -22,5 +40,24 @@ The `gam_influence` object, now containing a `calculated` list with data frames
 This is the core function that computes all necessary metrics for the plots
 and summaries. It calculates the unstandardised and standardised indices,
 performs a step-wise model build to assess term contributions, and computes
-influence statistics (overall and trend).
+influence statistics (overall and trend). Enhanced with comprehensive support
+for multiple GLM families including binomial, gamma, and Poisson distributions.
+}
+\details{
+The influence calculation follows Bentley et al. (2012):
+- Overall influence: exp(mean(|effects|)) - 1
+- Trend influence: exp(cov(levels, effects)/var(levels)) - 1
+
+**Enhanced Family Support:**
+
+The package now supports multiple GLM families with family-specific index calculations:
+- **Gaussian**: Traditional geometric mean for log-transformed data, arithmetic for linear
+- **Binomial**: Proportion-based indices for presence/absence or binary data
+- **Gamma**: Geometric mean aggregation for positive continuous data (biomass, CPUE)
+- **Poisson**: Count-appropriate methods for abundance or catch numbers
+- **Automatic Detection**: Family is auto-detected from model object when family_method="auto"
+
+Each family uses statistically appropriate aggregation methods and handles edge cases
+like zeros in count data or proportions in binomial models. The standardized index
+uses model predictions with proper uncertainty quantification for all families.
 }

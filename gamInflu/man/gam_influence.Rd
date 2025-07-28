@@ -7,25 +7,68 @@
 gam_influence(model, focus, data = NULL, islog = NULL)
 }
 \arguments{
-\item{model}{A fitted model object (supported: `glm`, `gam`).}
+\item{model}{A fitted model object from mgcv (gam) or stats (glm). Supported families:
+Gaussian, binomial, Gamma, Poisson, and their quasi variants.}
 
 \item{focus}{A character string specifying the name of the focus term. This
 term must be a factor in the model's data and is typically the term for
-which an annual index is being calculated (e.g., "year").}
+which an annual index is being calculated (e.g., "year"). The focus term
+should represent the main temporal or categorical variable of interest.}
 
 \item{data}{The data frame used to fit the model. This is crucial for models
 that do not store the data internally. If NULL, the function will attempt
 to extract it from the model object.}
 
 \item{islog}{A logical value indicating whether the response variable is on a
-logarithmic scale.}
+logarithmic scale. If NULL, this will be inferred automatically by
+`calculate_influence()` based on the response variable name and model family.}
 }
 \value{
 An object of S3 class 'gam_influence'. This is a list containing the model,
-  data, and key term specifications.
+  data, focus term, response variable, and key term specifications that will be
+  used for family-specific influence calculations.
 }
 \description{
 Initializes a gam_influence object for a given model and focus term. This is the
-main constructor for the 'gam_influence' class. It sets up the basic structure,
-which is then populated by `calculate_influence()`.
+main constructor for the 'gam_influence' class that supports multiple GLM families
+including Gaussian, binomial, gamma, and Poisson distributions. It sets up the basic structure,
+which is then populated by `calculate_influence()` with family-specific methods.
+}
+\details{
+The gam_influence object stores essential information for subsequent influence analysis:
+- Model object with family information for automatic family detection
+- Data validation ensuring focus term is present and properly formatted
+- Term extraction for stepwise model building
+- Response variable identification for family-specific calculations
+
+**Supported Model Families:**
+- **Gaussian**: For continuous response data (CPUE, biomass indices)
+- **Binomial**: For binary or proportion data (presence/absence, catch probability)
+- **Gamma**: For positive continuous data (biomass, positive CPUE values)
+- **Poisson**: For count data (fish numbers, catch counts)
+
+The focus term must be a factor variable representing the main grouping of interest
+(typically years for fisheries applications, but could be sites, regions, etc.).
+}
+\examples{
+\dontrun{
+library(mgcv)
+
+# Gaussian model (traditional CPUE)
+mod_gauss <- gam(log_cpue ~ s(depth) + s(temp) + year, data = fish_data)
+gi_gauss <- gam_influence(mod_gauss, focus = "year")
+
+# Binomial model (presence/absence)
+mod_binom <- gam(presence ~ s(depth) + year, family = binomial(), data = fish_data)
+gi_binom <- gam_influence(mod_binom, focus = "year")
+
+# Gamma model (biomass)
+mod_gamma <- gam(biomass ~ s(effort) + year, family = Gamma(link = "log"), data = survey_data)
+gi_gamma <- gam_influence(mod_gamma, focus = "year")
+
+# Calculate influence with automatic family detection
+gi_gauss <- calculate_influence(gi_gauss)
+gi_binom <- calculate_influence(gi_binom)
+gi_gamma <- calculate_influence(gi_gamma)
+}
 }

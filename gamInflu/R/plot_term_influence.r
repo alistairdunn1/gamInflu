@@ -2,6 +2,8 @@
 #' @description Creates an influence plot showing the influence of each non-focus term on the focus term's index.
 #' @param obj A `gam_influence` object containing calculated indices.
 #' @return A ggplot object showing the influence of each non-focus term.
+#' @importFrom ggplot2 ggplot aes geom_hline geom_line geom_point facet_wrap labs theme element_text ylim
+#' @importFrom rlang .data
 #' @export
 #' @describeIn plot.gam_influence Creates an influence plot.
 #' Shows the influence of each non-focus term on the focus term's index.
@@ -27,7 +29,7 @@ plot_term_influence <- function(obj) {
     df$term <- factor(df$term, levels = unique(df$term))
   }
 
-  ggplot(df, aes(x = level, y = influence, group = 1)) +
+  ggplot(df, aes(x = .data$level, y = .data$influence, group = 1)) +
     geom_line(colour = "royalblue", alpha = 0.5) +
     geom_point(colour = "royalblue") +
     geom_hline(yintercept = 1, linetype = "dashed", colour = "grey50") +
