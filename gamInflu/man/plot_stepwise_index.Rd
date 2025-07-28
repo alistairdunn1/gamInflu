@@ -7,13 +7,50 @@
 plot_stepwise_index(obj, show_previous = FALSE)
 }
 \arguments{
-\item{obj}{A `gam_influence` object containing calculated indices.}
+\item{obj}{A `gam_influence` object containing calculated indices from `calculate_influence()`.}
 
-\item{show_previous}{Logical; if TRUE, shows previous steps on each panel in colour with a legend.}
+\item{show_previous}{Logical; if TRUE, shows previous steps on each panel in color with a legend,
+allowing you to see how the index evolves as terms are added. If FALSE (default), shows only
+the current step for each panel.}
 }
 \value{
-A ggplot object with stepwise index plots for each term added.
+A ggplot object with stepwise index plots for each term added. The plot shows:
+  - **Individual panels**: One for each term added to the model in sequence
+  - **Index evolution**: How the focus term's index changes with each model term
+  - **Reference line**: Horizontal dashed line at y=1 for relative comparison
+  - **Color coding**: (when show_previous=TRUE) Different colors for each step in the progression
 }
 \description{
-Creates a step plot showing how the index for the focus term changes as each model term is added sequentially.
+Creates a step plot showing how the index for the focus term changes as each model
+term is added sequentially. This visualization helps understand the contribution of each term
+to the final standardized index and works with all supported GLM families.
+}
+\details{
+The stepwise index plot visualizes the model building process by showing how the focus term's
+index changes as each term is sequentially added to the model. This helps identify:
+- Which terms have the largest impact on the focus index
+- Whether the index stabilizes or continues to change with additional terms
+- The cumulative effect of model complexity on the final index
+
+**Family Support:**
+Works with all supported GLM families (Gaussian, binomial, gamma, Poisson) and uses
+family-appropriate index calculations throughout the stepwise process.
+
+**Panel Labels:**
+The function uses step labels from the model when available, otherwise falls back to
+term names. Labels are presented in the order terms appear in the original model formula.
+}
+\examples{
+\dontrun{
+# Basic stepwise plot
+gi <- gam_influence(your_model, focus = "year")
+gi <- calculate_influence(gi)
+plot_stepwise_index(gi)
+
+# Show progression with previous steps
+plot_stepwise_index(gi, show_previous = TRUE)
+
+# Through generic plot method
+plot(gi, type = "step", show_previous = TRUE)
+}
 }

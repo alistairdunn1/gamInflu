@@ -7,11 +7,49 @@
 plot_standardisation(obj)
 }
 \arguments{
-\item{obj}{A `gam_influence` object containing calculated indices.}
+\item{obj}{A `gam_influence` object containing calculated indices from `calculate_influence()`.}
 }
 \value{
-A ggplot object showing both unstandardised and standardised indices, with confidence ribbon.
+A ggplot object showing both unstandardised and standardised indices, with confidence ribbon
+  around the standardised index. The plot includes:
+  - Unstandardised index (grey line and points): Raw aggregated values by focus level
+  - Standardised index (blue line and points): Model-adjusted values accounting for all terms
+  - Confidence ribbon (light blue): Uncertainty bounds around the standardised index
+  - Reference line at y=1: Baseline for relative comparison
 }
 \description{
-Creates a standardisation plot comparing the unstandardised (raw) index to the final standardised index for the focus term.
+Creates a standardisation plot comparing the unstandardised (raw) index to the final
+standardised index for the focus term. Works with all supported GLM families (Gaussian, binomial,
+gamma, Poisson) and displays family-appropriate confidence intervals.
+}
+\details{
+The standardisation plot visualizes the effect of model standardisation on the focus term index.
+The unstandardised index shows the raw relationship, while the standardised index accounts for
+all other model terms and their interactions.
+
+**Family-specific behavior:**
+- **Gaussian**: Traditional CPUE-style indices with geometric/arithmetic mean aggregation
+- **Binomial**: Probability-based indices for presence/absence data
+- **Gamma**: Positive continuous indices using geometric mean methods
+- **Poisson**: Count-based indices with appropriate statistical methods
+
+The confidence intervals are calculated using the specified confidence level from
+`calculate_influence()` (default 95%) and reflect the uncertainty in the model predictions.
+}
+\examples{
+\dontrun{
+# Basic usage
+gi <- gam_influence(your_model, focus = "year")
+gi <- calculate_influence(gi)
+plot_standardisation(gi)
+
+# With different families
+# Binomial model
+gi_binom <- calculate_influence(gi_binomial_model)
+plot_standardisation(gi_binom) # Shows probability indices
+
+# Gamma model
+gi_gamma <- calculate_influence(gi_gamma_model)
+plot_standardisation(gi_gamma) # Shows geometric mean indices
+}
 }

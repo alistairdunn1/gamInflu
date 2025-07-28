@@ -10,8 +10,10 @@ plot_step_and_influence(obj)
 \item{obj}{A `gam_influence` object containing calculated indices.}
 }
 \value{
-A patchwork plot combining the stepwise index and term influence plots.
+A patchwork plot combining the stepwise index and term influence plots with proper alignment.
 }
 \description{
 Creates a combined plot showing both the stepwise index and term influence for a `gam_influence` object.
+The plots are aligned horizontally so that each stepwise panel on the left corresponds to the same row
+as the influence panels on the right.
 }
