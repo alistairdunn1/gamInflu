@@ -1,5 +1,5 @@
 #' @title Methods for gam_influence_comparison Objects
-#' @description S3 methods for objects created by analyze_focus_by_group
+#' @description S3 methods for objects created by analyse_focus_by_group
 #' @name gam_influence_comparison_methods
 
 #' @title Print Method for gam_influence_comparison

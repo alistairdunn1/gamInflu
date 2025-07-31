@@ -23,7 +23,7 @@ Calculate the geometric mean of a numeric vector, with robust handling of
 \details{
 The geometric mean is calculated as exp(mean(log(x))) and is appropriate for:
 - Gamma family models with positive data
-- Log-normal processes in fisheries CPUE standardization
+- Log-normal processes in fisheries CPUE standardisation
 - Multiplicative effects and indices
 
 When non-positive values are encountered, the function automatically falls back
@@ -39,6 +39,6 @@ geometric_mean(c(0, 1, 2, 4)) # Warning + arithmetic mean
 
 # In index calculations
 index_values <- c(0.8, 1.2, 1.1, 0.9)
-standardized <- index_values / geometric_mean(index_values)
+standardised <- index_values / geometric_mean(index_values)
 }
 }

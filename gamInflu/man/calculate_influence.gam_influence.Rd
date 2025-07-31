@@ -11,6 +11,8 @@
   custom_rescale_value = 1,
   confidence_level = 0.95,
   family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+  subset_var = NULL,
+  subset_value = NULL,
   ...
 )
 }
@@ -25,10 +27,16 @@ the function infers this by checking if the response name starts with "log(" or 
 
 \item{custom_rescale_value}{Numeric. Custom rescaling value when rescale_method = "custom".}
 
-\item{confidence_level}{Numeric. Confidence level for standardized index intervals (default 0.95).}
+\item{confidence_level}{Numeric. Confidence level for standardised index intervals (default 0.95).}
 
 \item{family_method}{Character. How to handle different GLM families. Options: "auto" (default),
 "gaussian", "binomial", "gamma", "poisson". When "auto", family is detected from model.}
+
+\item{subset_var}{Character. Name of variable to subset on (e.g., "area", "gear_type").}
+
+\item{subset_value}{Value to subset by (e.g., "North", "Trawl"). When both subset_var and
+subset_value are provided, influence analysis is performed only on the subset of data
+matching this condition, while using the full model for predictions.}
 
 \item{...}{Additional arguments (currently unused).}
 }
@@ -42,11 +50,21 @@ and summaries. It calculates the unstandardised and standardised indices,
 performs a step-wise model build to assess term contributions, and computes
 influence statistics (overall and trend). Enhanced with comprehensive support
 for multiple GLM families including binomial, gamma, and Poisson distributions.
+Includes subset-based analysis for models with interaction terms.
 }
 \details{
 The influence calculation follows Bentley et al. (2012):
 - Overall influence: exp(mean(|effects|)) - 1
 - Trend influence: exp(cov(levels, effects)/var(levels)) - 1
+
+**Subset-Based Analysis:**
+
+When subset_var and subset_value are provided, the function performs influence analysis
+on a subset of the data while using the full model for predictions. This is particularly
+useful for models with interaction terms like year*area:
+- Model fitted on full dataset (better estimation of smooth terms)
+- Influence analysis focused on specific subset (e.g., area = "North")
+- Maintains statistical power while enabling group-specific interpretation
 
 **Enhanced Family Support:**
 
@@ -58,6 +76,6 @@ The package now supports multiple GLM families with family-specific index calcul
 - **Automatic Detection**: Family is auto-detected from model object when family_method="auto"
 
 Each family uses statistically appropriate aggregation methods and handles edge cases
-like zeros in count data or proportions in binomial models. The standardized index
+like zeros in count data or proportions in binomial models. The standardised index
 uses model predictions with proper uncertainty quantification for all families.
 }

@@ -1,4 +1,4 @@
-#' @title Analyze Focus Effects by Grouping Variable
+#' @title Analyse Focus Effects by Grouping Variable
 #' @description Performs influence analysis on subsets of data grouped by a categorical variable.
 #' This allows analysis of how focus term effects (e.g., year trends) vary across different 
 #' levels of another variable (e.g., areas, gear types, species).
@@ -6,14 +6,14 @@
 #' @param focus A character string specifying the focus term (must be a factor).
 #' @param grouping_var A character string specifying the grouping variable (must be a factor).
 #' @param data A data frame containing all variables referenced in the model formula.
-#' @param groups A character vector specifying which groups to analyze. If NULL, analyzes all levels.
+#' @param groups A character vector specifying which groups to analyse. If NULL, analyses all levels.
 #' @param family A family specification for the GAM (default: gaussian()).
 #' @param islog Logical indicating if response is log-transformed (passed to calculate_influence).
 #' @param ... Additional arguments passed to calculate_influence().
 #' @return An object of class 'gam_influence_comparison' containing influence analysis results
 #'   for each group, with methods for plotting and summarizing results.
 #' @details
-#' This function addresses the common need to analyze temporal or categorical trends
+#' This function addresses the common need to analyse temporal or categorical trends
 #' (focus effects) separately within different groups. For example:
 #' - Annual CPUE trends by fishing area
 #' - Species abundance trends by habitat type  
@@ -32,8 +32,8 @@
 #' library(mgcv)
 #' library(gamInflu)
 #'
-#' # Analyze year effects by area
-#' comparison <- analyze_focus_by_group(
+#' # Analyse year effects by area
+#' comparison <- analyse_focus_by_group(
 #'   model_formula = cpue ~ s(depth) + s(temperature) + year,
 #'   focus = "year",
 #'   grouping_var = "area", 
@@ -48,7 +48,7 @@
 #' @importFrom mgcv gam
 #' @importFrom stats as.formula
 #' @export
-analyze_focus_by_group <- function(model_formula, focus, grouping_var, data, 
+analyse_focus_by_group <- function(model_formula, focus, grouping_var, data, 
                                    groups = NULL, family = gaussian(), 
                                    islog = NULL, ...) {
   
@@ -84,7 +84,7 @@ analyze_focus_by_group <- function(model_formula, focus, grouping_var, data,
     family <- gaussian()
   }
   
-  # Determine groups to analyze
+  # Determine groups to analyse
   if (is.null(groups)) {
     groups <- levels(data[[grouping_var]])
   } else {
@@ -100,7 +100,7 @@ analyze_focus_by_group <- function(model_formula, focus, grouping_var, data,
   message("Analyzing focus effects for ", length(groups), " groups: ", 
           paste(groups, collapse = ", "))
   
-  # Analyze each group
+  # Analyse each group
   results <- list()
   models <- list()
   
@@ -174,18 +174,18 @@ analyze_focus_by_group <- function(model_formula, focus, grouping_var, data,
     class = c("gam_influence_comparison", "list")
   )
   
-  message("Successfully analyzed ", length(results), " groups")
+  message("Successfully analysed ", length(results), " groups")
   return(comparison)
 }
 
 #' @title Compare Focus Effects Across Groups
-#' @description A convenience wrapper for analyze_focus_by_group that provides a simpler interface
+#' @description A convenience wrapper for analyse_focus_by_group that provides a simpler interface
 #' for common comparison scenarios.
 #' @param model A fitted GAM model object.
 #' @param focus Character string specifying the focus term.
 #' @param grouping_var Character string specifying the grouping variable.
-#' @param groups Optional character vector of specific groups to analyze.
-#' @param ... Additional arguments passed to analyze_focus_by_group.
+#' @param groups Optional character vector of specific groups to analyse.
+#' @param ... Additional arguments passed to analyse_focus_by_group.
 #' @return A gam_influence_comparison object.
 #' @details
 #' This function extracts the formula and data from an existing fitted model
@@ -207,7 +207,7 @@ compare_focus_by_groups <- function(model, focus, grouping_var, groups = NULL, .
   data <- model$data
   
   if (is.null(data)) {
-    stop("Model does not contain data. Please use analyze_focus_by_group with explicit data.", 
+    stop("Model does not contain data. Please use analyse_focus_by_group with explicit data.", 
          call. = FALSE)
   }
   
@@ -218,7 +218,7 @@ compare_focus_by_groups <- function(model, focus, grouping_var, groups = NULL, .
     family <- model$family
   }
   
-  analyze_focus_by_group(
+  analyse_focus_by_group(
     model_formula = model_formula,
     focus = focus,
     grouping_var = grouping_var,

@@ -18,7 +18,7 @@ and the influence of each term.
 - **Multi-family Support**: Automatic detection and family-specific calculations for Gaussian,
   binomial, gamma, and Poisson GLM families
 - **Comprehensive Plotting**: Stepwise indices, term influences, CDI plots, random effect diagnostics
-- **Statistical Rigor**: Proper confidence intervals, geometric mean calculations, family-appropriate aggregation
+- **Statistical Rigour**: Proper confidence intervals, geometric mean calculations, family-appropriate aggregation
 - **Flexible Analysis**: Supports all mgcv smoother types and by-variable interactions
 
 **Main Functions:**

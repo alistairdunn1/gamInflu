@@ -4,7 +4,17 @@
 \alias{calculate_influence}
 \title{Perform Influence Calculations}
 \usage{
-calculate_influence(obj, ...)
+calculate_influence(
+  obj,
+  islog = NULL,
+  rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+  custom_rescale_value = 1,
+  confidence_level = 0.95,
+  family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+  subset_var = NULL,
+  subset_value = NULL,
+  ...
+)
 }
 \arguments{
 \item{obj}{An object for which to perform calculations.}

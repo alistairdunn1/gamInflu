@@ -14,7 +14,7 @@
 #' The unstandardised index shows the raw relationship, while the standardised index accounts for
 #' all other model terms and their interactions.
 #'
-#' **Family-specific behavior:**
+#' **Family-specific behaviour:**
 #' - **Gaussian**: Traditional CPUE-style indices with geometric/arithmetic mean aggregation
 #' - **Binomial**: Probability-based indices for presence/absence data
 #' - **Gamma**: Positive continuous indices using geometric mean methods
@@ -46,8 +46,8 @@ plot_standardisation <- function(obj) {
   if (is.null(df)) {
     stop("No indices calculated. Please run `calculate_influence()` first.", call. = FALSE)
   }
-  if (!("unstan" %in% names(df)) || !("standardized_index" %in% names(df))) {
-    stop("Data frame must contain 'unstan' and 'standardized_index' columns.", call. = FALSE)
+  if (!("unstan" %in% names(df)) || !("standardised_index" %in% names(df))) {
+    stop("Data frame must contain 'unstan' and 'standardised_index' columns.", call. = FALSE)
   }
   if (!("level" %in% names(df))) {
     stop("Data frame must contain a 'level' column for the focus term.", call. = FALSE)
@@ -68,8 +68,8 @@ plot_standardisation <- function(obj) {
     ggplot2::geom_hline(ggplot2::aes(yintercept = 1), linetype = "dashed", colour = "grey") +
     ggplot2::geom_line(ggplot2::aes(y = .data$unstan, colour = "Unstandardised")) +
     ggplot2::geom_point(ggplot2::aes(y = .data$unstan, colour = "Unstandardised")) +
-    ggplot2::geom_line(ggplot2::aes(y = .data$standardized_index, colour = "Standardised")) +
-    ggplot2::geom_point(ggplot2::aes(y = .data$standardized_index, colour = "Standardised")) +
+    ggplot2::geom_line(ggplot2::aes(y = .data$standardised_index, colour = "Standardised")) +
+    ggplot2::geom_point(ggplot2::aes(y = .data$standardised_index, colour = "Standardised")) +
     ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$stan_lower, ymax = .data$stan_upper), fill = "royalblue", alpha = 0.2) +
     ggplot2::labs(x = obj$focus, y = "Index", colour = "") +
     ggplot2::scale_colour_manual(values = c("Unstandardised" = "grey40", "Standardised" = "royalblue")) +

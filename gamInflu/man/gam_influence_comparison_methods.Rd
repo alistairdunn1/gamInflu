@@ -13,7 +13,7 @@
 \item{...}{Additional arguments (not used).}
 }
 \description{
-S3 methods for objects created by analyze_focus_by_group
+S3 methods for objects created by analyse_focus_by_group
 
 Prints a summary of the grouped influence analysis results.
 }

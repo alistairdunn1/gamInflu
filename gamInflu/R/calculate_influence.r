@@ -54,7 +54,13 @@ validate_gam_influence <- function(obj) {
 #' @param obj An object for which to perform calculations.
 #' @param ... Additional arguments passed to methods.
 #' @export
-calculate_influence <- function(obj, ...) {
+calculate_influence <- function(obj, islog = NULL,
+                                rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+                                custom_rescale_value = 1,
+                                confidence_level = 0.95,
+                                family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+                                subset_var = NULL,
+                                subset_value = NULL, ...) {
   UseMethod("calculate_influence")
 }
 
@@ -64,15 +70,20 @@ calculate_influence <- function(obj, ...) {
 #' performs a step-wise model build to assess term contributions, and computes
 #' influence statistics (overall and trend). Enhanced with comprehensive support
 #' for multiple GLM families including binomial, gamma, and Poisson distributions.
+#' Includes subset-based analysis for models with interaction terms.
 #' @param obj A `gam_influence` object.
 #' @param islog Logical. Is the response variable log-transformed? If NULL (default),
 #'   the function infers this by checking if the response name starts with "log(" or model family.
 #' @param rescale_method Character. How to rescale the indices. Options: "geometric_mean" (default),
 #'   "arithmetic_mean", "raw", or "custom".
 #' @param custom_rescale_value Numeric. Custom rescaling value when rescale_method = "custom".
-#' @param confidence_level Numeric. Confidence level for standardized index intervals (default 0.95).
+#' @param confidence_level Numeric. Confidence level for standardised index intervals (default 0.95).
 #' @param family_method Character. How to handle different GLM families. Options: "auto" (default),
 #'   "gaussian", "binomial", "gamma", "poisson". When "auto", family is detected from model.
+#' @param subset_var Character. Name of variable to subset on (e.g., "area", "gear_type").
+#' @param subset_value Value to subset by (e.g., "North", "Trawl"). When both subset_var and
+#'   subset_value are provided, influence analysis is performed only on the subset of data
+#'   matching this condition, while using the full model for predictions.
 #' @param ... Additional arguments (currently unused).
 #' @return The `gam_influence` object, now containing a `calculated` list with data frames
 #'   for indices, summary stats, influences, predictions, and s.e. of predictions.
@@ -80,6 +91,15 @@ calculate_influence <- function(obj, ...) {
 #' The influence calculation follows Bentley et al. (2012):
 #' - Overall influence: exp(mean(|effects|)) - 1
 #' - Trend influence: exp(cov(levels, effects)/var(levels)) - 1
+#'
+#' **Subset-Based Analysis:**
+#'
+#' When subset_var and subset_value are provided, the function performs influence analysis
+#' on a subset of the data while using the full model for predictions. This is particularly
+#' useful for models with interaction terms like year*area:
+#' - Model fitted on full dataset (better estimation of smooth terms)
+#' - Influence analysis focused on specific subset (e.g., area = "North")
+#' - Maintains statistical power while enabling group-specific interpretation
 #'
 #' **Enhanced Family Support:**
 #'
@@ -91,7 +111,7 @@ calculate_influence <- function(obj, ...) {
 #' - **Automatic Detection**: Family is auto-detected from model object when family_method="auto"
 #'
 #' Each family uses statistically appropriate aggregation methods and handles edge cases
-#' like zeros in count data or proportions in binomial models. The standardized index
+#' like zeros in count data or proportions in binomial models. The standardised index
 #' uses model predictions with proper uncertainty quantification for all families.
 #' @importFrom stats predict aggregate logLik AIC deviance terms update as.formula var cov setNames qnorm
 #' @export
@@ -99,11 +119,41 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
                                               rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
                                               custom_rescale_value = 1,
                                               confidence_level = 0.95,
-                                              family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"), ...) {
+                                              family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+                                              subset_var = NULL,
+                                              subset_value = NULL, ...) {
   # Validate inputs
   validate_gam_influence(obj)
   if (confidence_level <= 0 || confidence_level >= 1) {
     stop("confidence_level must be between 0 and 1", call. = FALSE)
+  }
+
+  # --- Subset Analysis Implementation ---
+  # Handle subset-based influence analysis if requested
+  if (!is.null(subset_var) && !is.null(subset_value)) {
+    # Validate subset parameters
+    if (!subset_var %in% names(obj$data)) {
+      stop("subset_var '", subset_var, "' not found in data", call. = FALSE)
+    }
+
+    # Create subset data
+    subset_indices <- obj$data[[subset_var]] == subset_value
+    if (sum(subset_indices) == 0) {
+      stop("No observations found for ", subset_var, " = '", subset_value, "'", call. = FALSE)
+    }
+
+    # Update the obj$data to subset for influence calculations
+    # Keep original for model context
+    original_data <- obj$data
+    obj$data <- obj$data[subset_indices, , drop = FALSE]
+
+    message(
+      "Subset analysis: Using ", nrow(obj$data), " observations where ",
+      subset_var, " = '", subset_value, "' (from ", nrow(original_data), " total)"
+    )
+
+    # For subset analysis, we don't need multiple focus levels since we use the full model
+    # The focus term validation only applies to full analysis
   }
 
   # --- Setup and Family Detection ---
@@ -156,12 +206,13 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   # --- 1. Unstandardised Index ---
   # Calculate the raw, unadjusted index for the focus term.
   # Uses family-appropriate methods for different GLM families.
-  indices_df <- calculate_unstandardized_index(observed, obj$data[[obj$focus]], islog, family_method)
+  indices_df <- calculate_unstandardised_index(observed, obj$data[[obj$focus]], islog, family_method)
 
   # --- 2. Standardised Index (from the full model) ---
   # This is the final index after accounting for all terms in the model.
   # We extract the partial effects for the focus term.
-  preds_full <- predict(obj$model, type = "terms", se.fit = TRUE)
+  # For subset analysis, we predict using the full model but only on subset data
+  preds_full <- predict(obj$model, newdata = obj$data, type = "terms", se.fit = TRUE)
 
   # Identify columns related to the focus term in preds_full$fit
   # For factor terms like 'year', predict(type="terms") will return columns like 'year1990', 'year1991', etc.
@@ -199,7 +250,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   stan_df$stanLower <- exp(stan_df$fit - base - z_score * stan_df$se)
   stan_df$stanUpper <- exp(stan_df$fit - base + z_score * stan_df$se)
 
-  # Apply rescaling to both unstandardized and standardized indices
+  # Apply rescaling to both unstandardised and standardised indices
   indices_df$unstan <- rescale_index(indices_df$unstan, rescale_method, custom_rescale_value)
   stan_df$stan <- rescale_index(stan_df$stan, rescale_method, custom_rescale_value)
   stan_df$stanLower <- rescale_index(stan_df$stanLower, rescale_method, custom_rescale_value)
@@ -209,61 +260,82 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
   # --- 3. Step-wise Calculations ---
   # Build the model one term at a time to see how the index and model fit change.
+  # Note: For subset analysis, stepwise calculations are skipped to avoid
+  # model fitting issues with different data
   summary_list <- list()
   step_indices_list <- list()
 
-  # Start with an intercept-only model
-  model_int <- update(obj$model, . ~ 1, data = obj$data)
-  logLike_int <- as.numeric(logLik(model_int))
-  summary_list[["intercept"]] <- data.frame(
-    term = "Intercept",
-    logLike = logLike_int,
-    aic = AIC(model_int),
-    r_sq = 0,
-    deviance_explained = 0
-  )
-
-  # Sequentially add each term from the original model formula
+  # Define all_terms for use in both stepwise and influence calculations
   all_terms <- obj$terms
-  for (i in seq_along(all_terms)) {
-    current_terms <- all_terms[1:i]
-    formula_str <- paste("~", paste(current_terms, collapse = " + "))
-    model_step <- update(obj$model, as.formula(formula_str), data = obj$data)
 
-    # Store the step-wise index if the focus term is in the current model
-    if (obj$focus %in% current_terms) {
-      step_preds <- predict(model_step, type = "terms")
-      focus_cols <- grep(paste0("^", obj$focus), colnames(step_preds), value = TRUE)
-      if (length(focus_cols) == 0) {
-        stop(paste0("Could not find any columns for focus term '", obj$focus, "' in step-wise model predictions (type='terms')."))
+  # Check if this is subset analysis
+  is_subset_analysis <- !is.null(subset_var) && !is.null(subset_value)
+
+  if (!is_subset_analysis) {
+    # Perform stepwise analysis only for full dataset analysis
+
+    # Start with an intercept-only model
+    model_int <- update(obj$model, . ~ 1, data = obj$data)
+    logLike_int <- as.numeric(logLik(model_int))
+    summary_list[["intercept"]] <- data.frame(
+      term = "Intercept",
+      logLike = logLike_int,
+      aic = AIC(model_int),
+      r_sq = 0,
+      deviance_explained = 0
+    )
+
+    # Sequentially add each term from the original model formula
+    for (i in seq_along(all_terms)) {
+      current_terms <- all_terms[1:i]
+      formula_str <- paste("~", paste(current_terms, collapse = " + "))
+      model_step <- update(obj$model, as.formula(formula_str), data = obj$data)
+
+      # Store the step-wise index if the focus term is in the current model
+      if (obj$focus %in% current_terms) {
+        step_preds <- predict(model_step, newdata = obj$data, type = "terms")
+        focus_cols <- grep(paste0("^", obj$focus), colnames(step_preds), value = TRUE)
+        if (length(focus_cols) == 0) {
+          stop(paste0("Could not find any columns for focus term '", obj$focus, "' in step-wise model predictions (type='terms')."))
+        }
+        focus_effect_sum <- rowSums(step_preds[, focus_cols, drop = FALSE])
+        step_focus_effects <- aggregate(focus_effect_sum ~ obj$data[[obj$focus]], FUN = mean)
+        names(step_focus_effects) <- c("level", "effect")
+
+        base_step <- mean(step_focus_effects$effect)
+        step_focus_effects$index <- exp(step_focus_effects$effect - base_step)
+
+        # Name the column after the term that was just added
+        term_label <- paste("+", all_terms[i])
+        step_indices_list[[term_label]] <- step_focus_effects[, c("level", "index")]
+        names(step_indices_list[[term_label]])[2] <- term_label
       }
-      focus_effect_sum <- rowSums(step_preds[, focus_cols, drop = FALSE])
-      step_focus_effects <- aggregate(focus_effect_sum ~ obj$data[[obj$focus]], FUN = mean)
-      names(step_focus_effects) <- c("level", "effect")
 
-      base_step <- mean(step_focus_effects$effect)
-      step_focus_effects$index <- exp(step_focus_effects$effect - base_step)
+      # Store summary statistics for the current step
+      logLike_step <- as.numeric(logLik(model_step))
+      model_summary <- summary(model_step)
 
-      # Name the column after the term that was just added
-      term_label <- paste("+", all_terms[i])
-      step_indices_list[[term_label]] <- step_focus_effects[, c("level", "index")]
-      names(step_indices_list[[term_label]])[2] <- term_label
+      # Get R-squared and Deviance Explained, robust to model type (gam vs. glm)
+      r_sq_step <- if ("r.sq" %in% names(model_summary)) model_summary$r.sq else NA
+      dev_expl_step <- if ("dev.expl" %in% names(model_summary)) model_summary$dev.expl else (model_step$null.deviance - deviance(model_step)) / model_step$null.deviance
+
+      summary_list[[all_terms[i]]] <- data.frame(
+        term = all_terms[i],
+        logLike = logLike_step,
+        aic = AIC(model_step),
+        r_sq = r_sq_step,
+        deviance_explained = dev_expl_step
+      )
     }
-
-    # Store summary statistics for the current step
-    logLike_step <- as.numeric(logLik(model_step))
-    model_summary <- summary(model_step)
-
-    # Get R-squared and Deviance Explained, robust to model type (gam vs. glm)
-    r_sq_step <- if ("r.sq" %in% names(model_summary)) model_summary$r.sq else NA
-    dev_expl_step <- if ("dev.expl" %in% names(model_summary)) model_summary$dev.expl else (model_step$null.deviance - deviance(model_step)) / model_step$null.deviance
-
-    summary_list[[all_terms[i]]] <- data.frame(
-      term = all_terms[i],
-      logLike = logLike_step,
-      aic = AIC(model_step),
-      r_sq = r_sq_step,
-      deviance_explained = dev_expl_step
+  } else {
+    # For subset analysis, provide minimal summary stats
+    message("Stepwise analysis skipped for subset analysis")
+    summary_list[["full_model"]] <- data.frame(
+      term = "Full Model (Subset Analysis)",
+      logLike = as.numeric(logLik(obj$model)),
+      aic = AIC(obj$model),
+      r_sq = summary(obj$model)$r.sq,
+      deviance_explained = summary(obj$model)$dev.expl
     )
   }
 
@@ -310,7 +382,13 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
     # Trend influence: How the effect changes systematically across focus levels
     level_num <- as.numeric(infl$level)
-    trend_infl <- if (var(level_num) > 0) exp(cov(level_num, infl$influence) / var(level_num)) - 1 else 0
+    # Add safety checks for subset analysis
+    if (any(is.na(level_num)) || any(is.na(infl$influence)) ||
+      length(level_num) < 2 || is.na(var(level_num)) || var(level_num) == 0) {
+      trend_infl <- 0
+    } else {
+      trend_infl <- exp(cov(level_num, infl$influence) / var(level_num)) - 1
+    }
 
     summary_df$overall[summary_df$term == term] <- overall_infl
     summary_df$trend[summary_df$term == term] <- trend_infl
@@ -352,9 +430,9 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     }
   )
 
-  # Rename standardized index columns for consistency with package API
+  # Rename standardised index columns for consistency with package API
   if ("stan" %in% names(indices_df)) {
-    names(indices_df)[names(indices_df) == "stan"] <- "standardized_index"
+    names(indices_df)[names(indices_df) == "stan"] <- "standardised_index"
   }
   if ("stanLower" %in% names(indices_df)) {
     names(indices_df)[names(indices_df) == "stanLower"] <- "stan_lower"
@@ -419,7 +497,7 @@ find_term_columns <- function(term, colnames_vec) {
 #' @details
 #' The geometric mean is calculated as exp(mean(log(x))) and is appropriate for:
 #' - Gamma family models with positive data
-#' - Log-normal processes in fisheries CPUE standardization
+#' - Log-normal processes in fisheries CPUE standardisation
 #' - Multiplicative effects and indices
 #'
 #' When non-positive values are encountered, the function automatically falls back
@@ -434,7 +512,7 @@ find_term_columns <- function(term, colnames_vec) {
 #'
 #' # In index calculations
 #' index_values <- c(0.8, 1.2, 1.1, 0.9)
-#' standardized <- index_values / geometric_mean(index_values)
+#' standardised <- index_values / geometric_mean(index_values)
 #' }
 #' @export
 geometric_mean <- function(x, na.rm = TRUE) {
@@ -464,15 +542,15 @@ rescale_index <- function(index, method = c("geometric_mean", "arithmetic_mean",
   )
 }
 
-#' @title Calculate Unstandardized Index
-#' @description Calculate the unstandardized index with robust zero handling and family-specific methods
+#' @title Calculate Unstandardised Index
+#' @description Calculate the unstandardised index with robust zero handling and family-specific methods
 #' @param observed Numeric vector of observed values
 #' @param focus_var Factor or numeric vector of focus variable levels
 #' @param islog Logical. Whether to use log transformation
 #' @param family_method Character. GLM family method to use
 #' @return Data frame with level and unstan columns
 #' @noRd
-calculate_unstandardized_index <- function(observed, focus_var, islog = NULL, family_method = "gaussian") {
+calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, family_method = "gaussian") {
   if (is.null(islog)) {
     islog <- all(observed > 0) && !any(observed == 0)
   }

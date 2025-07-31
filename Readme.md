@@ -1,6 +1,6 @@
 # gamInflu
 
-**gamInflu** provides comprehensive influence analysis tools for Generalized Additive Models (GAMs) fitted with the `mgcv` package in R. Enhanced with **multi-family support** for Gaussian, binomial, gamma, and Poisson distributions. It supports all smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms), and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, diagnostics for random effects, and family-specific standardized indices to help you understand model structure and the influence of each term.
+**gamInflu** provides comprehensive influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. Enhanced with **multi-family support** for Gaussian, binomial, gamma, and Poisson distributions. It supports all smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms), and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, diagnostics for random effects, and family-specific standardised indices to help you understand model structure and the influence of each term.
 
 [![R Package](https://img.shields.io/badge/R-package-blue.svg)](https://www.r-project.org/)
 [![Version](https://img.shields.io/badge/version-0.1-orange.svg)](https://github.com/alistairdunn1/gamInflu)
@@ -8,19 +8,20 @@
 
 ---
 
-## 🆕 Enhanced Family Support
+## Family Support
 
-**gamInflu** now supports multiple GLM families with automatic detection and family-specific statistical methods:
+**gamInflu**  supports multiple GLM families with automatic detection and family-specific statistical methods:
 
-- **Gaussian** 📈 Traditional log-normal CPUE standardization
-- **Binomial** 🎯 Presence/absence, catch probability, proportion data  
+- **Gaussian** 📈 Traditional log-normal CPUE standardisation
+- **Binomial** 🎯 Presence/absence, catch probability, proportion data
 - **Gamma** 📊 Positive continuous data (biomass, CPUE without zeros)
 - **Poisson** 🔢 Count data (fish numbers, abundance indices)
 
 **Key Features:**
+
 - ✅ Automatic family detection from model objects
 - ✅ Family-appropriate index calculation methods
-- ✅ Enhanced statistical rigor with geometric mean support
+- ✅ Enhanced statistical rigour with geometric mean support
 - ✅ Comprehensive validation and error handling
 - ✅ Backward compatibility with existing workflows
 
@@ -44,6 +45,9 @@ install.packages("gamInflu_0.1.0.tar.gz", repos = NULL, type = "source")
 ```r
 library(gamInflu)
 
+# Prepare data: focus term must be a factor
+your_data$year <- factor(your_data$year)
+
 # 1. Create influence object (works with any GLM family)
 gi <- gam_influence(your_gam_model, focus = "year")
 
@@ -61,19 +65,25 @@ plot_term_influence(gi)     # Term influences
 ```r
 library(mgcv)
 
+# Important: Focus term must be a factor!
+# Best practice: Convert to factor in data beforehand
+
 # Binomial model (presence/absence)
+fish_data$year <- factor(fish_data$year)
 mod_binom <- gam(presence ~ s(depth) + s(temp) + year, 
                  data = fish_data, family = binomial())
 gi_binom <- gam_influence(mod_binom, focus = "year")
 gi_binom <- calculate_influence(gi_binom)  # Auto-detects binomial
 
 # Gamma model (biomass)
+survey_data$year <- factor(survey_data$year)
 mod_gamma <- gam(biomass ~ s(effort) + s(sst) + year, 
                  data = survey_data, family = Gamma(link="log"))
 gi_gamma <- gam_influence(mod_gamma, focus = "year")
 gi_gamma <- calculate_influence(gi_gamma)  # Auto-detects gamma
 
 # Poisson model (count data)
+catch_data$year <- factor(catch_data$year)
 mod_pois <- gam(fish_count ~ s(depth) + s(longitude) + year, 
                 data = catch_data, family = poisson())
 gi_pois <- gam_influence(mod_pois, focus = "year")
@@ -111,13 +121,6 @@ gi <- calculate_influence(gi, family_method = "binomial")
 | **Gamma**    | Positive continuous | Geometric mean            | Biomass, positive CPUE              |
 | **Poisson**  | Non-negative counts | Count-appropriate         | Fish numbers, abundance counts      |
 
-### Enhanced Statistical Features
-
-- **Geometric Mean**: Robust aggregation for multiplicative processes
-- **Confidence Intervals**: Proper uncertainty quantification for all families  
-- **Edge Case Handling**: Zeros in count data, proportions in binomial models
-- **Validation**: Family compatibility checking and data validation
-
 ---
 
 ## Main Functions and Examples
@@ -127,7 +130,10 @@ gi <- calculate_influence(gi, family_method = "binomial")
 Initializes the analysis object for your fitted GAM.
 
 ```r
-gi <- gam_influence(mod, focus = "year", data = mydata)
+# Assuming your data has been prepared with year as factor
+gi <- gam_influence(mod, focus = "year")
+# or explicitly provide data if needed:
+# gi <- gam_influence(mod, focus = "year", data = mydata)
 ```
 
 ### Calculate influence metrics
@@ -177,14 +183,16 @@ Multi-panel plot showing the effect, data distribution, and influence for a spec
 ```r
 plot_cdi(gi, term = "s(temp)")
 ```
+
 or use an integer index to refer to the term,
+
 ```r
 plot_cdi(gi, term = 2)
 ```
 
 ### Plot predicted effects for all terms
 
-Visualizes the predicted effects for each term in the model.
+Visualises the predicted effects for each term in the model.
 
 ```r
 plot_terms(gi)
@@ -193,13 +201,15 @@ plot_terms(gi)
 ### Plot predicted effects for a single term (including random effects and by-variable panels)
 
 ```r
-plot_terms(gi, term = "s(site, bs='re')", type = "bar")
+plot_terms(gi, term = "s(site, bs='re')", re_type = "points")
 plot_terms(gi, term = "s(temp, by=season)")
 plot_terms(gi, term = "te(lon, lat)")
 ```
+
 or
+
 ```r
-plot_terms(gi, term = 3, type = "bar")
+plot_terms(gi, term = 3, re_type = "points")
 plot_terms(gi, term = 4)
 plot_terms(gi, term = 5)
 ```
@@ -215,10 +225,10 @@ plot_term_distribution(gi, term = "s(temp)")
 ### Plot random effect diagnostics (QQ plot, histogram, caterpillar plot, points)
 
 ```r
-plot_re(gi, term = "site", type = "qq")
-plot_re(gi, term = "site", type = "hist")
-plot_re(gi, term = "site", type = "caterpillar")
-plot_re(gi, term = "site", type = "points")
+plot_re(gi, term = "site", re_type = "qq")
+plot_re(gi, term = "site", re_type = "hist")
+plot_re(gi, term = "site", re_type = "caterpillar")
+plot_re(gi, term = "site", re_type = "points")
 ```
 
 ### Extract model terms
@@ -259,7 +269,7 @@ plot_terms(gi, term = "s(temp, by=season)")
 #### Plotting random effects
 
 ```r
-plot_terms(gi, term = "s(site, bs='re')", type = "violin")
+plot_terms(gi, term = "s(site, bs='re')", re_type = "points")
 ```
 
 #### Plotting 2D tensor smooths
@@ -290,11 +300,13 @@ library(mgcv)
 library(gamInflu)
 
 # Fit binomial GAM for presence/absence data
+# Prepare data with factor
+survey_data$year <- factor(survey_data$year)
 mod_presence <- gam(fish_present ~ s(depth) + s(temperature) + year, 
                     data = survey_data, 
                     family = binomial())
 
-# Analyze presence probability trends
+# Analyse presence probability trends
 gi_presence <- gam_influence(mod_presence, focus = "year")
 gi_presence <- calculate_influence(gi_presence)  # Auto-detects binomial
 
@@ -308,11 +320,13 @@ plot_term_influence(gi_presence)      # Environmental influences
 
 ```r
 # Fit Gamma GAM for positive biomass data
+# Prepare data with factor
+trawl_data$year <- factor(trawl_data$year)
 mod_biomass <- gam(biomass ~ s(effort) + s(sst) + te(lon, lat) + year,
                    data = trawl_data,
                    family = Gamma(link = "log"))
 
-# Analyze biomass index trends
+# Analyse biomass index trends
 gi_biomass <- gam_influence(mod_biomass, focus = "year") 
 gi_biomass <- calculate_influence(gi_biomass)  # Auto-detects gamma
 
@@ -326,17 +340,19 @@ plot_terms(gi_biomass)                # All model terms
 
 ```r
 # Fit Poisson GAM for fish count data
+# Prepare data with factor
+acoustic_data$year <- factor(acoustic_data$year)
 mod_counts <- gam(fish_count ~ s(depth) + s(current_speed) + area + year,
                   data = acoustic_data,
                   family = poisson())
 
-# Analyze abundance index
+# Analyse abundance index
 gi_counts <- gam_influence(mod_counts, focus = "year")
 gi_counts <- calculate_influence(gi_counts)  # Auto-detects poisson
 
 # Random effects diagnostics  
-plot_re(gi_counts, term = "area", type = "caterpillar")
-plot_re(gi_counts, term = "area", type = "qq")
+plot_re(gi_counts, term = "area", re_type = "caterpillar")
+plot_re(gi_counts, term = "area", re_type = "qq")
 ```
 
 ### Advanced Family Options
@@ -367,20 +383,13 @@ To cite the **gamInflu** package in publications, please use:
 
 Please also cite the foundational methodology:
 
-> Bentley, N., Kendrick, T. H., Starr, P. J., & Breen, P. A. (2012). Influence plots and metrics: tools for better understanding fisheries catch-per-unit-effort standardizations. *ICES Journal of Marine Science*, 69(1), 84–88. https://doi.org/10.1093/icesjms/fsr174
+> Bentley, N., Kendrick, T. H., Starr, P. J., & Breen, P. A. (2012). Influence plots and metrics: tools for better understanding fisheries catch-per-unit-effort standardisations. *ICES Journal of Marine Science*, 69(1), 84–88. https://doi.org/10.1093/icesjms/fsr174
 
 You can generate a citation in R with:
 
 ```r
 citation("gamInflu")
 ```
-
-**Key Enhancements in Version 0.1:**
-- ✅ Multi-family GLM support (Gaussian, binomial, gamma, Poisson)
-- ✅ Automatic family detection and family-specific methods
-- ✅ Enhanced statistical rigor with geometric mean calculations
-- ✅ Comprehensive validation and error handling
-- ✅ Expanded applications beyond traditional fisheries CPUE
 
 ---
 

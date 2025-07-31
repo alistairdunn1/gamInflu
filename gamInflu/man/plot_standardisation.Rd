@@ -27,7 +27,7 @@ The standardisation plot visualizes the effect of model standardisation on the f
 The unstandardised index shows the raw relationship, while the standardised index accounts for
 all other model terms and their interactions.
 
-**Family-specific behavior:**
+**Family-specific behaviour:**
 - **Gaussian**: Traditional CPUE-style indices with geometric/arithmetic mean aggregation
 - **Binomial**: Probability-based indices for presence/absence data
 - **Gamma**: Positive continuous indices using geometric mean methods
