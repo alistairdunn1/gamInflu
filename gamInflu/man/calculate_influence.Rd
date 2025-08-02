@@ -2,6 +2,7 @@
 % Please edit documentation in R/calculate_influence.R
 \name{calculate_influence}
 \alias{calculate_influence}
+\alias{calculate_influence.gam_influence}
 \title{Perform Influence Calculations}
 \usage{
 calculate_influence(
@@ -15,12 +16,54 @@ calculate_influence(
   subset_value = NULL,
   ...
 )
+
+\method{calculate_influence}{gam_influence}(
+  obj,
+  islog = NULL,
+  rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+  custom_rescale_value = 1,
+  confidence_level = 0.95,
+  family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+  subset_var = NULL,
+  subset_value = NULL,
+  ...
+)
 }
 \arguments{
-\item{obj}{An object for which to perform calculations.}
+\item{obj}{A \code{gam_influence} object.}
 
-\item{...}{Additional arguments passed to methods.}
+\item{islog}{Logical. Is the response variable log-transformed? If NULL (default), inferred from response name or model family.}
+
+\item{rescale_method}{Character. How to rescale the indices. Options: "geometric_mean" (default), "arithmetic_mean", "raw", "custom".}
+
+\item{custom_rescale_value}{Numeric. Custom rescaling value when rescale_method = "custom".}
+
+\item{confidence_level}{Numeric. Confidence level for standardised index intervals (default 0.95).}
+
+\item{family_method}{Character. How to handle different GLM families. Options: "auto" (default), "gaussian", "binomial", "gamma", "poisson".}
+
+\item{subset_var}{Character. Name of variable to subset on (e.g., "area", "gear_type").}
+
+\item{subset_value}{Value to subset by (e.g., "North", "Trawl"). If both subset_var and subset_value are provided, analysis is performed only on the subset, using the full model for predictions.}
+
+\item{...}{Additional arguments (currently unused).}
+
+\item{use_coeff_method}{Logical. If TRUE (default), uses coefficient-based CI calculation (influ.r approach). If FALSE, uses prediction-based CI calculation.}
+}
+\value{
+The \code{gam_influence} object, now containing a \code{calculated} list with data frames for indices, summary stats, influences, predictions, and s.e. of predictions.
 }
 \description{
-A generic S3 function to perform calculations on a `gam_influence` object.
+Perform calculations on a \code{gam_influence} object, including unstandardised and standardised indices, step-wise model building, and influence statistics. Supports subset-based analysis and multiple GLM families.
+}
+\details{
+The function calculates unstandardised and standardised indices, confidence intervals, standard errors, and coefficients of variation (CV) using model predictions. For log-transformed data, calculations are performed in log space and exponentiated. Step-wise model building and influence statistics are also included.
+}
+\examples{
+\dontrun{
+data$year <- factor(data$year)
+mod <- mgcv::gam(cpue ~ year + s(depth), data = data, family = Gamma(link = "log"))
+gi <- gam_influence(mod, focus = "year")
+gi <- calculate_influence(gi)
+}
 }

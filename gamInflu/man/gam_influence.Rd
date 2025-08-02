@@ -4,7 +4,7 @@
 \alias{gam_influence}
 \title{Create a GAM Influence Object}
 \usage{
-gam_influence(model, focus, data = NULL, islog = NULL)
+gam_influence(model, focus, data = NULL, islog = NULL, use_coeff_method = TRUE)
 }
 \arguments{
 \item{model}{A fitted model object from mgcv (gam) or stats (glm). Supported families:
@@ -22,6 +22,12 @@ to extract it from the model object.}
 \item{islog}{A logical value indicating whether the response variable is on a
 logarithmic scale. If NULL, this will be inferred automatically by
 `calculate_influence()` based on the response variable name and model family.}
+
+\item{use_coeff_method}{A logical value indicating whether to use coefficient-based
+confidence intervals (TRUE, default) following the influ.r approach, or prediction-based
+confidence intervals (FALSE) using modern mgcv prediction methods. The coefficient-based
+method provides traditional relative effect calculations similar to influ.r, while
+prediction-based method uses direct model predictions with uncertainty propagation.}
 }
 \value{
 An object of S3 class 'gam_influence'. This is a list containing the model,

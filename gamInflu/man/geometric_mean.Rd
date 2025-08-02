@@ -12,33 +12,8 @@ geometric_mean(x, na.rm = TRUE)
 \item{na.rm}{Logical. Should missing values be removed before calculation? Default is TRUE.}
 }
 \value{
-The geometric mean of the input vector. If non-positive values are present,
-  issues a warning and returns the arithmetic mean as a fallback.
+The geometric mean of the input vector.
 }
 \description{
-Calculate the geometric mean of a numeric vector, with robust handling of
-  missing values and non-positive values. Essential for family-specific index calculations
-  in gamma and log-normal models where multiplicative processes are expected.
-}
-\details{
-The geometric mean is calculated as exp(mean(log(x))) and is appropriate for:
-- Gamma family models with positive data
-- Log-normal processes in fisheries CPUE standardisation
-- Multiplicative effects and indices
-
-When non-positive values are encountered, the function automatically falls back
-to the arithmetic mean to ensure robust calculations across different data types.
-}
-\examples{
-\dontrun{
-# Basic usage
-geometric_mean(c(1, 2, 4, 8)) # Returns 2.83
-
-# With zeros (falls back to arithmetic mean)
-geometric_mean(c(0, 1, 2, 4)) # Warning + arithmetic mean
-
-# In index calculations
-index_values <- c(0.8, 1.2, 1.1, 0.9)
-standardised <- index_values / geometric_mean(index_values)
-}
+Calculate the geometric mean of a numeric vector, with robust handling of missing values and non-positive values.
 }

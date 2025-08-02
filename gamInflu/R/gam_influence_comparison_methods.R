@@ -16,7 +16,7 @@ print.gam_influence_comparison <- function(x, ...) {
   cat("Groups:", paste(x$groups, collapse = ", "), "\n")
   cat("Model family:", x$family$family, "\n")
   cat("Formula:", deparse(x$formula), "\n\n")
-  
+
   # Show sample sizes and focus levels per group
   cat("Group Details:\n")
   for (group in x$groups) {
@@ -25,7 +25,7 @@ print.gam_influence_comparison <- function(x, ...) {
     n_focus_levels <- length(unique(result$data[[x$focus]]))
     cat("  ", group, ": ", n_obs, " observations, ", n_focus_levels, " focus levels\n", sep = "")
   }
-  
+
   cat("\nUse plot() to visualize results or summary() for detailed statistics.\n")
 }
 
@@ -37,17 +37,17 @@ print.gam_influence_comparison <- function(x, ...) {
 summary.gam_influence_comparison <- function(object, ...) {
   cat("GAM Influence Comparison Analysis - Detailed Summary\n")
   cat("===================================================\n\n")
-  
+
   print(object)
-  
+
   cat("\nModel Fit Statistics by Group:\n")
   cat("------------------------------\n")
-  
+
   for (group in object$groups) {
     result <- object$results[[group]]
-    
+
     cat("\nGroup:", group, "\n")
-    
+
     # Model fit statistics
     if ("summary" %in% names(result$calculated)) {
       summary_stats <- result$calculated$summary
@@ -58,7 +58,7 @@ summary.gam_influence_comparison <- function(object, ...) {
         cat("  AIC:", round(final_stats$aic, 2), "\n")
       }
     }
-    
+
     # Focus term index range
     if ("indices" %in% names(result$calculated)) {
       indices <- result$calculated$indices
@@ -68,14 +68,14 @@ summary.gam_influence_comparison <- function(object, ...) {
       }
     }
   }
-  
+
   invisible(object)
 }
 
 #' @title Plot Method for gam_influence_comparison
 #' @description Creates comparative plots for grouped influence analysis results.
 #' @param x A gam_influence_comparison object.
-#' @param type Character string specifying plot type: "standardisation", "comparison", 
+#' @param type Character string specifying plot type: "standardisation", "comparison",
 #'   "stepwise", "influence", or "terms".
 #' @param groups Character vector of specific groups to plot (default: all groups).
 #' @param ncol Number of columns for multi-panel plots.
@@ -85,17 +85,16 @@ summary.gam_influence_comparison <- function(object, ...) {
 #' Plot types:
 #' - "standardisation": Standardized vs unstandardized indices for each group
 #' - "comparison": Direct comparison of standardized indices across groups
-#' - "stepwise": Stepwise index progression for each group  
+#' - "stepwise": Stepwise index progression for each group
 #' - "influence": Term influence plots for each group
 #' - "terms": Model term effects for each group
 #' @importFrom patchwork wrap_plots
 #' @importFrom ggplot2 ggplot aes geom_line geom_point geom_ribbon labs theme_minimal facet_wrap
 #' @export
-plot.gam_influence_comparison <- function(x, type = c("standardisation", "comparison", "stepwise", "influence", "terms"), 
+plot.gam_influence_comparison <- function(x, type = c("standardisation", "comparison", "stepwise", "influence", "terms"),
                                           groups = NULL, ncol = NULL, ...) {
-  
   type <- match.arg(type)
-  
+
   if (is.null(groups)) {
     groups <- x$groups
   } else {
@@ -105,35 +104,35 @@ plot.gam_influence_comparison <- function(x, type = c("standardisation", "compar
       stop("Groups not found: ", paste(missing_groups, collapse = ", "))
     }
   }
-  
+
   if (is.null(ncol)) {
     ncol <- min(3, length(groups))
   }
-  
+
   if (type == "comparison") {
     # Create combined comparison plot
     plot_comparison_indices(x, groups = groups, ...)
   } else {
     # Create individual plots for each group
     plots <- list()
-    
+
     for (group in groups) {
       result <- x$results[[group]]
-      
+
       p <- switch(type,
-        "standardisation" = plot_standardisation(result, ...) + 
+        "standardisation" = plot_standardisation(result, ...) +
           ggplot2::ggtitle(paste("Group:", group)),
-        "stepwise" = plot_stepwise_index(result, ...) + 
+        "stepwise" = plot_stepwise_index(result, ...) +
           ggplot2::ggtitle(paste("Group:", group)),
-        "influence" = plot_term_influence(result, ...) + 
+        "influence" = plot_term_influence(result, ...) +
           ggplot2::ggtitle(paste("Group:", group)),
-        "terms" = plot_terms(result, ...) + 
+        "terms" = plot_terms(result, ...) +
           ggplot2::ggtitle(paste("Group:", group))
       )
-      
+
       plots[[group]] <- p
     }
-    
+
     if (length(plots) == 1) {
       return(plots[[1]])
     } else {
@@ -153,18 +152,17 @@ plot.gam_influence_comparison <- function(x, type = c("standardisation", "compar
 #' @importFrom dplyr bind_rows
 #' @noRd
 plot_comparison_indices <- function(x, groups = NULL, confidence_intervals = TRUE, ...) {
-  
   if (is.null(groups)) {
     groups <- x$groups
   }
-  
+
   # Combine standardized indices from all groups
   combined_data <- list()
-  
+
   for (group in groups) {
     result <- x$results[[group]]
     indices <- result$calculated$indices
-    
+
     if ("standardized_index" %in% names(indices)) {
       df <- data.frame(
         level = indices$level,
@@ -172,28 +170,28 @@ plot_comparison_indices <- function(x, groups = NULL, confidence_intervals = TRU
         group = group,
         stringsAsFactors = FALSE
       )
-      
+
       # Add confidence intervals if available
       if (confidence_intervals && "stan_lower" %in% names(indices)) {
         df$lower <- indices$stan_lower
         df$upper <- indices$stan_upper
       }
-      
+
       combined_data[[group]] <- df
     }
   }
-  
+
   if (length(combined_data) == 0) {
     stop("No standardized indices found in results")
   }
-  
+
   plot_data <- dplyr::bind_rows(combined_data)
-  
+
   # Convert level to numeric if possible
   if (is.factor(plot_data$level) && all(!is.na(as.numeric(as.character(levels(plot_data$level)))))) {
     plot_data$level <- as.numeric(as.character(plot_data$level))
   }
-  
+
   p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = level, y = index, color = group, fill = group)) +
     ggplot2::geom_hline(yintercept = 1, linetype = "dashed", color = "grey50") +
     ggplot2::geom_line(size = 1) +
@@ -206,60 +204,13 @@ plot_comparison_indices <- function(x, groups = NULL, confidence_intervals = TRU
       subtitle = "Standardized indices with reference line at 1.0"
     ) +
     ggplot2::theme_minimal()
-  
+
   # Add confidence intervals if available
   if (confidence_intervals && "lower" %in% names(plot_data)) {
-    p <- p + 
+    p <- p +
       ggplot2::geom_ribbon(ggplot2::aes(ymin = lower, ymax = upper), alpha = 0.2) +
       ggplot2::scale_fill_viridis_d(name = x$grouping_var, guide = "none")
   }
-  
-  return(p)
-}
 
-#' @title Extract Indices from Comparison Object
-#' @description Extracts standardized indices from all groups for further analysis.
-#' @param x A gam_influence_comparison object.
-#' @param type Character string: "standardized", "unstandardized", or "both".
-#' @return A data frame with indices from all groups.
-#' @export
-extract_indices <- function(x, type = c("standardized", "unstandardized", "both")) {
-  
-  if (!inherits(x, "gam_influence_comparison")) {
-    stop("Object must be of class 'gam_influence_comparison'")
-  }
-  
-  type <- match.arg(type)
-  
-  combined_data <- list()
-  
-  for (group in x$groups) {
-    result <- x$results[[group]]
-    indices <- result$calculated$indices
-    
-    df <- data.frame(
-      level = indices$level,
-      group = group,
-      stringsAsFactors = FALSE
-    )
-    
-    if (type %in% c("unstandardized", "both") && "unstandardized_index" %in% names(indices)) {
-      df$unstandardized_index <- indices$unstandardized_index
-    }
-    
-    if (type %in% c("standardized", "both") && "standardized_index" %in% names(indices)) {
-      df$standardized_index <- indices$standardized_index
-      
-      # Add confidence intervals if available
-      if ("stan_lower" %in% names(indices)) {
-        df$stan_lower <- indices$stan_lower
-        df$stan_upper <- indices$stan_upper
-      }
-    }
-    
-    combined_data[[group]] <- df
-  }
-  
-  result_df <- dplyr::bind_rows(combined_data)
-  return(result_df)
+  return(p)
 }

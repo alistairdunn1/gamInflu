@@ -15,7 +15,7 @@
 \arguments{
 \item{x}{A gam_influence_comparison object.}
 
-\item{type}{Character string specifying plot type: "standardisation", "comparison", 
+\item{type}{Character string specifying plot type: "standardisation", "comparison",
 "stepwise", "influence", or "terms".}
 
 \item{groups}{Character vector of specific groups to plot (default: all groups).}
@@ -34,7 +34,7 @@ Creates comparative plots for grouped influence analysis results.
 Plot types:
 - "standardisation": Standardized vs unstandardized indices for each group
 - "comparison": Direct comparison of standardized indices across groups
-- "stepwise": Stepwise index progression for each group  
+- "stepwise": Stepwise index progression for each group
 - "influence": Term influence plots for each group
 - "terms": Model term effects for each group
 }

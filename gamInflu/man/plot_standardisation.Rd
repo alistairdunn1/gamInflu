@@ -4,15 +4,18 @@
 \alias{plot_standardisation}
 \title{Standardisation Plot}
 \usage{
-plot_standardisation(obj)
+plot_standardisation(obj, show_unstandardised = TRUE)
 }
 \arguments{
 \item{obj}{A `gam_influence` object containing calculated indices from `calculate_influence()`.}
+
+\item{show_unstandardised}{Logical. Should the unstandardised index be displayed? Default is TRUE.
+When FALSE, only the standardised index is shown and the legend is hidden for a cleaner plot.}
 }
 \value{
 A ggplot object showing both unstandardised and standardised indices, with confidence ribbon
   around the standardised index. The plot includes:
-  - Unstandardised index (grey line and points): Raw aggregated values by focus level
+  - Unstandardised index (grey line and points): Raw aggregated values by focus level (if show_unstandardised = TRUE)
   - Standardised index (blue line and points): Model-adjusted values accounting for all terms
   - Confidence ribbon (light blue): Uncertainty bounds around the standardised index
   - Reference line at y=1: Baseline for relative comparison
@@ -38,18 +41,21 @@ The confidence intervals are calculated using the specified confidence level fro
 }
 \examples{
 \dontrun{
-# Basic usage
+# Basic usage - shows both standardised and unstandardised
 gi <- gam_influence(your_model, focus = "year")
 gi <- calculate_influence(gi)
 plot_standardisation(gi)
+
+# Show only standardised index for cleaner presentation
+plot_standardisation(gi, show_unstandardised = FALSE)
 
 # With different families
 # Binomial model
 gi_binom <- calculate_influence(gi_binomial_model)
 plot_standardisation(gi_binom) # Shows probability indices
 
-# Gamma model
+# Gamma model - standardised only
 gi_gamma <- calculate_influence(gi_gamma_model)
-plot_standardisation(gi_gamma) # Shows geometric mean indices
+plot_standardisation(gi_gamma, show_unstandardised = FALSE) # Clean standardised plot
 }
 }

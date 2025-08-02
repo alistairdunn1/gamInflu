@@ -15,6 +15,11 @@
 #' @param islog A logical value indicating whether the response variable is on a
 #'   logarithmic scale. If NULL, this will be inferred automatically by
 #'   `calculate_influence()` based on the response variable name and model family.
+#' @param use_coeff_method A logical value indicating whether to use coefficient-based
+#'   confidence intervals (TRUE, default) following the influ.r approach, or prediction-based
+#'   confidence intervals (FALSE) using modern mgcv prediction methods. The coefficient-based
+#'   method provides traditional relative effect calculations similar to influ.r, while
+#'   prediction-based method uses direct model predictions with uncertainty propagation.
 #' @return An object of S3 class 'gam_influence'. This is a list containing the model,
 #'   data, focus term, response variable, and key term specifications that will be
 #'   used for family-specific influence calculations.
@@ -56,7 +61,7 @@
 #' }
 #' @importFrom stats terms formula
 #' @export
-gam_influence <- function(model, focus, data = NULL, islog = NULL) {
+gam_influence <- function(model, focus, data = NULL, islog = NULL, use_coeff_method = TRUE) {
   # --- Data Extraction and Validation ---
   if (is.null(data)) {
     data <- model$data
@@ -97,6 +102,7 @@ gam_influence <- function(model, focus, data = NULL, islog = NULL) {
       response = response_var,
       terms = term_labels,
       islog = islog,
+      use_coeff_method = use_coeff_method,
       calculated = FALSE # This list will be populated by calculate_influence()
     ),
     class = "gam_influence"

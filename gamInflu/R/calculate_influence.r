@@ -1,58 +1,25 @@
-#' @title Validate gam_influence object
-#' @description Internal function to validate gam_influence objects and check family compatibility
-#' @param obj A gam_influence object to validate
-#' @return TRUE if valid, otherwise throws an error
-#' @noRd
-validate_gam_influence <- function(obj) {
-  if (!inherits(obj, "gam_influence")) {
-    stop("Object must be of class 'gam_influence'", call. = FALSE)
-  }
-  if (!inherits(obj$model, "gam")) {
-    stop("Model must be a GAM object from mgcv package", call. = FALSE)
-  }
-  if (!obj$focus %in% obj$terms) {
-    stop("Focus term must be present in model terms", call. = FALSE)
-  }
-  if (nrow(obj$data) == 0) {
-    stop("Data cannot be empty", call. = FALSE)
-  }
-
-  # Check family compatibility
-  if (!is.null(obj$model$family)) {
-    family_name <- obj$model$family$family
-    supported_families <- c("gaussian", "binomial", "Gamma", "gamma", "poisson", "quasi", "quasipoisson", "quasibinomial")
-
-    if (!family_name %in% supported_families) {
-      warning("Family '", family_name, "' may not be fully supported. Supported families: ",
-        paste(supported_families, collapse = ", "),
-        call. = FALSE
-      )
-    }
-
-    # Check for common issues
-    observed <- obj$data[[obj$response]]
-    if (family_name == "binomial" && !all(observed >= 0 & observed <= 1)) {
-      if (!all(observed %in% c(0, 1))) {
-        warning("Binomial family detected but response values are not between 0-1 or binary. This may cause issues.", call. = FALSE)
-      }
-    }
-
-    if (family_name %in% c("Gamma", "gamma") && any(observed <= 0)) {
-      warning("Gamma family detected but response contains non-positive values. This may cause issues.", call. = FALSE)
-    }
-
-    if (family_name == "poisson" && any(observed < 0)) {
-      warning("Poisson family detected but response contains negative values. This may cause issues.", call. = FALSE)
-    }
-  }
-
-  TRUE
-}
-
 #' @title Perform Influence Calculations
-#' @description A generic S3 function to perform calculations on a `gam_influence` object.
-#' @param obj An object for which to perform calculations.
-#' @param ... Additional arguments passed to methods.
+#' @description Perform calculations on a \code{gam_influence} object, including unstandardised and standardised indices, step-wise model building, and influence statistics. Supports subset-based analysis and multiple GLM families.
+#' @param obj A \code{gam_influence} object.
+#' @param islog Logical. Is the response variable log-transformed? If NULL (default), inferred from response name or model family.
+#' @param rescale_method Character. How to rescale the indices. Options: "geometric_mean" (default), "arithmetic_mean", "raw", "custom".
+#' @param custom_rescale_value Numeric. Custom rescaling value when rescale_method = "custom".
+#' @param confidence_level Numeric. Confidence level for standardised index intervals (default 0.95).
+#' @param family_method Character. How to handle different GLM families. Options: "auto" (default), "gaussian", "binomial", "gamma", "poisson".
+#' @param use_coeff_method Logical. If TRUE (default), uses coefficient-based CI calculation (influ.r approach). If FALSE, uses prediction-based CI calculation.
+#' @param subset_var Character. Name of variable to subset on (e.g., "area", "gear_type").
+#' @param subset_value Value to subset by (e.g., "North", "Trawl"). If both subset_var and subset_value are provided, analysis is performed only on the subset, using the full model for predictions.
+#' @param ... Additional arguments (currently unused).
+#' @return The \code{gam_influence} object, now containing a \code{calculated} list with data frames for indices, summary stats, influences, predictions, and s.e. of predictions.
+#' @details
+#' The function calculates unstandardised and standardised indices, confidence intervals, standard errors, and coefficients of variation (CV) using model predictions. For log-transformed data, calculations are performed in log space and exponentiated. Step-wise model building and influence statistics are also included.
+#' @examples
+#' \dontrun{
+#' data$year <- factor(data$year)
+#' mod <- mgcv::gam(cpue ~ year + s(depth), data = data, family = Gamma(link = "log"))
+#' gi <- gam_influence(mod, focus = "year")
+#' gi <- calculate_influence(gi)
+#' }
 #' @export
 calculate_influence <- function(obj, islog = NULL,
                                 rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
@@ -64,55 +31,8 @@ calculate_influence <- function(obj, islog = NULL,
   UseMethod("calculate_influence")
 }
 
-#' @title Perform influence calculations for a gam_influence object
-#' @description This is the core function that computes all necessary metrics for the plots
-#' and summaries. It calculates the unstandardised and standardised indices,
-#' performs a step-wise model build to assess term contributions, and computes
-#' influence statistics (overall and trend). Enhanced with comprehensive support
-#' for multiple GLM families including binomial, gamma, and Poisson distributions.
-#' Includes subset-based analysis for models with interaction terms.
-#' @param obj A `gam_influence` object.
-#' @param islog Logical. Is the response variable log-transformed? If NULL (default),
-#'   the function infers this by checking if the response name starts with "log(" or model family.
-#' @param rescale_method Character. How to rescale the indices. Options: "geometric_mean" (default),
-#'   "arithmetic_mean", "raw", or "custom".
-#' @param custom_rescale_value Numeric. Custom rescaling value when rescale_method = "custom".
-#' @param confidence_level Numeric. Confidence level for standardised index intervals (default 0.95).
-#' @param family_method Character. How to handle different GLM families. Options: "auto" (default),
-#'   "gaussian", "binomial", "gamma", "poisson". When "auto", family is detected from model.
-#' @param subset_var Character. Name of variable to subset on (e.g., "area", "gear_type").
-#' @param subset_value Value to subset by (e.g., "North", "Trawl"). When both subset_var and
-#'   subset_value are provided, influence analysis is performed only on the subset of data
-#'   matching this condition, while using the full model for predictions.
-#' @param ... Additional arguments (currently unused).
-#' @return The `gam_influence` object, now containing a `calculated` list with data frames
-#'   for indices, summary stats, influences, predictions, and s.e. of predictions.
-#' @details
-#' The influence calculation follows Bentley et al. (2012):
-#' - Overall influence: exp(mean(|effects|)) - 1
-#' - Trend influence: exp(cov(levels, effects)/var(levels)) - 1
-#'
-#' **Subset-Based Analysis:**
-#'
-#' When subset_var and subset_value are provided, the function performs influence analysis
-#' on a subset of the data while using the full model for predictions. This is particularly
-#' useful for models with interaction terms like year*area:
-#' - Model fitted on full dataset (better estimation of smooth terms)
-#' - Influence analysis focused on specific subset (e.g., area = "North")
-#' - Maintains statistical power while enabling group-specific interpretation
-#'
-#' **Enhanced Family Support:**
-#'
-#' The package now supports multiple GLM families with family-specific index calculations:
-#' - **Gaussian**: Traditional geometric mean for log-transformed data, arithmetic for linear
-#' - **Binomial**: Proportion-based indices for presence/absence or binary data
-#' - **Gamma**: Geometric mean aggregation for positive continuous data (biomass, CPUE)
-#' - **Poisson**: Count-appropriate methods for abundance or catch numbers
-#' - **Automatic Detection**: Family is auto-detected from model object when family_method="auto"
-#'
-#' Each family uses statistically appropriate aggregation methods and handles edge cases
-#' like zeros in count data or proportions in binomial models. The standardised index
-#' uses model predictions with proper uncertainty quantification for all families.
+#' @rdname calculate_influence
+#' @method calculate_influence gam_influence
 #' @importFrom stats predict aggregate logLik AIC deviance terms update as.formula var cov setNames qnorm
 #' @export
 calculate_influence.gam_influence <- function(obj, islog = NULL,
@@ -126,6 +46,12 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   validate_gam_influence(obj)
   if (confidence_level <= 0 || confidence_level >= 1) {
     stop("confidence_level must be between 0 and 1", call. = FALSE)
+  }
+
+  # Extract method preference from object
+  use_coeff_method <- obj$use_coeff_method
+  if (is.null(use_coeff_method)) {
+    use_coeff_method <- TRUE # Default to coefficient method for backwards compatibility
   }
 
   # --- Subset Analysis Implementation ---
@@ -158,48 +84,64 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
   # --- Setup and Family Detection ---
   family_method <- match.arg(family_method)
+  rescale_method <- match.arg(rescale_method)
 
   # Detect model family
   if (family_method == "auto") {
     model_family <- obj$model$family$family
     model_link <- obj$model$family$link
 
-    # Map common families
-    family_detected <- switch(model_family,
-      "gaussian" = "gaussian",
-      "binomial" = "binomial",
-      "Gamma" = "gamma",
-      "gamma" = "gamma",
-      "poisson" = "poisson",
-      "quasi" = "gaussian", # Default for quasi families
-      "gaussian" # Default fallback
-    )
+    # Map common families, including pattern matching for Tweedie and NB
+    if (grepl("^Tweedie\\(", model_family)) {
+      family_detected <- "gamma" # Treat Tweedie like Gamma for calculations
+    } else if (grepl("^Negative Binomial\\(", model_family)) {
+      family_detected <- "poisson" # Treat NB like Poisson for calculations
+    } else {
+      family_detected <- switch(model_family,
+        "gaussian" = "gaussian",
+        "binomial" = "binomial",
+        "Gamma" = "gamma",
+        "gamma" = "gamma",
+        "poisson" = "poisson",
+        "quasi" = "gaussian", # Default for quasi families
+        "gaussian" # Default fallback
+      )
+    }
     family_method <- family_detected
     message("Detected model family: ", model_family, " with link: ", model_link)
     message("Using family_method: ", family_method)
   }
 
-  # Enhanced islog detection based on family and response name
+  # Enhanced islog detection - ONLY based on response name, NOT family link
   if (is.null(islog)) {
     if (is.null(obj$islog)) {
-      # Check response name for log transformation
-      response_log <- substr(obj$response, 1, 4) == "log("
+      # Check response name for log transformation (user manually logged response)
+      # Look for "log(" or variable names starting with "log_" or "ln_"
+      response_log <- substr(obj$response, 1, 4) == "log(" ||
+        substr(obj$response, 1, 4) == "log_" ||
+        substr(obj$response, 1, 3) == "ln_"
 
-      # Check if family typically uses log transformation
-      family_log <- family_method %in% c("gamma", "poisson") &&
-        (!is.null(obj$model$family$link) && obj$model$family$link == "log")
+      # NOTE: We do NOT automatically set islog=TRUE for log-link families
+      # Log link (e.g., Gamma(link="log")) ≠ Pre-logged response (log(y) ~ ...)
+      # Log link: response on original scale, link transforms internally
+      # Pre-logged: response on log scale, user transformed before fitting
 
-      islog <- response_log || family_log
-      message(
-        "Assuming islog = ", islog, " based on response name '", obj$response,
-        "' and family '", family_method, "'."
-      )
+      islog <- response_log
+      if (response_log) {
+        message("Detected pre-logged response '", obj$response, "', setting islog = TRUE")
+      } else {
+        message("Response '", obj$response, "' appears to be on original scale, setting islog = FALSE")
+      }
     } else {
       islog <- obj$islog
     }
   } else {
+    # User explicitly provided islog parameter
     obj$islog <- islog
   }
+
+  # Always ensure obj$islog is set for plotting functions
+  obj$islog <- islog
 
   observed <- obj$data[[obj$response]]
 
@@ -210,53 +152,246 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
   # --- 2. Standardised Index (from the full model) ---
   # This is the final index after accounting for all terms in the model.
-  # We extract the partial effects for the focus term.
+  # We use type="response" to get full model predictions with proper uncertainty
   # For subset analysis, we predict using the full model but only on subset data
-  preds_full <- predict(obj$model, newdata = obj$data, type = "terms", se.fit = TRUE)
+  preds_full_response <- predict(obj$model, newdata = obj$data, type = "response", se.fit = TRUE)
 
-  # Identify columns related to the focus term in preds_full$fit
-  # For factor terms like 'year', predict(type="terms") will return columns like 'year1990', 'year1991', etc.
-  # We need to sum these up per row to get the overall effect for the 'year' term
+  # Also get terms predictions to extract the focus term's partial effect for influence calculations
+  preds_full_terms <- predict(obj$model, newdata = obj$data, type = "terms", se.fit = TRUE)
 
-  # Find column names in preds_full$fit that start with the focus term's name
-  focus_term_cols_fit <- grep(paste0("^", obj$focus), colnames(preds_full$fit), value = TRUE)
-  focus_term_cols_se <- grep(paste0("^", obj$focus), colnames(preds_full$se.fit), value = TRUE)
-
-  if (length(focus_term_cols_fit) == 0) {
-    stop(paste0("Could not find any columns for focus term '", obj$focus, "' in model predictions (type='terms'). This might indicate the focus term is not handled as expected or is part of a complex smooth that needs different extraction."))
-  }
-
-  # Calculate the sum of effects for the focus term
-  # If the focus term is a simple factor, sum across its dummy variable columns.
-  # If it's a smooth, it might just be one column.
-  focus_fit_sum <- rowSums(preds_full$fit[, focus_term_cols_fit, drop = FALSE])
-  focus_se_sum <- rowSums(preds_full$se.fit[, focus_term_cols_se, drop = FALSE]) # Sum of SEs might be an overestimation, but for simplicity here. A more rigorous approach for SEs might involve the variance-covariance matrix.
-
-  focus_pred_df <- data.frame(
+  # Create data frame with response predictions and focus term levels
+  response_pred_df <- data.frame(
     level = obj$data[[obj$focus]],
-    fit = focus_fit_sum,
-    se = focus_se_sum
+    pred = preds_full_response$fit,
+    se = preds_full_response$se.fit
   )
 
-  stan_df <- aggregate(cbind(fit, se) ~ level, data = focus_pred_df, FUN = mean)
-  base <- mean(stan_df$fit)
-  stan_df$stan <- exp(stan_df$fit - base)
+  # Aggregate by focus term level to get mean predictions and standard errors
+  # IMPORTANT: For standard errors, we need SE of the mean, not mean of SEs
+  stan_df <- aggregate(cbind(pred, se) ~ level,
+    data = response_pred_df,
+    FUN = function(x) {
+      if (length(x) == 1) {
+        return(x)
+      }
+      c(mean = mean(x), se_of_mean = sqrt(mean(x^2)))
+    }
+  )
 
-  # Add proper confidence intervals using the specified confidence level
-  rescale_method <- match.arg(rescale_method)
-  alpha <- 1 - confidence_level
-  z_score <- qnorm(1 - alpha / 2)
+  # Handle the aggregation result format
+  if (is.matrix(stan_df$pred)) {
+    # Multiple observations per level - use corrected SE calculation
+    pred_means <- stan_df$pred[, "mean"]
+    se_corrected <- stan_df$se[, "se_of_mean"]
+    stan_df <- data.frame(
+      level = stan_df$level,
+      pred = pred_means,
+      se = se_corrected
+    )
+  } else {
+    # Single observation per level - keep original
+    stan_df <- data.frame(
+      level = stan_df$level,
+      pred = stan_df$pred,
+      se = stan_df$se
+    )
+  }
 
-  stan_df$stanLower <- exp(stan_df$fit - base - z_score * stan_df$se)
-  stan_df$stanUpper <- exp(stan_df$fit - base + z_score * stan_df$se)
+  # Convert to relative index (standardised) using either coefficient or prediction method
+  base_pred <- mean(stan_df$pred)
 
-  # Apply rescaling to both unstandardised and standardised indices
+  # Choose calculation method
+  if (use_coeff_method) {
+    # --- COEFFICIENT-BASED APPROACH (influ.r method) ---
+    message("Using coefficient-based CI calculation (influ.r approach)")
+
+    # Extract coefficients for the focus term
+    all_coeffs <- coef(obj$model)
+    focus_term_pattern <- paste0("^", obj$focus)
+    focus_coeff_indices <- grep(focus_term_pattern, names(all_coeffs))
+
+    if (length(focus_coeff_indices) == 0) {
+      stop("Could not find coefficients for focus term '", obj$focus, "'", call. = FALSE)
+    }
+
+    # Get coefficients for non-reference levels only
+    focus_coeffs_nonref <- all_coeffs[focus_coeff_indices]
+
+    # Create full coefficient vector including reference level as 0
+    focus_levels <- levels(obj$data[[obj$focus]])
+    n_levels <- length(focus_levels)
+    focus_coeffs <- numeric(n_levels)
+    names(focus_coeffs) <- focus_levels
+
+    # Reference level (first level) = 0, others from model
+    focus_coeffs[1] <- 0 # Reference level
+    if (length(focus_coeffs_nonref) > 0) {
+      # Extract level names from coefficient names
+      coeff_level_names <- gsub(focus_term_pattern, "", names(focus_coeffs_nonref))
+      focus_coeffs[coeff_level_names] <- focus_coeffs_nonref
+    }
+
+    # Calculate standard errors using Francis method
+    # The Francis method calculates SEs for relative differences from the mean
+    # This ensures all levels get non-zero confidence intervals
+    if (length(focus_coeff_indices) > 0) {
+      # Get the variance-covariance matrix including intercept
+      all_vcov <- vcov(obj$model)
+
+      # Need intercept + focus term coefficients for Francis method
+      intercept_name <- "(Intercept)"
+      if (intercept_name %in% rownames(all_vcov)) {
+        vcov_names <- c(intercept_name, names(all_coeffs)[focus_coeff_indices])
+        focus_vcov_full <- all_vcov[vcov_names, vcov_names, drop = FALSE]
+
+        # Francis method transformation matrix Q
+        # Q transforms from absolute to relative-to-mean effects
+        n_levels <- length(focus_coeffs)
+        Q <- matrix(-1 / n_levels, nrow = n_levels, ncol = ncol(focus_vcov_full))
+
+        # First row: reference level = intercept - mean(all levels)
+        Q[1, 1] <- 1 - 1 / n_levels # intercept coefficient
+        Q[1, -1] <- -1 / n_levels # other coefficients
+
+        # Subsequent rows: (intercept + coeff_i) - mean(all levels)
+        for (i in 2:n_levels) {
+          Q[i, 1] <- 1 - 1 / n_levels # intercept coefficient
+          Q[i, i] <- 1 - 1 / n_levels # own coefficient
+          Q[i, -c(1, i)] <- -1 / n_levels # other coefficients
+        }
+
+        # Calculate variance matrix for relative effects: Q * Σ * Q'
+        V_relative <- Q %*% focus_vcov_full %*% t(Q)
+        focus_ses <- sqrt(diag(V_relative))
+        names(focus_ses) <- focus_levels
+      } else {
+        # Fallback: no intercept in model (unusual)
+        # Use simplified method for coefficients only
+        focus_vcov <- all_vcov[focus_coeff_indices, focus_coeff_indices, drop = FALSE]
+        focus_ses_nonref <- sqrt(diag(focus_vcov))
+
+        # Create SE vector for all levels
+        focus_ses <- numeric(n_levels)
+        names(focus_ses) <- focus_levels
+        focus_ses[1] <- 0 # Reference level SE = 0 (fallback only)
+        focus_ses[coeff_level_names] <- focus_ses_nonref
+      }
+    } else {
+      # All levels are reference level (shouldn't happen for factors)
+      focus_ses <- rep(0, n_levels)
+      names(focus_ses) <- focus_levels
+    }
+
+    # Calculate relative coefficients
+    base_coeff <- mean(focus_coeffs)
+    relative_coeffs <- focus_coeffs - base_coeff
+
+    # Calculate indices and CIs using coefficient method
+    # CI multiplier: use z-score for consistency with confidence_level
+    ci_multiplier <- qnorm(1 - (1 - confidence_level) / 2)
+
+    stan_df$standardised_index <- exp(relative_coeffs)
+    stan_df$stan_lower <- exp(relative_coeffs - ci_multiplier * focus_ses)
+    stan_df$stan_upper <- exp(relative_coeffs + ci_multiplier * focus_ses)
+
+    # Calculate SE and CV on response scale (approximation)
+    stan_df$stan_se <- focus_ses * stan_df$standardised_index # Delta method approximation
+    stan_df$standardised_cv <- focus_ses # CV ≈ SE on log scale for coefficient method
+  } else {
+    # --- PREDICTION-BASED APPROACH (modern method) ---
+    message("Using prediction-based CI calculation (modern approach)")
+
+    stan_df$standardised_index <- stan_df$pred / base_pred
+
+    # Calculate confidence intervals on the response scale
+    alpha <- 1 - confidence_level
+    z_score <- qnorm(1 - alpha / 2)
+
+    # Calculate confidence intervals directly on response scale
+    stan_df$stan_lower <- (stan_df$pred - z_score * stan_df$se) / base_pred
+    stan_df$stan_upper <- (stan_df$pred + z_score * stan_df$se) / base_pred
+
+    # Ensure confidence intervals are non-negative for positive-valued responses
+    if (all(stan_df$pred > 0)) {
+      stan_df$stan_lower <- pmax(stan_df$stan_lower, 0)
+    }
+
+    # Calculate CV and SE on the response scale
+    stan_df$stan_se <- stan_df$se / base_pred
+
+    # Determine if we should use delta method for CV calculation
+    # Use delta method for log-link models (regardless of islog setting)
+    has_log_link <- !is.null(obj$model$family$link) && obj$model$family$link == "log"
+
+    if (has_log_link) {
+      # For log-link models (e.g., Gamma(link="log"), Poisson(link="log"))
+      # Use delta method for CV calculation - this is mathematically correct
+      # regardless of whether islog=TRUE or FALSE
+      log_preds <- predict(obj$model, newdata = obj$data, type = "link", se.fit = TRUE)
+      log_pred_df <- data.frame(
+        level = obj$data[[obj$focus]],
+        log_se = log_preds$se.fit
+      )
+      log_se_agg <- aggregate(log_se ~ level, data = log_pred_df, FUN = mean)
+
+      # Merge log SE with standardised data
+      stan_df <- merge(stan_df, log_se_agg, by = "level", all.x = TRUE)
+
+      # Delta method CV: sqrt(exp(σ²) - 1) where σ is SE on log scale
+      stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
+        sqrt(exp(stan_df$log_se^2) - 1),
+        NA_real_
+      )
+
+      # Remove the temporary log_se column
+      stan_df$log_se <- NULL
+    } else {
+      # For non-log-link models (Gaussian, etc.), use standard CV = se/mean
+      stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
+        stan_df$stan_se / stan_df$standardised_index,
+        NA_real_
+      )
+    }
+  } # Apply rescaling to both unstandardised and standardised indices
   indices_df$unstan <- rescale_index(indices_df$unstan, rescale_method, custom_rescale_value)
-  stan_df$stan <- rescale_index(stan_df$stan, rescale_method, custom_rescale_value)
-  stan_df$stanLower <- rescale_index(stan_df$stanLower, rescale_method, custom_rescale_value)
-  stan_df$stanUpper <- rescale_index(stan_df$stanUpper, rescale_method, custom_rescale_value)
 
-  indices_df <- merge(indices_df, stan_df[, c("level", "stan", "stanLower", "stanUpper")], by = "level")
+  # Store original standardised values for rescaling bounds
+  original_stan <- stan_df$standardised_index
+  original_lower <- stan_df$stan_lower
+  original_upper <- stan_df$stan_upper
+
+  # Rescale the central estimate
+  stan_df$standardised_index <- rescale_index(stan_df$standardised_index, rescale_method, custom_rescale_value)
+
+  # For confidence intervals, maintain the same relative distance from the central estimate
+  # This preserves the statistical relationship
+  if (rescale_method != "raw") {
+    rescale_factor <- stan_df$standardised_index / original_stan
+    stan_df$stan_lower <- original_lower * rescale_factor
+    stan_df$stan_upper <- original_upper * rescale_factor
+  } else {
+    stan_df$stan_lower <- rescale_index(stan_df$stan_lower, rescale_method, custom_rescale_value)
+    stan_df$stan_upper <- rescale_index(stan_df$stan_upper, rescale_method, custom_rescale_value)
+  }
+
+  # Handle special case: levels with zero standard error (reference levels)
+  zero_se_levels <- abs(stan_df$se) < 1e-10
+  if (any(zero_se_levels)) {
+    stan_df$stan_lower[zero_se_levels] <- stan_df$standardised_index[zero_se_levels]
+    stan_df$stan_upper[zero_se_levels] <- stan_df$standardised_index[zero_se_levels]
+    stan_df$stan_se[zero_se_levels] <- 0
+    stan_df$standardised_cv[zero_se_levels] <- 0
+  }
+
+  # Always ensure CV is correctly calculated as se/index after any rescaling
+  stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
+    stan_df$stan_se / stan_df$standardised_index,
+    NA_real_
+  )
+
+  # Merge standardised results with unstandardised indices
+  merge_cols <- c("level", "standardised_index", "stan_lower", "stan_upper", "stan_se", "standardised_cv")
+  indices_df <- merge(indices_df, stan_df[, merge_cols], by = "level")
 
   # --- 3. Step-wise Calculations ---
   # Build the model one term at a time to see how the index and model fit change.
@@ -294,7 +429,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       # Store the step-wise index if the focus term is in the current model
       if (obj$focus %in% current_terms) {
         step_preds <- predict(model_step, newdata = obj$data, type = "terms")
-        focus_cols <- grep(paste0("^", obj$focus), colnames(step_preds), value = TRUE)
+        focus_cols <- grep(paste0("^", obj$focus, ""), colnames(step_preds), value = TRUE)
         if (length(focus_cols) == 0) {
           stop(paste0("Could not find any columns for focus term '", obj$focus, "' in step-wise model predictions (type='terms')."))
         }
@@ -357,11 +492,12 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
   # --- 4. Influence Calculations ---
   # Calculate how each non-focus term influences the focus term's index.
-  all_preds_df <- as.data.frame(preds_full$fit)
+  # Use terms predictions for influence analysis to isolate individual term effects
+  all_preds_df <- as.data.frame(preds_full_terms$fit)
   all_preds_df$level <- obj$data[[obj$focus]]
 
   # After creating all_preds_df, also create a dataframe for standard errors
-  all_preds_se_df <- as.data.frame(preds_full$se.fit)
+  all_preds_se_df <- as.data.frame(preds_full_terms$se.fit)
   all_preds_se_df$level <- obj$data[[obj$focus]]
 
   influ_list <- list()
@@ -442,6 +578,11 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   }
 
   # --- Finalize ---
+  # Restore original data if subset analysis was performed
+  if (!is.null(subset_var) && !is.null(subset_value) && exists("original_data", inherits = FALSE)) {
+    obj$data <- original_data
+  }
+
   # Store all calculated data frames in the object's 'calculated' slot
   obj$calculated <- list(
     indices = indices_df,
@@ -453,6 +594,72 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   )
 
   return(obj)
+}
+
+#' @title Validate gam_influence object
+#' @description Internal function to validate gam_influence objects and check family compatibility
+#' @param obj A gam_influence object to validate
+#' @return TRUE if valid, otherwise throws an error
+#' @noRd
+validate_gam_influence <- function(obj) {
+  if (!inherits(obj, "gam_influence")) {
+    stop("Object must be of class 'gam_influence'", call. = FALSE)
+  }
+  if (!inherits(obj$model, "gam")) {
+    stop("Model must be a GAM object from mgcv package", call. = FALSE)
+  }
+  if (!obj$focus %in% obj$terms) {
+    stop("Focus term must be present in model terms", call. = FALSE)
+  }
+  if (nrow(obj$data) == 0) {
+    stop("Data cannot be empty", call. = FALSE)
+  }
+
+  # Check family compatibility
+  if (!is.null(obj$model$family)) {
+    family_name <- obj$model$family$family
+    supported_families <- c("gaussian", "binomial", "Gamma", "gamma", "poisson", "quasi", "quasipoisson", "quasibinomial", "Tweedie", "nb")
+
+    # Check for Tweedie family (which reports as "Tweedie(p=X.XXX)")
+    is_tweedie <- grepl("^Tweedie\\(", family_name)
+    # Check for negative binomial family (which reports as "Negative Binomial(X.XXX)")
+    is_nb <- grepl("^Negative Binomial\\(", family_name)
+
+    if (!family_name %in% supported_families && !is_tweedie && !is_nb) {
+      warning("Family '", family_name, "' may not be fully supported. Supported families: ",
+        paste(c(supported_families, "Tweedie(p=X)", "Negative Binomial(X)"), collapse = ", "),
+        call. = FALSE
+      )
+    }
+
+    # Check for common issues
+    observed <- obj$data[[obj$response]]
+    if (family_name == "binomial" && !all(observed >= 0 & observed <= 1)) {
+      if (!all(observed %in% c(0, 1))) {
+        warning("Binomial family detected but response values are not between 0-1 or binary. This may cause issues.", call. = FALSE)
+      }
+    }
+
+    if (family_name %in% c("Gamma", "gamma") && any(observed <= 0)) {
+      warning("Gamma family detected but response contains non-positive values. This may cause issues.", call. = FALSE)
+    }
+
+    if (family_name == "poisson" && any(observed < 0)) {
+      warning("Poisson family detected but response contains negative values. This may cause issues.", call. = FALSE)
+    }
+
+    # Check for Tweedie family requirements
+    if (is_tweedie && any(observed < 0)) {
+      warning("Tweedie family detected but response contains negative values. Tweedie requires non-negative values.", call. = FALSE)
+    }
+
+    # Check for negative binomial family requirements
+    if (is_nb && (any(observed < 0) || any(observed != round(observed)))) {
+      warning("Negative Binomial family detected but response contains negative or non-integer values. This may cause issues.", call. = FALSE)
+    }
+  }
+
+  TRUE
 }
 
 #' @title Helper to robustly match model terms to prediction columns
@@ -487,33 +694,10 @@ find_term_columns <- function(term, colnames_vec) {
 }
 
 #' @title Geometric Mean
-#' @description Calculate the geometric mean of a numeric vector, with robust handling of
-#'   missing values and non-positive values. Essential for family-specific index calculations
-#'   in gamma and log-normal models where multiplicative processes are expected.
+#' @description Calculate the geometric mean of a numeric vector, with robust handling of missing values and non-positive values.
 #' @param x A numeric vector.
 #' @param na.rm Logical. Should missing values be removed before calculation? Default is TRUE.
-#' @return The geometric mean of the input vector. If non-positive values are present,
-#'   issues a warning and returns the arithmetic mean as a fallback.
-#' @details
-#' The geometric mean is calculated as exp(mean(log(x))) and is appropriate for:
-#' - Gamma family models with positive data
-#' - Log-normal processes in fisheries CPUE standardisation
-#' - Multiplicative effects and indices
-#'
-#' When non-positive values are encountered, the function automatically falls back
-#' to the arithmetic mean to ensure robust calculations across different data types.
-#' @examples
-#' \dontrun{
-#' # Basic usage
-#' geometric_mean(c(1, 2, 4, 8)) # Returns 2.83
-#'
-#' # With zeros (falls back to arithmetic mean)
-#' geometric_mean(c(0, 1, 2, 4)) # Warning + arithmetic mean
-#'
-#' # In index calculations
-#' index_values <- c(0.8, 1.2, 1.1, 0.9)
-#' standardised <- index_values / geometric_mean(index_values)
-#' }
+#' @return The geometric mean of the input vector.
 #' @export
 geometric_mean <- function(x, na.rm = TRUE) {
   if (na.rm) x <- x[!is.na(x)]
@@ -525,11 +709,11 @@ geometric_mean <- function(x, na.rm = TRUE) {
 }
 
 #' @title Rescale Index
-#' @description Rescale an index using different methods
-#' @param index Numeric vector to rescale
-#' @param method Character. Rescaling method
-#' @param custom_value Numeric. Custom rescaling value when method = "custom"
-#' @return Rescaled index vector
+#' @description Rescale an index using different methods.
+#' @param index Numeric vector to rescale.
+#' @param method Character. Rescaling method.
+#' @param custom_value Numeric. Custom rescaling value when method = "custom".
+#' @return Rescaled index vector.
 #' @noRd
 rescale_index <- function(index, method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
                           custom_value = 1) {
@@ -555,48 +739,78 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
     islog <- all(observed > 0) && !any(observed == 0)
   }
 
+  # Helper function to calculate statistics for a group
+  calc_group_stats <- function(x) {
+    n <- length(x)
+    if (n <= 1) {
+      return(c(mean = mean(x), se = NA_real_, cv = NA_real_))
+    }
+    mean_val <- mean(x)
+    sd_val <- sd(x)
+    se_val <- sd_val / sqrt(n)
+    cv_val <- ifelse(mean_val != 0, sd_val / abs(mean_val), NA_real_)
+    return(c(mean = mean_val, se = se_val, cv = cv_val))
+  }
+
   # Family-specific index calculations
   if (family_method == "binomial") {
     # For binomial models, work with proportions
-    # Convert binary data to proportions by group
     if (all(observed %in% c(0, 1))) {
-      # Binary data - calculate proportions
-      agg_df <- aggregate(
-        list(unstan = observed),
-        list(level = focus_var),
-        function(x) sum(x) / length(x) # Calculate proportion
-      )
-      # Convert to relative scale (divide by overall proportion)
+      # Binary data - calculate proportions with binomial SE
+      prop_stats <- aggregate(observed, list(level = focus_var), function(x) {
+        prop <- sum(x) / length(x)
+        n <- length(x)
+        se <- ifelse(n > 1, sqrt(prop * (1 - prop) / n), NA_real_)
+        cv <- ifelse(prop > 0 && prop < 1, se / prop, NA_real_)
+        c(prop, se, cv)
+      })
+
+      # Convert to relative scale
       overall_prop <- mean(observed)
-      if (overall_prop > 0 && overall_prop < 1) {
-        agg_df$unstan <- agg_df$unstan / overall_prop
-      } else {
-        agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
-      }
+      base_prop <- ifelse(overall_prop > 0 && overall_prop < 1, overall_prop, mean(prop_stats$x[, 1]))
+
+      agg_df <- data.frame(
+        level = prop_stats$level,
+        unstan = prop_stats$x[, 1] / base_prop,
+        unstan_se = prop_stats$x[, 2] / base_prop,
+        unstan_cv = prop_stats$x[, 3]
+      )
     } else {
       # Already proportions or continuous data between 0-1
-      agg_df <- aggregate(
-        list(unstan = observed),
-        list(level = focus_var), mean
+      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      base_mean <- mean(stats_agg$x[, 1])
+
+      agg_df <- data.frame(
+        level = stats_agg$level,
+        unstan = stats_agg$x[, 1] / base_mean,
+        unstan_se = stats_agg$x[, 2] / base_mean,
+        unstan_cv = stats_agg$x[, 3]
       )
-      agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
     }
   } else if (family_method == "gamma") {
     # For gamma models, always use geometric mean (positive data expected)
     if (any(observed <= 0)) {
       warning("Gamma family expects positive values. Using arithmetic mean for non-positive data.")
-      agg_df <- aggregate(
-        list(unstan = observed),
-        list(level = focus_var), mean
+      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      base_mean <- mean(stats_agg$x[, 1])
+
+      agg_df <- data.frame(
+        level = stats_agg$level,
+        unstan = stats_agg$x[, 1] / base_mean,
+        unstan_se = stats_agg$x[, 2] / base_mean,
+        unstan_cv = stats_agg$x[, 3]
       )
-      agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
     } else {
-      # Use geometric mean for positive gamma data
-      agg_df <- aggregate(
-        list(unstan = log(observed)),
-        list(level = focus_var), mean
+      # Use geometric mean for positive gamma data - work in log space
+      log_stats <- aggregate(log(observed), list(level = focus_var), calc_group_stats)
+      base_log_mean <- mean(log_stats$x[, 1])
+
+      agg_df <- data.frame(
+        level = log_stats$level,
+        unstan = exp(log_stats$x[, 1] - base_log_mean),
+        unstan_se = NA_real_, # SE not meaningful on linear scale for log data
+        unstan_cv = log_stats$x[, 2] # CV is SE in log space
       )
-      agg_df$unstan <- exp(agg_df$unstan - mean(agg_df$unstan))
     }
   } else if (family_method == "poisson") {
     # For Poisson models, use geometric mean if positive, arithmetic if zeros present
@@ -605,38 +819,58 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
     }
 
     if (all(observed > 0)) {
-      # Use geometric mean for positive count data
-      agg_df <- aggregate(
-        list(unstan = log(observed)),
-        list(level = focus_var), mean
+      # Use geometric mean for positive count data - work in log space
+      log_stats <- aggregate(log(observed), list(level = focus_var), calc_group_stats)
+      base_log_mean <- mean(log_stats$x[, 1])
+
+      agg_df <- data.frame(
+        level = log_stats$level,
+        unstan = exp(log_stats$x[, 1] - base_log_mean),
+        unstan_se = NA_real_, # SE not meaningful on linear scale for log data
+        unstan_cv = log_stats$x[, 2] # CV is SE in log space
       )
-      agg_df$unstan <- exp(agg_df$unstan - mean(agg_df$unstan))
     } else {
       # Use arithmetic mean when zeros present
-      agg_df <- aggregate(
-        list(unstan = observed),
-        list(level = focus_var), mean
+      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      base_mean <- mean(stats_agg$x[, 1])
+
+      agg_df <- data.frame(
+        level = stats_agg$level,
+        unstan = stats_agg$x[, 1] / base_mean,
+        unstan_se = stats_agg$x[, 2] / base_mean,
+        unstan_cv = stats_agg$x[, 3]
       )
-      agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
     }
   } else {
     # Gaussian or other families - original logic
     if (islog && all(observed > 0)) {
-      # Use geometric mean for positive data
-      agg_df <- aggregate(
-        list(unstan = log(observed)),
-        list(level = focus_var), mean
+      # Use geometric mean for positive data - work in log space
+      log_stats <- aggregate(log(observed), list(level = focus_var), calc_group_stats)
+      base_log_mean <- mean(log_stats$x[, 1])
+
+      agg_df <- data.frame(
+        level = log_stats$level,
+        unstan = exp(log_stats$x[, 1] - base_log_mean),
+        unstan_se = NA_real_, # SE not meaningful on linear scale for log data
+        unstan_cv = log_stats$x[, 2] # CV is SE in log space
       )
-      agg_df$unstan <- exp(agg_df$unstan - mean(agg_df$unstan))
     } else {
       # Fallback to arithmetic mean for data with zeros or non-log
-      agg_df <- aggregate(
-        list(unstan = observed),
-        list(level = focus_var), mean
+      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      base_mean <- mean(stats_agg$x[, 1])
+
+      agg_df <- data.frame(
+        level = stats_agg$level,
+        unstan = stats_agg$x[, 1] / base_mean,
+        unstan_se = stats_agg$x[, 2] / base_mean,
+        unstan_cv = stats_agg$x[, 3]
       )
-      agg_df$unstan <- agg_df$unstan / mean(agg_df$unstan)
     }
   }
 
-  data.frame(level = agg_df$level, unstan = agg_df$unstan)
+  # Ensure all required columns exist
+  if (!"unstan_se" %in% names(agg_df)) agg_df$unstan_se <- NA_real_
+  if (!"unstan_cv" %in% names(agg_df)) agg_df$unstan_cv <- NA_real_
+
+  return(agg_df)
 }
