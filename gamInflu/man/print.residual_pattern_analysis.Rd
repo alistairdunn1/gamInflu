@@ -7,10 +7,10 @@
 \method{print}{residual_pattern_analysis}(x, ...)
 }
 \arguments{
-\item{x}{A residual_pattern_analysis object}
+\item{x}{A `residual_pattern_analysis` object.}
 
-\item{...}{Additional arguments (unused)}
+\item{...}{Additional arguments passed to print methods.}
 }
 \description{
-Print method for objects of class 'residual_pattern_analysis'
+Print method for objects of class `residual_pattern_analysis`.
 }

@@ -8,11 +8,9 @@ plot_residuals(
   obj,
   type = c("standard", "violin", "both"),
   residual_type = c("deviance", "pearson", "response", "working"),
-  show_outliers = TRUE,
-  outlier_threshold = 2.5,
   violin_trim = TRUE,
   add_boxplot = TRUE,
-  point_alpha = 0.6,
+  by = NULL,
   ...
 )
 }
@@ -30,15 +28,12 @@ plot_residuals(
 - `"response"`: Response residuals (observed - fitted)
 - `"working"`: Working residuals}
 
-\item{show_outliers}{Logical. Should outliers be highlighted in the plots? Default is TRUE.}
-
-\item{outlier_threshold}{Numeric. Threshold for identifying outliers (default 2.5 standard deviations).}
-
 \item{violin_trim}{Logical. Should violin plots be trimmed to data range? Default is TRUE.}
 
 \item{add_boxplot}{Logical. Should boxplots be overlaid on violin plots? Default is TRUE.}
 
-\item{point_alpha}{Numeric. Transparency for individual points in violin plots (0-1, default 0.6).}
+\item{by}{Character. Optional variable name for faceting plots. If provided, creates separate
+panels for each level of this variable. Must be a factor or character variable (not numeric).}
 
 \item{...}{Additional arguments passed to ggplot2 functions.}
 }
@@ -52,8 +47,7 @@ A ggplot object or patchwork object (for combined plots) showing:
 
   **Violin plots:**
   - Distribution of residuals by focus term levels
-  - Optional boxplots and individual points
-  - Outlier identification and highlighting
+  - Optional boxplots
 }
 \description{
 Creates residual plots for GAM models with options for standard GAM residuals
@@ -74,13 +68,11 @@ comprehensive residual diagnostics.
 - **Poisson**: Deviance residuals appropriate for count data
 - **Tweedie**: Deviance residuals handle compound Poisson-Gamma structure
 
-**Outlier Detection:**
-Outliers are identified based on standardised residuals exceeding the threshold.
-These may indicate influential observations or model misspecification.
-
 **Violin Plots:**
 Show the full distribution of residuals within each level of the focus term,
-revealing patterns that summary statistics might miss.
+revealing patterns that summary statistics might miss. If the focus term can be
+converted to numeric (e.g., years stored as factors), the x-axis will display
+as a numeric sequence for better readability.
 }
 \examples{
 \dontrun{
@@ -101,9 +93,16 @@ plot_residuals(gi, type = "standard", residual_type = "response")
 # Customised violin plot
 plot_residuals(gi,
   type = "violin",
-  show_outliers = TRUE, outlier_threshold = 3,
-  add_boxplot = FALSE, point_alpha = 0.3
+  add_boxplot = FALSE
 )
+
+# Numeric focus terms (e.g., years) will display as numeric sequence
+gi_year <- gam_influence(your_model, focus = "year") # year as factor
+plot_residuals(gi_year, type = "violin") # x-axis shows as 1990, 1991, 1992...
+
+# Faceted plots by another variable
+plot_residuals(gi, type = "violin", by = "gear_type")
+plot_residuals(gi, type = "both", by = "area")
 
 # For different model families
 # Binomial model

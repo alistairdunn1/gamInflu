@@ -15,20 +15,24 @@ echo Generating documentation...
 call R --vanilla < run-roxygen.R
 if errorlevel 1 exit /b 1
 
-rem Build the package
-echo Building package...
+rem Build the package (includes vignettes)
+echo Building package with vignettes...
 call R CMD build --force gamInflu
 if errorlevel 1 exit /b 1
 
-rem Install the package
+rem Install the package from the built tar.gz
 echo Installing package...
-call R CMD INSTALL gamInflu
-if errorlevel 1 exit /b 1
+for %%f in (gamInflu_*.tar.gz) do (
+  call R CMD INSTALL "%%f"
+  if errorlevel 1 exit /b 1
+)
 
-rem Check the package
+rem Check the built package
 echo Checking package...
-call R CMD check gamInflu
-if errorlevel 1 exit /b 1
+for %%f in (gamInflu_*.tar.gz) do (
+  call R CMD check "%%f"
+  if errorlevel 1 exit /b 1
+)
 
 echo.
 echo =====================================

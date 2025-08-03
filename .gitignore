@@ -47,3 +47,13 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Test and debug files
+test_*.R
+*_test.R
+debug_*.R
+minimal_debug.R
+comprehensive_*.R
+
+# Build artifacts
+*.tar.gz

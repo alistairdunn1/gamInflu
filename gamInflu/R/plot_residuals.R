@@ -12,11 +12,11 @@
 #'   - `"pearson"`: Pearson residuals
 #'   - `"response"`: Response residuals (observed - fitted)
 #'   - `"working"`: Working residuals
-#' @param show_outliers Logical. Should outliers be highlighted in the plots? Default is TRUE.
-#' @param outlier_threshold Numeric. Threshold for identifying outliers (default 2.5 standard deviations).
+
 #' @param violin_trim Logical. Should violin plots be trimmed to data range? Default is TRUE.
 #' @param add_boxplot Logical. Should boxplots be overlaid on violin plots? Default is TRUE.
-#' @param point_alpha Numeric. Transparency for individual points in violin plots (0-1, default 0.6).
+#' @param by Character. Optional variable name for faceting plots. If provided, creates separate
+#' panels for each level of this variable. Must be a factor or character variable (not numeric).
 #' @param ... Additional arguments passed to ggplot2 functions.
 #' @return A ggplot object or patchwork object (for combined plots) showing:
 #'   **Standard plots:**
@@ -27,8 +27,7 @@
 #'
 #'   **Violin plots:**
 #'   - Distribution of residuals by focus term levels
-#'   - Optional boxplots and individual points
-#'   - Outlier identification and highlighting
+#'   - Optional boxplots
 #' @details
 #' **Residual Types:**
 #' - **Deviance residuals**: Default choice, appropriate for all GLM families
@@ -43,13 +42,11 @@
 #' - **Poisson**: Deviance residuals appropriate for count data
 #' - **Tweedie**: Deviance residuals handle compound Poisson-Gamma structure
 #'
-#' **Outlier Detection:**
-#' Outliers are identified based on standardised residuals exceeding the threshold.
-#' These may indicate influential observations or model misspecification.
-#'
 #' **Violin Plots:**
 #' Show the full distribution of residuals within each level of the focus term,
-#' revealing patterns that summary statistics might miss.
+#' revealing patterns that summary statistics might miss. If the focus term can be
+#' converted to numeric (e.g., years stored as factors), the x-axis will display
+#' as a numeric sequence for better readability.
 #' @examples
 #' \dontrun{
 #' # Basic usage - standard residual plots
@@ -69,9 +66,16 @@
 #' # Customised violin plot
 #' plot_residuals(gi,
 #'   type = "violin",
-#'   show_outliers = TRUE, outlier_threshold = 3,
-#'   add_boxplot = FALSE, point_alpha = 0.3
+#'   add_boxplot = FALSE
 #' )
+#'
+#' # Numeric focus terms (e.g., years) will display as numeric sequence
+#' gi_year <- gam_influence(your_model, focus = "year") # year as factor
+#' plot_residuals(gi_year, type = "violin") # x-axis shows as 1990, 1991, 1992...
+#'
+#' # Faceted plots by another variable
+#' plot_residuals(gi, type = "violin", by = "gear_type")
+#' plot_residuals(gi, type = "both", by = "area")
 #'
 #' # For different model families
 #' # Binomial model
@@ -80,7 +84,7 @@
 #' # Gamma model
 #' plot_residuals(gi_gamma, type = "standard") # Family-appropriate diagnostics
 #' }
-#' @importFrom ggplot2 ggplot aes geom_point geom_violin geom_boxplot geom_smooth geom_abline geom_qq geom_qq_line labs theme element_text facet_wrap scale_colour_manual scale_fill_manual position_jitter scale_x_continuous
+#' @importFrom ggplot2 ggplot aes geom_point geom_violin geom_boxplot geom_smooth geom_abline geom_qq geom_qq_line labs theme element_text facet_wrap scale_fill_manual scale_x_continuous
 #' @importFrom patchwork wrap_plots plot_annotation
 #' @importFrom stats residuals fitted predict qqnorm qqline hatvalues cooks.distance quantile
 #' @importFrom tools toTitleCase
@@ -89,11 +93,9 @@
 plot_residuals <- function(obj,
                            type = c("standard", "violin", "both"),
                            residual_type = c("deviance", "pearson", "response", "working"),
-                           show_outliers = TRUE,
-                           outlier_threshold = 2.5,
                            violin_trim = TRUE,
                            add_boxplot = TRUE,
-                           point_alpha = 0.6,
+                           by = NULL,
                            ...) {
   # Validate inputs
   if (!inherits(obj, "gam_influence")) {
@@ -112,6 +114,19 @@ plot_residuals <- function(obj,
   type <- match.arg(type)
   residual_type <- match.arg(residual_type)
 
+  # Validate by parameter
+  if (!is.null(by)) {
+    if (!is.character(by) || length(by) != 1) {
+      stop("'by' must be a single character string specifying a variable name", call. = FALSE)
+    }
+    if (!by %in% names(obj$data)) {
+      stop("Variable '", by, "' not found in data", call. = FALSE)
+    }
+    if (is.numeric(obj$data[[by]])) {
+      stop("Variable '", by, "' must not be numeric. Use factor or character variables for faceting.", call. = FALSE)
+    }
+  }
+
   # Calculate residuals and fitted values
   model <- obj$model
   fitted_vals <- fitted(model)
@@ -125,41 +140,48 @@ plot_residuals <- function(obj,
   )
 
   # Create base data frame
+  focus_values <- obj$data[[obj$focus]]
+
+  # Try to convert focus term to numeric if possible (for proper x-axis sequencing)
+  focus_numeric <- NULL
+  if (is.factor(focus_values) || is.character(focus_values)) {
+    # Attempt numeric conversion
+    numeric_attempt <- suppressWarnings(as.numeric(as.character(focus_values)))
+    if (!any(is.na(numeric_attempt)) && length(unique(numeric_attempt)) > 1) {
+      focus_numeric <- numeric_attempt
+    }
+  } else if (is.numeric(focus_values)) {
+    focus_numeric <- focus_values
+  }
+
   resid_data <- data.frame(
     fitted = fitted_vals,
     residuals = residuals_vals,
-    focus_level = obj$data[[obj$focus]],
+    focus_level = focus_values,
+    focus_numeric = focus_numeric,
     observation = seq_along(fitted_vals)
   )
 
-  # Calculate standardised residuals for outlier detection
-  resid_data$std_residuals <- scale(residuals_vals)[, 1]
-
-  # Identify outliers
-  if (show_outliers) {
-    resid_data$is_outlier <- abs(resid_data$std_residuals) > outlier_threshold
-  } else {
-    resid_data$is_outlier <- FALSE
+  # Add by variable if specified
+  if (!is.null(by)) {
+    resid_data$by_var <- obj$data[[by]]
   }
 
   # Generate plots based on type
   if (type == "standard") {
-    plot_result <- create_standard_residual_plots(resid_data, residual_type, model, ...)
+    plot_result <- create_standard_residual_plots(resid_data, residual_type, model, by, ...)
   } else if (type == "violin") {
     plot_result <- create_violin_residual_plot(
       resid_data, obj$focus, residual_type,
-      show_outliers, violin_trim, add_boxplot,
-      point_alpha, outlier_threshold, ...
+      violin_trim, add_boxplot, by, ...
     )
   } else if (type == "both") {
     standard_plot <- create_standard_residual_plots(
-      resid_data, residual_type, model, ...
+      resid_data, residual_type, model, by, ...
     )
     violin_plot <- create_violin_residual_plot(
       resid_data, obj$focus, residual_type,
-      show_outliers, violin_trim, add_boxplot,
-      point_alpha,
-      outlier_threshold, ...
+      violin_trim, add_boxplot, by, ...
     )
 
     plot_result <- patchwork::wrap_plots(standard_plot, violin_plot, ncol = 1, heights = c(2, 1))
@@ -173,32 +195,42 @@ plot_residuals <- function(obj,
 #' @param resid_data Data frame containing residuals and fitted values
 #' @param residual_type Character string indicating residual type
 #' @param model The GAM model object
+#' @param by Character. Optional variable name for faceting
 #' @param ... Additional arguments
 #' @return A patchwork object with 4 diagnostic panels
 #' @noRd
-create_standard_residual_plots <- function(resid_data, residual_type, model, ...) {
+create_standard_residual_plots <- function(resid_data, residual_type, model, by = NULL, ...) {
   # Panel 1: Residuals vs Fitted
   p1 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$fitted, y = .data$residuals)) +
-    ggplot2::geom_point(ggplot2::aes(colour = .data$is_outlier), alpha = 0.6) +
+    ggplot2::geom_point(alpha = 0.6) +
     ggplot2::geom_smooth(method = "loess", se = TRUE, colour = "royalblue") +
     ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-    ggplot2::scale_colour_manual(values = c("FALSE" = "black", "TRUE" = "royalblue"), guide = "none") +
     ggplot2::labs(x = "Fitted Values", y = paste(tools::toTitleCase(residual_type), "Residuals"))
+
+  if (!is.null(by)) {
+    p1 <- p1 + ggplot2::facet_wrap(~ .data$by_var)
+  }
 
   # Panel 2: Q-Q Plot
   p2 <- ggplot2::ggplot(resid_data, ggplot2::aes(sample = .data$residuals)) +
-    ggplot2::geom_qq(ggplot2::aes(colour = .data$is_outlier), alpha = 0.6) +
+    ggplot2::geom_qq(alpha = 0.6) +
     ggplot2::geom_qq_line(colour = "royalblue") +
-    ggplot2::scale_colour_manual(values = c("FALSE" = "black", "TRUE" = "royalblue"), guide = "none") +
     ggplot2::labs(x = "Theoretical Quantiles", y = "Sample Quantiles")
+
+  if (!is.null(by)) {
+    p2 <- p2 + ggplot2::facet_wrap(~ .data$by_var)
+  }
 
   # Panel 3: Scale-Location (sqrt of absolute residuals vs fitted)
   resid_data$sqrt_abs_resid <- sqrt(abs(resid_data$residuals))
   p3 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$fitted, y = .data$sqrt_abs_resid)) +
-    ggplot2::geom_point(ggplot2::aes(colour = .data$is_outlier), alpha = 0.6) +
+    ggplot2::geom_point(alpha = 0.6) +
     ggplot2::geom_smooth(method = "loess", se = TRUE, colour = "royalblue") +
-    ggplot2::scale_colour_manual(values = c("FALSE" = "black", "TRUE" = "royalblue"), guide = "none") +
     ggplot2::labs(x = "Fitted Values", y = expression(sqrt("|Residuals|")))
+
+  if (!is.null(by)) {
+    p3 <- p3 + ggplot2::facet_wrap(~ .data$by_var)
+  }
 
   # Panel 4: Residuals vs Leverage (with Cook's distance)
   # Calculate leverage and Cook's distance - handle GAM models safely
@@ -223,16 +255,21 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, ...
           name = "High Influence"
         ) +
         ggplot2::scale_size_continuous(name = "Cook's Distance") +
-        ggplot2::labs(x = "Leverage", y = paste(tools::toTitleCase(residual_type), "Residuals"))
+        ggplot2::labs(x = "Leverage", y = paste(tools::toTitleCase(residual_type), "Residuals")) +
+        {
+          if (!is.null(by)) ggplot2::facet_wrap(~ .data$by_var) else NULL
+        }
     },
     error = function(e) {
       # Fallback plot without leverage/Cook's distance if calculation fails
       ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$observation, y = .data$residuals)) +
-        ggplot2::geom_point(ggplot2::aes(colour = .data$is_outlier), alpha = 0.6) +
+        ggplot2::geom_point(alpha = 0.6) +
         ggplot2::geom_smooth(method = "loess", se = TRUE, colour = "royalblue") +
         ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-        ggplot2::scale_colour_manual(values = c("FALSE" = "black", "TRUE" = "royalblue"), guide = "none") +
-        ggplot2::labs(x = "Observation Index", y = paste(tools::toTitleCase(residual_type), "Residuals"))
+        ggplot2::labs(x = "Observation Index", y = paste(tools::toTitleCase(residual_type), "Residuals")) +
+        {
+          if (!is.null(by)) ggplot2::facet_wrap(~ .data$by_var) else NULL
+        }
     }
   )
 
@@ -247,50 +284,47 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, ...
 #' @param resid_data Data frame containing residuals and focus levels
 #' @param focus_name Name of the focus term
 #' @param residual_type Character string indicating residual type
-#' @param show_outliers Logical indicating whether to highlight outliers
 #' @param violin_trim Logical indicating whether to trim violins to data range
 #' @param add_boxplot Logical indicating whether to add boxplots
-#' @param point_alpha Transparency for individual points
+#' @param by Character. Optional variable name for faceting
 #' @param ... Additional arguments
 #' @return A ggplot object showing violin plot
 #' @noRd
-create_violin_residual_plot <- function(resid_data, focus_name, residual_type, show_outliers,
-                                        violin_trim, add_boxplot, point_alpha,
-                                        outlier_threshold = 2.5, ...) {
-  # Create the base violin plot
-  p <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$focus_level, y = .data$residuals))
+create_violin_residual_plot <- function(resid_data, focus_name, residual_type,
+                                        violin_trim, add_boxplot, by = NULL, ...) {
+  # Determine whether to use numeric or original focus values for x-axis
+  use_numeric <- !is.null(resid_data$focus_numeric) && !any(is.na(resid_data$focus_numeric))
+
+  # Initialize mapping variable
+  unique_mappings <- NULL
+
+  # For violin plots, we need discrete groups even if the underlying data is numeric
+  # We'll use the original focus_level for violin creation but apply numeric scaling for the axis
+  if (use_numeric) {
+    # Create factor version for violin plotting but keep numeric for axis
+    resid_data$focus_factor <- factor(resid_data$focus_level)
+    # Create mapping from factor levels to numeric values for axis labeling
+    level_to_numeric <- setNames(resid_data$focus_numeric, as.character(resid_data$focus_level))
+    unique_mappings <- level_to_numeric[!duplicated(names(level_to_numeric))]
+
+    # Create the base violin plot using factor levels
+    p <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$focus_factor, y = .data$residuals))
+  } else {
+    # Create the base violin plot with original factor/character levels
+    p <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$focus_level, y = .data$residuals))
+  }
 
   # Add violin plot
-  if (show_outliers) {
-    p <- p + ggplot2::geom_violin(ggplot2::aes(fill = .data$focus_level),
-      trim = violin_trim, alpha = 0.7, show.legend = FALSE
-    )
-  } else {
-    p <- p + ggplot2::geom_violin(ggplot2::aes(fill = .data$focus_level),
-      trim = violin_trim, alpha = 0.7, show.legend = FALSE
-    )
-  }
+  p <- p + ggplot2::geom_violin(
+    fill = "royalblue",
+    trim = violin_trim,
+    alpha = 0.7,
+    show.legend = FALSE
+  )
 
   # Add boxplot if requested
   if (add_boxplot) {
-    p <- p + ggplot2::geom_boxplot(width = 0.2, alpha = 0.8, outlier.shape = NA, show.legend = FALSE)
-  }
-
-  # Add individual points with outlier highlighting
-  if (show_outliers) {
-    p <- p + ggplot2::geom_point(ggplot2::aes(colour = .data$is_outlier),
-      position = ggplot2::position_jitter(width = 0.15, height = 0),
-      alpha = point_alpha
-    ) +
-      ggplot2::scale_colour_manual(
-        values = c("FALSE" = "black", "TRUE" = "royalblue"),
-        name = paste("Outliers (|z| >", outlier_threshold, ")")
-      )
-  } else {
-    p <- p + ggplot2::geom_point(
-      position = ggplot2::position_jitter(width = 0.15, height = 0),
-      alpha = point_alpha, colour = "black"
-    )
+    p <- p + ggplot2::geom_boxplot(width = 0.2, alpha = 0.8, show.legend = FALSE)
   }
 
   # Add reference line at y = 0
@@ -304,9 +338,17 @@ create_violin_residual_plot <- function(resid_data, focus_name, residual_type, s
     ) +
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
 
-  # Handle case where focus levels are numeric
-  if (is.numeric(resid_data$focus_level)) {
-    p <- p + ggplot2::scale_x_continuous()
+  # Add faceting if by variable is specified
+  if (!is.null(by)) {
+    p <- p + ggplot2::facet_wrap(~ .data$by_var)
+  }
+
+  # Apply appropriate x-axis scaling
+  if (use_numeric) {
+    # Use numeric values as axis labels while keeping factor structure for violins
+    numeric_labels <- sort(unique(resid_data$focus_numeric))
+    factor_labels <- names(sort(unique_mappings))
+    p <- p + ggplot2::scale_x_discrete(labels = setNames(numeric_labels, factor_labels))
   }
 
   return(p)

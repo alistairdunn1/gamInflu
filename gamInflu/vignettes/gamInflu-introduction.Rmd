@@ -1,0 +1,351 @@
+---
+title: "gamInflu: Influence Analysis for Generalised Additive Models"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{gamInflu: Influence Analysis for Generalised Additive Models}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+```{r setup}
+library(gamInflu)
+library(mgcv)
+```
+
+## Introduction
+
+**gamInflu** provides comprehensive influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. The package supports multiple GLM families with automatic detection and provides both traditional coefficient-based confidence intervals and modern prediction-based methods.
+
+### Key Features
+
+- **Multi-family support**: Gaussian, binomial, gamma, Poisson, and Tweedie distributions
+- **Automatic family detection**: No need to specify family manually
+- **Flexible confidence intervals**: Choose between coefficient-based (traditional) or prediction-based (modern) methods
+- **Comprehensive diagnostics**: Residual analysis, term influence plots, and model adequacy assessment
+- **Standardised indices**: Family-specific methods for different data types
+- **Delta-GLM analysis**: Combine binomial and positive models for fisheries data
+
+## Family Support
+
+**gamInflu** supports multiple GLM families with automatic detection:
+
+| Family       | Data Type           | Use Cases                             |
+| ------------ | ------------------- | ------------------------------------- |
+| **Gaussian** | Continuous          | Log-normal CPUE, linear models        |
+| **Binomial** | Binary/proportions  | Presence/absence, catch probability   |
+| **Gamma**    | Positive continuous | Biomass, positive CPUE                |
+| **Poisson**  | Non-negative counts | Fish numbers, abundance counts        |
+| **Tweedie**  | Semi-continuous     | Fisheries catch data with exact zeros |
+
+## Basic Workflow
+
+### 1. Create influence object
+
+```{r eval=FALSE}
+# Prepare data: focus term must be a factor
+data$year <- factor(data$year)
+
+# Create influence object (default: coefficient-based CIs)
+gi <- gam_influence(model, focus = "year")
+
+# Alternative: use prediction-based CIs
+gi <- gam_influence(model, focus = "year", use_coeff_method = FALSE)
+```
+
+### 2. Calculate influence metrics
+
+```{r eval=FALSE}
+# Calculate influence metrics (automatic family detection)
+gi <- calculate_influence(gi)
+
+# Or with prediction-based CIs
+gi <- calculate_influence(gi, use_coeff_method = FALSE)
+```
+
+### 3. Extract standardised indices
+
+```{r eval=FALSE}
+# Extract results with standardised column names
+indices <- extract_indices(gi)
+print(indices)
+
+# Column names follow standardised convention:
+# - focus_term: The name of the focus variable
+# - level: The levels of the focus variable
+# - index: Standardised index values (main result)
+# - cv: Coefficient of variation 
+# - lower_CI: Lower confidence interval bound
+# - upper_CI: Upper confidence interval bound
+```
+
+### 4. Visualisation
+
+```{r eval=FALSE}
+# Main plotting functions
+plot_standardisation(gi)    # Index comparison
+plot_stepwise_index(gi)     # Model progression
+plot_term_influence(gi)     # Term influences
+plot_residuals(gi)          # Residual diagnostics
+
+# Alternative: Use generic plot method
+plot(gi, type = "stan")     # Same as plot_standardisation(gi)
+plot(gi, type = "step")     # Same as plot_stepwise_index(gi)
+plot(gi, type = "influ")    # Same as plot_term_influence(gi)
+```
+
+## Confidence Interval Methods
+
+**gamInflu** provides two methods for calculating confidence intervals:
+
+### Coefficient-Based Method (Default)
+
+The coefficient-based approach follows traditional fisheries methodology:
+
+```{r eval=FALSE}
+# Default method - coefficient-based
+gi <- gam_influence(model, focus = "year")  # use_coeff_method = TRUE by default
+gi <- calculate_influence(gi)
+```
+
+**Characteristics:**
+- Uses model coefficients directly for relative effect calculations
+- Follows established fisheries methodology using the **Francis method**
+- Often provides more pronounced between-group differences
+- Confidence intervals calculated as: `exp(coefficients ± CI_multiplier × SEs)`
+
+### Prediction-Based Method (Modern)
+
+The prediction-based approach uses modern mgcv prediction methods:
+
+```{r eval=FALSE}
+# Prediction-based method
+gi <- gam_influence(model, focus = "year", use_coeff_method = FALSE)
+gi <- calculate_influence(gi)
+```
+
+**Characteristics:**
+- Uses model predictions with complete uncertainty propagation
+- More conservative confidence intervals
+- Modern statistical approach following mgcv best practices
+
+## Family-Specific Examples
+
+### Binomial Model (Presence/Absence)
+
+```{r eval=FALSE}
+# Prepare data
+fish_data$year <- factor(fish_data$year)
+
+# Fit binomial model
+mod_binom <- gam(presence ~ s(depth) + s(temp) + year, 
+                 data = fish_data, family = binomial())
+
+# Influence analysis
+gi_binom <- gam_influence(mod_binom, focus = "year")
+gi_binom <- calculate_influence(gi_binom)  # Auto-detects binomial
+
+# Visualise results
+plot_standardisation(gi_binom)
+```
+
+### Gamma Model (Biomass)
+
+```{r eval=FALSE}
+# Prepare data
+survey_data$year <- factor(survey_data$year)
+
+# Fit gamma model
+mod_gamma <- gam(biomass ~ s(effort) + s(sst) + year, 
+                 data = survey_data, family = Gamma(link="log"))
+
+# Influence analysis
+gi_gamma <- gam_influence(mod_gamma, focus = "year")
+gi_gamma <- calculate_influence(gi_gamma)  # Auto-detects gamma
+
+# Extract indices
+indices_gamma <- extract_indices(gi_gamma)
+```
+
+### Poisson Model (Count Data)
+
+```{r eval=FALSE}
+# Prepare data
+catch_data$year <- factor(catch_data$year)
+
+# Fit Poisson model
+mod_pois <- gam(fish_count ~ s(depth) + s(longitude) + year, 
+                data = catch_data, family = poisson())
+
+# Influence analysis
+gi_pois <- gam_influence(mod_pois, focus = "year")
+gi_pois <- calculate_influence(gi_pois)   # Auto-detects Poisson
+```
+
+### Tweedie Model (Semi-Continuous Data)
+
+```{r eval=FALSE}
+# Prepare data
+fisheries_data$year <- factor(fisheries_data$year)
+
+# Fit Tweedie model
+mod_tweedie <- gam(catch_kg ~ s(depth) + s(vessel_power) + year,
+                   data = fisheries_data, family = tw())
+
+# Influence analysis
+gi_tweedie <- gam_influence(mod_tweedie, focus = "year")
+gi_tweedie <- calculate_influence(gi_tweedie)  # Auto-detects Tweedie
+```
+
+## Advanced Features
+
+### Residual Pattern Analysis
+
+Check model adequacy through residual pattern analysis:
+
+```{r eval=FALSE}
+# Analyse residual patterns for model improvement
+residual_analysis <- analyse_residual_patterns(gi)
+print(residual_analysis)
+
+# This shows variables that may improve model fit
+# if significant patterns are found in residuals
+```
+
+### Subset Analysis
+
+For interaction models, analyse specific subsets:
+
+```{r eval=FALSE}
+# Subset analysis for specific area
+gi_subset <- calculate_influence(gi, subset_var = "area", subset_value = "North")
+```
+
+### Delta-GLM Analysis
+
+Combine binomial and positive models for fisheries data:
+
+```{r eval=FALSE}
+# Fit separate models for catch probability and positive catch
+mod_binom <- gam(presence ~ s(depth) + year, data = data, family = binomial())
+mod_gamma <- gam(catch ~ s(depth) + year, data = data[data$catch > 0,], family = Gamma())
+
+# Create influence objects
+gi_binom <- gam_influence(mod_binom, focus = "year")
+gi_gamma <- gam_influence(mod_gamma, focus = "year")
+
+# Calculate influences
+gi_binom <- calculate_influence(gi_binom)
+gi_gamma <- calculate_influence(gi_gamma)
+
+# Combine for delta-GLM analysis
+gi_combined <- combine_indices(gi_binom, gi_gamma)
+plot_standardisation(gi_combined)
+```
+
+## Visualization Options
+
+### Standard Plots
+
+```{r eval=FALSE}
+# Index comparison with confidence intervals
+plot_standardisation(gi)
+
+# Show only standardised indices (cleaner)
+plot_standardisation(gi, show_unstandardised = FALSE)
+
+# Model progression showing term additions
+plot_stepwise_index(gi)
+
+# Term influence on final standardised index
+plot_term_influence(gi)
+```
+
+### Residual Diagnostics
+
+```{r eval=FALSE}
+# Standard GAM diagnostic plots
+plot_residuals(gi, type = "standard")
+
+# Violin plots by focus levels (shows distribution)
+plot_residuals(gi, type = "violin")
+
+# Faceted violin plots by another variable
+plot_residuals(gi, type = "violin", by = "area")
+```
+
+### Coefficient-Distribution-Influence (CDI) Plots
+
+```{r eval=FALSE}
+# CDI plot for specific smooth term
+plot(gi, type = "cdi", term = "s(temp)")
+
+# Data distribution for specific term
+plot(gi, type = "distribution", term = "s(temp)")
+```
+
+## Best Practices
+
+### 1. Data Preparation
+
+```{r eval=FALSE}
+# Always convert focus term to factor BEFORE fitting model
+data$year <- factor(data$year)
+data$area <- factor(data$area)
+
+# Fit model with factor variables
+model <- gam(response ~ s(continuous_var) + factor_var, data = data)
+```
+
+### 2. Family Selection
+
+```{r eval=FALSE}
+# Let the package auto-detect family (recommended)
+gi <- calculate_influence(gi)
+
+# Only override if needed
+gi <- calculate_influence(gi, family_method = "binomial")
+```
+
+### 3. Method Selection
+
+```{r eval=FALSE}
+# Use coefficient-based for traditional fisheries work
+gi <- gam_influence(model, focus = "year")  # Default
+
+# Use prediction-based for modern GAM applications
+gi <- gam_influence(model, focus = "year", use_coeff_method = FALSE)
+```
+
+### 4. Model Validation
+
+```{r eval=FALSE}
+# Always check residual patterns
+residual_analysis <- analyse_residual_patterns(gi)
+print(residual_analysis)
+
+# Use diagnostic plots
+plot_residuals(gi, type = "violin")
+```
+
+## Summary
+
+**gamInflu** provides a comprehensive framework for GAM influence analysis with:
+
+- **Flexible methods**: Choose between traditional and modern approaches
+- **Family support**: Automatic detection for all major GLM families
+- **Rich diagnostics**: Comprehensive plotting and analysis tools
+- **Standardised output**: Consistent column naming and data structures
+- **Model validation**: Residual analysis and adequacy assessment
+
+The package is particularly well-suited for fisheries applications but can be applied to any GAM analysis where understanding term influence and generating standardised indices is important.

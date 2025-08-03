@@ -12,6 +12,7 @@ analyse_residual_patterns(
   smooth_terms = TRUE,
   significance_level = 0.05,
   min_r_squared = 0.1,
+  max_missing_percent = 20,
   plot_results = TRUE
 )
 }
@@ -31,6 +32,9 @@ of residual patterns. If NULL, all numeric variables not already in the model wi
 \item{significance_level}{Numeric; significance level for determining important relationships (default 0.05).}
 
 \item{min_r_squared}{Numeric; minimum R-squared threshold for flagging relationships (default 0.1).}
+
+\item{max_missing_percent}{Numeric; maximum percentage of missing values allowed for candidate variables (default 20).
+Variables with more missing data will be excluded from analysis.}
 
 \item{plot_results}{Logical; if TRUE (default), generate diagnostic plots for significant relationships.}
 }

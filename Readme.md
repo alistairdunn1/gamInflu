@@ -337,13 +337,14 @@ plot_cdi(gi, term = 2)
 
 ### Plot residual diagnostics
 
-Generate comprehensive residual diagnostic plots for model validation.
+Generate comprehensive residual diagnostic plots for model validation. Supports both traditional 4-panel diagnostics and violin plots showing residual distributions by focus term levels. Includes automatic numeric axis conversion for sequential focus terms (e.g., years) and optional faceting by grouping variables.
 
 ```r
 plot_residuals(gi)                                    # Default: standard 4-panel diagnostics
-plot_residuals(gi, residual_type = "violin")         # Violin plots by focus levels
-plot_residuals(gi, residual_type = "combined")       # Both standard and violin plots
-plot_residuals(gi, method = "deviance")              # Specify residual type
+plot_residuals(gi, type = "violin")                  # Violin plots by focus levels
+plot_residuals(gi, type = "both")                    # Both standard and violin plots
+plot_residuals(gi, residual_type = "deviance")       # Specify residual type
+plot_residuals(gi, type = "violin", by = "area")     # Faceted violin plots by grouping variable
 ```
 
 ### Plot predicted effects for all terms
@@ -392,20 +393,27 @@ plot_re(gi, term = "site", re_type = "points")
 
 ### Plot residual diagnostics
 
-Generate comprehensive residual diagnostic plots for model validation.
+Generate comprehensive residual diagnostic plots for model validation. Features clean violin plots (without individual points), automatic numeric axis conversion for sequential focus terms, and optional faceting by grouping variables.
 
 ```r
-# Standard 4-panel GAM diagnostics (QQ plot, residuals vs fitted, histogram, response vs fitted)
-plot_residuals(gi, residual_type = "standard")
+# Standard 4-panel GAM diagnostics (QQ plot, residuals vs fitted, scale-location, leverage)
+plot_residuals(gi, type = "standard")
 
 # Violin plots of residuals by focus term levels
-plot_residuals(gi, residual_type = "violin")
+plot_residuals(gi, type = "violin")
 
 # Both standard and violin plots combined
-plot_residuals(gi, residual_type = "combined")
+plot_residuals(gi, type = "both")
 
 # Specify residual calculation method (deviance, pearson, response, working)
-plot_residuals(gi, residual_type = "standard", method = "deviance")
+plot_residuals(gi, type = "standard", residual_type = "deviance")
+
+# Faceted plots by grouping variable (for exploring patterns across different groups)
+plot_residuals(gi, type = "violin", by = "gear_type")
+plot_residuals(gi, type = "both", by = "area")
+
+# Numeric focus terms (e.g., years) automatically display as numeric sequence
+# If focus term is stored as factor but represents numbers, x-axis shows: 1990, 1991, 1992...
 ```
 
 ### Analyse residual patterns for model improvement
@@ -819,7 +827,7 @@ The package provides both specific plotting functions and a generic `plot()` met
 | `plot_step_and_influence()` | Combined stepwise and influence plots              | `plot_step_and_influence(gi)`                  |
 | `plot_cdi()`                | Coefficient-Distribution-Influence plot for a term | `plot_cdi(gi, term = "s(temp)")`               |
 | `plot_terms()`              | Plot predicted effects for model terms             | `plot_terms(gi, term = "s(depth)")`            |
-| `plot_residuals()`          | Comprehensive residual diagnostic plots            | `plot_residuals(gi, residual_type = "violin")` |
+| `plot_residuals()`          | Comprehensive residual diagnostic plots            | `plot_residuals(gi, type = "violin")`          |
 | `plot_re()`                 | Random effects diagnostics                         | `plot_re(gi, term = "site", re_type = "qq")`   |
 | `plot_term_distribution()`  | Data distribution for a specific term              | `plot_term_distribution(gi, term = "s(temp)")` |
 | `plot_implied_residuals()`  | Advanced residual analysis                         | `plot_implied_residuals(gi)`                   |

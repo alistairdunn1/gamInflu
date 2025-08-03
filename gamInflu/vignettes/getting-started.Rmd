@@ -1,0 +1,262 @@
+---
+title: "Getting Started with gamInflu"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with gamInflu}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+```{r setup}
+library(gamInflu)
+library(mgcv)
+```
+
+## Quick Start Guide
+
+This vignette provides a quick introduction to using **gamInflu** for GAM influence analysis.
+
+### Step 1: Prepare Your Data
+
+The most important requirement is that your **focus term must be a factor**:
+
+```{r eval=FALSE}
+# Convert focus variable to factor BEFORE fitting the model
+data$year <- factor(data$year)
+data$area <- factor(data$area)
+```
+
+### Step 2: Fit Your GAM
+
+```{r eval=FALSE}
+# Example: Fit a GAM for fisheries data
+model <- gam(catch ~ s(depth) + s(temperature) + year + area, 
+             data = data, 
+             family = Gamma(link = "log"))
+```
+
+### Step 3: Create Influence Object
+
+```{r eval=FALSE}
+# Create influence analysis object
+gi <- gam_influence(model, focus = "year")
+```
+
+### Step 4: Calculate Influence Metrics
+
+```{r eval=FALSE}
+# Calculate all influence metrics (auto-detects family)
+gi <- calculate_influence(gi)
+```
+
+### Step 5: Extract Results
+
+```{r eval=FALSE}
+# Get standardised indices
+indices <- extract_indices(gi)
+print(indices)
+
+# Export results
+write.csv(indices, "standardised_indices.csv", row.names = FALSE)
+```
+
+### Step 6: Visualise Results
+
+```{r eval=FALSE}
+# Main plots
+plot_standardisation(gi)    # Compare indices
+plot_stepwise_index(gi)     # Model progression  
+plot_term_influence(gi)     # Term influences
+plot_residuals(gi, type = "violin")  # Residual diagnostics
+```
+
+## Working Example with Simulated Data
+
+Let's create a complete working example:
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Create simulated fisheries data
+n <- 200
+data <- data.frame(
+  year = factor(rep(2015:2019, each = 40)),
+  depth = runif(n, 10, 100),
+  temperature = runif(n, 5, 25),
+  area = factor(rep(c("North", "South"), length.out = n))
+)
+
+# Add year effects (some years have higher catch)
+year_effects <- c("2015" = 0.8, "2016" = 1.2, "2017" = 1.0, "2018" = 0.9, "2019" = 1.1)
+data$year_effect <- year_effects[as.character(data$year)]
+
+# Simulate catch with depth and temperature effects
+data$log_catch <- 2 + 
+  log(data$year_effect) +
+  0.02 * (data$depth - 50) +
+  0.05 * (data$temperature - 15) +
+  rnorm(n, 0, 0.3)
+
+data$catch <- exp(data$log_catch)
+```
+
+### Fit the Model
+
+```{r}
+# Fit GAM with gamma family (for positive continuous data)
+model <- gam(catch ~ s(depth) + s(temperature) + year + area, 
+             data = data, 
+             family = Gamma(link = "log"))
+
+# Check model summary
+summary(model)
+```
+
+### Influence Analysis
+
+```{r}
+# Create influence object
+gi <- gam_influence(model, focus = "year")
+
+# Calculate influence metrics
+gi <- calculate_influence(gi)
+
+# Extract indices
+indices <- extract_indices(gi)
+print(indices)
+```
+
+### Visualisation
+
+```{r}
+# Plot standardised indices
+plot_standardisation(gi)
+```
+
+```{r}
+# Plot model progression
+plot_stepwise_index(gi)
+```
+
+```{r}
+# Plot term influences
+plot_term_influence(gi)
+```
+
+```{r}
+# Residual diagnostics with violin plots
+plot_residuals(gi, type = "violin")
+```
+
+## Different Families
+
+### Binomial Example (Presence/Absence)
+
+```{r}
+# Create presence/absence data
+data$presence <- rbinom(n, 1, plogis(-1 + 0.02 * data$depth - 0.05 * data$temperature))
+
+# Fit binomial model
+model_binom <- gam(presence ~ s(depth) + s(temperature) + year, 
+                   data = data, 
+                   family = binomial())
+
+# Influence analysis
+gi_binom <- gam_influence(model_binom, focus = "year")
+gi_binom <- calculate_influence(gi_binom)
+
+# Plot results
+plot_standardisation(gi_binom)
+```
+
+### Poisson Example (Count Data)
+
+```{r}
+# Create count data
+lambda <- exp(1 + 0.01 * data$depth + log(data$year_effect))
+data$fish_count <- rpois(n, lambda)
+
+# Fit Poisson model
+model_pois <- gam(fish_count ~ s(depth) + year, 
+                  data = data, 
+                  family = poisson())
+
+# Influence analysis
+gi_pois <- gam_influence(model_pois, focus = "year")
+gi_pois <- calculate_influence(gi_pois)
+
+# Plot results
+plot_standardisation(gi_pois)
+```
+
+## Confidence Interval Methods
+
+Compare coefficient-based vs prediction-based methods:
+
+```{r}
+# Coefficient-based (default, traditional)
+gi_coeff <- gam_influence(model, focus = "year", use_coeff_method = TRUE)
+gi_coeff <- calculate_influence(gi_coeff)
+
+# Prediction-based (modern)
+gi_pred <- gam_influence(model, focus = "year", use_coeff_method = FALSE)
+gi_pred <- calculate_influence(gi_pred)
+
+# Compare results
+indices_coeff <- extract_indices(gi_coeff)
+indices_pred <- extract_indices(gi_pred)
+
+print("Coefficient-based CVs:")
+print(indices_coeff$cv)
+print("Prediction-based CVs:")
+print(indices_pred$cv)
+```
+
+## Model Validation
+
+Check if your model adequately captures the data patterns:
+
+```{r}
+# Analyse residual patterns
+residual_analysis <- analyse_residual_patterns(gi)
+print(residual_analysis)
+```
+
+## Export Results
+
+```{r eval=FALSE}
+# Export standardised indices
+indices <- extract_indices(gi)
+write.csv(indices, "standardised_indices.csv", row.names = FALSE)
+
+# Save plots
+ggsave("standardisation_plot.png", plot_standardisation(gi), 
+       width = 10, height = 6, dpi = 300)
+ggsave("stepwise_plot.png", plot_stepwise_index(gi), 
+       width = 10, height = 6, dpi = 300)
+```
+
+## Summary
+
+**gamInflu** makes GAM influence analysis straightforward:
+
+1. **Prepare data**: Convert focus term to factor
+2. **Create object**: `gam_influence(model, focus = "term")`
+3. **Calculate**: `calculate_influence(gi)`
+4. **Extract**: `extract_indices(gi)`
+5. **Visualise**: `plot_standardisation(gi)` and other plot functions
+6. **Validate**: `analyse_residual_patterns(gi)`
+
+The package automatically detects your model family and applies appropriate methods, making it easy to get reliable results across different data types.
