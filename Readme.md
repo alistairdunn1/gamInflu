@@ -1,9 +1,9 @@
 # gamInflu
 
-**gamInflu** provides influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. The package supports Gaussian, binomial, gamma, Poisson, and Tweedie distributions with automatic family detection. It offers both traditional coefficient-based confidence intervals (compatible with influ.r) and modern prediction-based methods. The package handles all smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms) and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, diagnostics for random effects, and family-specific standardised indices to understand model structure and the influence of each term.
+**gamInflu** provides influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. The package supports Gaussian, binomial, gamma, Poisson, and Tweedie distributions with automatic family detection. It offers both traditional coefficient-based confidence intervals and modern prediction-based methods. The package handles all smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms) and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, comprehensive residual diagnostics, residual pattern analysis for model adequacy assessment, delta-GLM analysis for fisheries data, diagnostics for random effects, and family-specific standardised indices to understand model structure and the influence of each term.
 
 [![R Package](https://img.shields.io/badge/R-package-blue.svg)](https://www.r-project.org/)
-[![Version](https://img.shields.io/badge/version-0.1-orange.svg)](https://github.com/alistairdunn1/gamInflu)
+[![Version](https://img.shields.io/badge/version-0.2-orange.svg)](https://github.com/alistairdunn1/gamInflu)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ---
@@ -26,7 +26,7 @@
 # Install from source directory:
 devtools::install_github("alistairdunn1/gamInflu", subdir = "gamInflu")
 # Or install from tar.gz file:
-install.packages("gamInflu_0.1.0.tar.gz", repos = NULL, type = "source")
+install.packages("gamInflu_0.2.0.tar.gz", repos = NULL, type = "source")
 ```
 
 ---
@@ -46,7 +46,7 @@ gi <- gam_influence(model, focus = "year")  # Default: coefficient-based CIs
 # or: gi <- gam_influence(model, focus = "year", use_coeff_method = FALSE)  # prediction-based CIs
 
 # 2. Calculate influence metrics (automatic family detection)
-gi <- calculate_influence(gi)  # Default: coefficient-based CIs (influ.r approach)
+gi <- calculate_influence(gi)  # Default: coefficient-based CIs
 # or: gi <- calculate_influence(gi, use_coeff_method = FALSE)  # prediction-based CIs
 
 # 3. Extract results with standardised column names
@@ -56,9 +56,24 @@ indices <- extract_indices(gi)  # Includes: index, cv, lower_CI, upper_CI, etc.
 plot_standardisation(gi)    # Index comparison
 plot_stepwise_index(gi)     # Model progression
 plot_term_influence(gi)     # Term influences
+plot_residuals(gi)          # Residual diagnostics (standard GAM plots or violin plots)
 
-# 5. Subset analysis for interaction models
+# Alternative: Use generic plot method with type selection
+plot(gi, type = "stan")         # Same as plot_standardisation(gi)
+plot(gi, type = "step")         # Same as plot_stepwise_index(gi)
+plot(gi, type = "influ")        # Same as plot_term_influence(gi)
+plot(gi, type = "cdi", term = "s(temp)")        # CDI plot for specific term
+plot(gi, type = "distribution", term = "s(temp)")  # Data distribution for term
+
+# 5. Check model adequacy through residual pattern analysis
+residual_analysis <- analyse_residual_patterns(gi)
+print(residual_analysis)    # Shows variables that may improve model fit
+
+# 6. Subset analysis for interaction models
 gi_subset <- calculate_influence(gi, subset_var = "area", subset_value = "North")
+
+# 7. Delta-GLM analysis for fisheries data
+gi_combined <- combine_indices(gi_binomial, gi_positive)  # Combine catch probability + positive catch
 ```
 
 ### Family-Specific Examples
@@ -98,7 +113,7 @@ gi_tweedie <- gam_influence(mod_tweedie, focus = "year")
 gi_tweedie <- calculate_influence(gi_tweedie)  # Auto-detects Tweedie
 
 # CI method examples (works with any family):
-# Default coefficient-based approach (influ.r style)
+# Default coefficient-based approach
 gi_coeff <- gam_influence(mod_gamma, focus = "year")  # use_coeff_method = TRUE default
 gi_coeff <- calculate_influence(gi_coeff)
 
@@ -147,10 +162,10 @@ gi <- calculate_influence(gi, family_method = "binomial")
 
 ### Coefficient-Based Method (Default)
 
-The **coefficient-based approach** follows the traditional influ.r methodology, providing backwards compatibility and familiar results for users transitioning from influ.r.
+The **coefficient-based approach** follows traditional fisheries methodology, providing familiar results for users working with established standardisation approaches.
 
 ```r
-# Default method - coefficient-based (influ.r approach)
+# Default method - coefficient-based
 gi <- gam_influence(model, focus = "year")  # use_coeff_method = TRUE by default
 gi <- calculate_influence(gi)
 
@@ -161,7 +176,7 @@ gi <- calculate_influence(gi)
 
 **Characteristics:**
 - Uses model coefficients directly for relative effect calculations
-- Follows established influ.r methodology using the **Francis method**
+- Follows established fisheries methodology using the **Francis method**
 - Often provides more pronounced between-group differences
 - Ideal for users familiar with traditional fisheries standardisation approaches
 - Confidence intervals calculated as: `exp(coefficients ± CI_multiplier × SEs)`
@@ -194,18 +209,18 @@ gi <- calculate_influence(gi)
 
 | Aspect                      | Coefficient-Based (Default)  | Prediction-Based (Modern)   |
 | --------------------------- | ---------------------------- | --------------------------- |
-| **Backwards Compatibility** | ✅ influ.r equivalent         | ❌ Different from influ.r    |
+| **Backwards Compatibility** | ✅ Traditional equivalent     | ❌ Modern approach           |
 | **Index Differences**       | More pronounced              | More conservative           |
 | **Uncertainty Handling**    | Francis method with Q matrix | Full prediction uncertainty |
 | **Statistical Approach**    | Traditional (coefficient)    | Modern mgcv methods         |
 | **CI Coverage**             | Non-zero CIs for all levels  | Non-zero CIs for all levels |
-| **Use Case**                | Familiar to influ.r users    | Modern GAM best practices   |
+| **Use Case**                | Traditional fisheries users  | Modern GAM best practices   |
 
 ### Choosing the Right Method
 
 - **Use coefficient-based (default)** when:
-  - Transitioning from influ.r
-  - Wanting familiar, established results with Francis method guarantees
+  - Working with traditional fisheries applications
+  - Wanting established results with Francis method guarantees
   - Working with traditional fisheries applications
   - Need more pronounced index differences
   - Require non-zero confidence intervals for all levels (including reference)
@@ -320,6 +335,17 @@ or use an integer index to refer to the term,
 plot_cdi(gi, term = 2)
 ```
 
+### Plot residual diagnostics
+
+Generate comprehensive residual diagnostic plots for model validation.
+
+```r
+plot_residuals(gi)                                    # Default: standard 4-panel diagnostics
+plot_residuals(gi, residual_type = "violin")         # Violin plots by focus levels
+plot_residuals(gi, residual_type = "combined")       # Both standard and violin plots
+plot_residuals(gi, method = "deviance")              # Specify residual type
+```
+
 ### Plot predicted effects for all terms
 
 Visualises the predicted effects for each term in the model.
@@ -350,6 +376,9 @@ Shows the distribution of the data for a specified model term and the focus vari
 
 ```r
 plot_term_distribution(gi, term = "s(temp)")
+
+# Or using the generic plot method:
+plot(gi, type = "distribution", term = "s(temp)")
 ```
 
 ### Plot random effect diagnostics (QQ plot, histogram, caterpillar plot, points)
@@ -359,6 +388,168 @@ plot_re(gi, term = "site", re_type = "qq")
 plot_re(gi, term = "site", re_type = "hist")
 plot_re(gi, term = "site", re_type = "caterpillar")
 plot_re(gi, term = "site", re_type = "points")
+```
+
+### Plot residual diagnostics
+
+Generate comprehensive residual diagnostic plots for model validation.
+
+```r
+# Standard 4-panel GAM diagnostics (QQ plot, residuals vs fitted, histogram, response vs fitted)
+plot_residuals(gi, residual_type = "standard")
+
+# Violin plots of residuals by focus term levels
+plot_residuals(gi, residual_type = "violin")
+
+# Both standard and violin plots combined
+plot_residuals(gi, residual_type = "combined")
+
+# Specify residual calculation method (deviance, pearson, response, working)
+plot_residuals(gi, residual_type = "standard", method = "deviance")
+```
+
+### Analyse residual patterns for model improvement
+
+Identify potential covariates that should be included in the model by analysing patterns in residuals.
+
+```r
+# Basic residual pattern analysis
+rpa <- analyse_residual_patterns(gi)
+
+# View results and recommendations
+print(rpa)
+summary(rpa)
+
+# Customised analysis
+rpa_custom <- analyse_residual_patterns(gi,
+  candidate_vars = c("bottom_temp", "salinity", "moon_phase", "vessel_length"),
+  exclude_vars = c("trip_id", "date"),
+  residual_type = "deviance",
+  smooth_terms = TRUE,
+  significance_level = 0.01,
+  min_r_squared = 0.15,
+  plot_results = TRUE
+)
+
+# Access detailed results
+linear_results <- rpa_custom$linear_results
+smooth_results <- rpa_custom$smooth_results
+significant_vars <- rpa_custom$significant_vars
+
+# View diagnostic plots for significant variables
+if (length(rpa_custom$plots) > 0) {
+  # Display first plot
+  print(rpa_custom$plots[[1]])
+  
+  # Access specific variable plot
+  if ("bottom_temp" %in% names(rpa_custom$plots)) {
+    print(rpa_custom$plots$bottom_temp)
+  }
+}
+
+# Example of acting on recommendations:
+# If the analysis identifies bottom_temp as significant with non-linear pattern:
+# Re-fit model including the recommended term
+mod_improved <- gam(response ~ s(depth) + s(temp) + s(bottom_temp) + year, 
+                    family = gamma(link = "log"), data = data)
+
+# Re-run analysis to check improvement
+gi_improved <- calculate_influence(gam_influence(mod_improved, focus = "year"))
+rpa_check <- analyse_residual_patterns(gi_improved)
+```
+
+### Delta-GLM Analysis for Fisheries Data
+
+Combine binomial (catch probability) and positive catch GAMs for comprehensive fisheries indices.
+
+```r
+# Fit separate models for catch probability and positive catch amounts
+mod_binomial <- gam(presence ~ year + s(depth), family = binomial(), data = data)
+mod_positive <- gam(positive_catch ~ year + s(depth), family = Gamma(link="log"), 
+                    data = data[data$presence == 1, ])
+
+# Create influence objects
+gi_binom <- calculate_influence(gam_influence(mod_binomial, focus = "year"))
+gi_positive <- calculate_influence(gam_influence(mod_positive, focus = "year"))
+
+# Combine indices using different methods
+gi_combined <- combine_indices(gi_binom, gi_positive, method = "multiplicative")  # Default
+gi_combined_geo <- combine_indices(gi_binom, gi_positive, method = "geometric")
+gi_combined_arith <- combine_indices(gi_binom, gi_positive, method = "arithmetic")
+
+# Different confidence interval methods
+gi_combined_boot <- combine_indices(gi_binom, gi_positive, 
+                                   confidence_method = "bootstrap", bootstrap_n = 1000)
+gi_combined_indep <- combine_indices(gi_binom, gi_positive, 
+                                    confidence_method = "independent")
+
+# Visualise combined results
+plot(gi_combined, type = "combined")    # Combined index only
+plot(gi_combined, type = "components")  # Individual components
+plot(gi_combined, type = "comparison")  # All indices together
+
+# Extract combined indices
+combined_indices <- extract_indices(gi_combined)
+summary(gi_combined)
+```
+
+### Compare focus effects across multiple groups
+
+Compare the focus term effects across different groups or datasets.
+
+```r
+# Create influence objects for different areas
+gi_north <- calculate_influence(gi, subset_var = "area", subset_value = "North")
+gi_south <- calculate_influence(gi, subset_var = "area", subset_value = "South")
+gi_east <- calculate_influence(gi, subset_var = "area", subset_value = "East")
+
+# Compare focus effects across areas
+comparison <- compare_focus_by_groups(
+  list(gi_north, gi_south, gi_east), 
+  group_names = c("North", "South", "East")
+)
+
+# Visualise and summarise comparisons
+plot(comparison)
+summary(comparison)
+```
+
+### Analyse focus term by group levels
+
+Perform influence analysis separately for each level of a grouping variable.
+
+```r
+# Analyse year effects separately by area
+area_analysis <- analyse_focus_by_group(gi, group_var = "area")
+
+# Extract results for each area
+area_results <- extract_indices(area_analysis)
+summary(area_analysis)
+```
+
+### Advanced residual analysis
+
+Generate implied residual plots for model diagnostic purposes.
+
+```r
+# Advanced residual diagnostics
+plot_implied_residuals(gi)
+
+# Can be combined with other diagnostic plots
+plot_residuals(gi, residual_type = "combined")
+```
+
+### Utility functions
+
+Calculate geometric mean for rescaling or other statistical purposes.
+
+```r
+# Calculate geometric mean (handles zeros and negative values appropriately)
+geom_mean_value <- geometric_mean(c(1, 2, 4, 8), na.rm = TRUE)
+
+# Use in custom rescaling
+gi_custom <- calculate_influence(gi, rescale_method = "custom",
+                                custom_rescale_value = geom_mean_value)
 ```
 
 ### Extract model terms
@@ -384,6 +575,22 @@ Prints a formatted summary table of term contributions and influence metrics.
 
 ```r
 summary(gi)
+```
+
+### Combine indices for delta-GLM analysis
+
+Combine binomial and positive catch GAMs for comprehensive fisheries CPUE indices.
+
+```r
+# Combine indices from binomial and positive models
+gi_combined <- combine_indices(gi_binomial, gi_positive)
+gi_combined <- combine_indices(gi_binomial, gi_positive, method = "geometric")
+gi_combined <- combine_indices(gi_binomial, gi_positive, confidence_method = "bootstrap")
+
+# Extract and visualise combined results
+plot(gi_combined)
+summary(gi_combined)
+combined_indices <- extract_indices(gi_combined)
 ```
 
 ---
@@ -462,7 +669,7 @@ mod_presence <- gam(fish_present ~ s(depth) + s(temperature) + year,
 gi_presence <- gam_influence(mod_presence, focus = "year")
 gi_presence <- calculate_influence(gi_presence)  # Auto-detects binomial
 
-# Visualize results
+# Visualise results
 plot_standardisation(gi_presence)     # Presence probability index
 plot_stepwise_index(gi_presence)      # Model building effects  
 plot_term_influence(gi_presence)      # Environmental influences
@@ -581,11 +788,226 @@ This approach ensures that CVs are always positive, mathematically correct, and 
 
 ---
 
+## Complete Function Reference
+
+### Core Analysis Functions
+
+| Function                      | Purpose                                    | Usage Example                                |
+| ----------------------------- | ------------------------------------------ | -------------------------------------------- |
+| `gam_influence()`             | Initialize influence analysis object       | `gi <- gam_influence(model, focus = "year")` |
+| `calculate_influence()`       | Compute all indices and influence metrics  | `gi <- calculate_influence(gi)`              |
+| `analyse_residual_patterns()` | Identify missing covariates from residuals | `analyse_residual_patterns(gi)`              |
+| `extract_indices()`           | Extract standardised results as data frame | `indices <- extract_indices(gi)`             |
+| `get_terms()`                 | Get model term names or full expressions   | `get_terms(gi, full = TRUE)`                 |
+| `r2()`                        | Extract model progression statistics       | `r2(gi)`                                     |
+
+### Plotting Functions
+
+The package provides both specific plotting functions and a generic `plot()` method. The generic method supports the following types:
+- `"stan"`: Standardisation plot (`plot_standardisation()`)
+- `"step"`: Stepwise plot (`plot_stepwise_index()`) 
+- `"influ"`: Influence plot (`plot_term_influence()`)
+- `"cdi"`: CDI plot (`plot_cdi()`, requires `term` argument)
+- `"distribution"`: Data distribution plot (`plot_term_distribution()`, requires `term` argument)
+- `"all"`: Combined step and influence plots (`plot_step_and_influence()`)
+
+| Function                    | Purpose                                            | Usage Example                                  |
+| --------------------------- | -------------------------------------------------- | ---------------------------------------------- |
+| `plot_standardisation()`    | Compare unstandardised vs standardised indices     | `plot_standardisation(gi)`                     |
+| `plot_stepwise_index()`     | Show index changes as terms are added              | `plot_stepwise_index(gi)`                      |
+| `plot_term_influence()`     | Display influence of each term on focus            | `plot_term_influence(gi)`                      |
+| `plot_step_and_influence()` | Combined stepwise and influence plots              | `plot_step_and_influence(gi)`                  |
+| `plot_cdi()`                | Coefficient-Distribution-Influence plot for a term | `plot_cdi(gi, term = "s(temp)")`               |
+| `plot_terms()`              | Plot predicted effects for model terms             | `plot_terms(gi, term = "s(depth)")`            |
+| `plot_residuals()`          | Comprehensive residual diagnostic plots            | `plot_residuals(gi, residual_type = "violin")` |
+| `plot_re()`                 | Random effects diagnostics                         | `plot_re(gi, term = "site", re_type = "qq")`   |
+| `plot_term_distribution()`  | Data distribution for a specific term              | `plot_term_distribution(gi, term = "s(temp)")` |
+| `plot_implied_residuals()`  | Advanced residual analysis                         | `plot_implied_residuals(gi)`                   |
+
+### Delta-GLM Functions
+
+| Function                    | Purpose                                    | Usage Example                                    |
+| --------------------------- | ------------------------------------------ | ------------------------------------------------ |
+| `combine_indices()`         | Combine binomial and positive catch models | `combine_indices(gi_binom, gi_positive)`         |
+| `compare_focus_by_groups()` | Compare focus effects across groups        | `compare_focus_by_groups(gi_list, group_names)`  |
+| `analyse_focus_by_group()`  | Analyse focus term by group levels         | `analyse_focus_by_group(gi, group_var = "area")` |
+
+### Utility Functions
+
+| Function           | Purpose                                | Usage Example                          |
+| ------------------ | -------------------------------------- | -------------------------------------- |
+| `geometric_mean()` | Calculate geometric mean for rescaling | `geometric_mean(values, na.rm = TRUE)` |
+
+### S3 Methods
+
+| Method                             | Purpose                                    | Usage Example                              |
+| ---------------------------------- | ------------------------------------------ | ------------------------------------------ |
+| `plot.gam_influence()`             | Generic plot method with type selection    | `plot(gi, type = "cdi", term = "s(temp)")` |
+| `plot.gam_influence_combined()`    | Plot method for combined delta-GLM objects | `plot(gi_combined, type = "comparison")`   |
+| `summary.gam_influence()`          | Formatted summary of analysis results      | `summary(gi)`                              |
+| `summary.gam_influence_combined()` | Summary for combined objects               | `summary(gi_combined)`                     |
+
+---
+
+## Testing and Validation
+
+### Comprehensive Function Testing
+
+The package includes comprehensive testing for all user-facing functions:
+
+**Core Analysis Functions:**
+- ✅ `gam_influence()` - Object creation with all GLM families
+- ✅ `calculate_influence()` - Influence calculations across family types
+- ✅ `analyse_residual_patterns()` - Residual pattern analysis for model improvement
+- ✅ `extract_indices()` - Data extraction and formatting
+- ✅ `get_terms()` - Term identification and parsing
+- ✅ `r2()` - Model progression statistics
+
+**Plotting Functions:**
+- ✅ `plot_standardisation()` - Index comparison plots
+- ✅ `plot_stepwise_index()` - Stepwise progression visualization
+- ✅ `plot_term_influence()` - Term influence plots  
+- ✅ `plot_step_and_influence()` - Combined plotting
+- ✅ `plot_cdi()` - Coefficient-Distribution-Influence plots
+- ✅ `plot_terms()` - Term effect visualization (all smoother types)
+- ✅ `plot_residuals()` - Comprehensive residual diagnostics
+- ✅ `plot_re()` - Random effects diagnostics
+- ✅ `plot_term_distribution()` - Data distribution plots
+- ✅ `plot_implied_residuals()` - Advanced residual analysis
+- ✅ `plot.gam_influence()` - Generic plot method with type selection
+
+**Delta-GLM Functions:**
+- ✅ `combine_indices()` - Multiple combination methods
+- ✅ `compare_focus_by_groups()` - Multi-group comparisons
+- ✅ `analyse_focus_by_group()` - Group-wise analysis
+
+**Utility Functions:**
+- ✅ `geometric_mean()` - Statistical calculations
+
+**S3 Methods:**
+- ✅ All `plot.*()` methods with type specifications
+- ✅ All `summary.*()` methods for formatted output
+
+### Test Coverage Areas
+
+**Family Support Testing:**
+- Gaussian, binomial, gamma, Poisson, and Tweedie distributions
+- Automatic family detection and appropriate statistical methods
+- Log-link and identity-link model handling
+- Pre-logged response variable detection
+
+**Smoother Type Testing:**
+- `s()` - Standard smoothers (splines, random effects)
+- `te()` - Tensor product smoothers  
+- `ti()` - Tensor product interactions
+- `t2()` - Scaled tensor products
+- `by=` terms - Factor-smoother interactions
+- Random effects with `bs="re"`
+
+**Advanced Feature Testing:**
+- Subset analysis with interaction terms
+- Coefficient-based vs prediction-based confidence intervals
+- Bootstrap confidence intervals for combined models
+- Custom rescaling methods and confidence levels
+- Multi-variable interaction handling in CDI plots
+
+### Validation Examples
+
+```r
+# Test basic functionality across families
+library(mgcv)
+library(gamInflu)
+
+# Create test data
+set.seed(123)
+n <- 200
+test_data <- data.frame(
+  year = factor(rep(2015:2019, each = 40)),
+  depth = runif(n, 10, 100),
+  temp = rnorm(n, 15, 3),
+  area = factor(sample(c("North", "South"), n, replace = TRUE))
+)
+
+# Generate responses for different families
+test_data$y_gaussian <- with(test_data, 2 + 0.1*as.numeric(year) + sin(depth/20) + rnorm(n, 0, 0.5))
+test_data$y_binomial <- rbinom(n, 1, plogis(test_data$y_gaussian - 2))
+test_data$y_gamma <- rgamma(n, shape = 2, rate = 2/exp(test_data$y_gaussian))
+test_data$y_poisson <- rpois(n, exp(test_data$y_gaussian - 1))
+
+# Test all families
+families <- list(
+  gaussian = gaussian(),
+  binomial = binomial(), 
+  gamma = Gamma(link = "log"),
+  poisson = poisson()
+)
+
+# Validate each family
+for(fam_name in names(families)) {
+  cat("Testing", fam_name, "family...\n")
+  
+  # Fit model
+  response_var <- paste0("y_", fam_name)
+  model <- gam(
+    formula = as.formula(paste(response_var, "~ s(depth) + s(temp) + year")),
+    data = test_data,
+    family = families[[fam_name]]
+  )
+  
+  # Test complete workflow
+  gi <- gam_influence(model, focus = "year")
+  gi <- calculate_influence(gi)
+  
+  # Test all plot functions
+  plot_standardisation(gi)
+  plot_stepwise_index(gi)  
+  plot_term_influence(gi)
+  plot_cdi(gi, term = "s(depth)")
+  plot_term_distribution(gi, term = "s(temp)")
+  
+  # Test generic plot method with all types
+  plot(gi, type = "stan")
+  plot(gi, type = "step") 
+  plot(gi, type = "influ")
+  plot(gi, type = "cdi", term = "s(depth)")
+  plot(gi, type = "distribution", term = "s(temp)")
+  plot(gi, type = "all")
+  plot_residuals(gi)
+  
+  # Test residual pattern analysis
+  rpa <- analyse_residual_patterns(gi)
+  stopifnot(class(rpa) == "residual_pattern_analysis")
+  stopifnot(all(c("linear_results", "recommendations", "analysis_info") %in% names(rpa)))
+  
+  # Test data extraction
+  indices <- extract_indices(gi)
+  stopifnot(nrow(indices) == 5)  # 5 years
+  stopifnot(all(c("index", "cv", "lower_CI", "upper_CI") %in% names(indices)))
+  
+  cat("✅", fam_name, "family validation complete\n\n")
+}
+
+# Test delta-GLM workflow
+mod_binom <- gam(y_binomial ~ s(depth) + year, data = test_data, family = binomial())
+mod_gamma <- gam(y_gamma ~ s(depth) + year, data = test_data[test_data$y_binomial == 1,], family = Gamma(link="log"))
+
+gi_binom <- calculate_influence(gam_influence(mod_binom, focus = "year"))
+gi_gamma <- calculate_influence(gam_influence(mod_gamma, focus = "year"))
+gi_combined <- combine_indices(gi_binom, gi_gamma)
+
+plot(gi_combined, type = "comparison")
+summary(gi_combined)
+
+cat("✅ All function validation tests passed\n")
+```
+
+---
+
 ## Citation
 
 To cite the **gamInflu** package in publications:
 
-> Dunn, A. (2025). *gamInflu: Influence Analysis Tools for Generalised Additive Models in R*. R package version 0.1.0. Available at: https://github.com/alistairdunn1/gamInflu
+> Dunn, A. (2025). *gamInflu: Influence Analysis Tools for Generalised Additive Models in R*. R package version 0.2.0. Available at: https://github.com/alistairdunn1/gamInflu
 
 Please also cite the foundational methodology:
 

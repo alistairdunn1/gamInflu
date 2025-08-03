@@ -7,9 +7,6 @@ subplot_influence <- function(obj, term, focus_var, cdi = FALSE) {
   message("Generating influence plot for term: ", term)
 
   # --- Data Preparation ---
-  preds_df <- obj$calculated$predictions
-  se_df <- obj$calculated$prediction_se
-  obj_data <- obj$data
   focus_var <- obj$focus
   model_terms <- get_terms(obj, full = FALSE)
 
@@ -30,9 +27,6 @@ subplot_influence <- function(obj, term, focus_var, cdi = FALSE) {
     dplyr::mutate(influence = exp(influence)) %>%
     dplyr::mutate(influence = influence / mean(influence))
 
-  xx <<- influ_data
-
-
   ylim <- c(
     pmin(0.75, min(influ_data$influence, na.rm = TRUE)),
     pmax(1.25, max(influ_data$influence, na.rm = TRUE))
@@ -44,32 +38,32 @@ subplot_influence <- function(obj, term, focus_var, cdi = FALSE) {
       geom_point(colour = "royalblue") +
       geom_hline(yintercept = 1, linetype = "dashed") +
       labs(y = "Influence") +
-      theme(
-        axis.ticks.y = element_blank(),
-        axis.text.y = element_blank(),
-        axis.title.y = element_blank()
+      ggplot2::theme(
+        axis.ticks.y = ggplot2::element_blank(),
+        axis.text.y = ggplot2::element_blank(),
+        axis.title.y = ggplot2::element_blank()
       ) +
       ylim(ylim) +
-      coord_flip()
+      ggplot2::coord_flip()
   } else {
     ggplot(influ_data, aes(x = level, y = influence, group = term, colour = term)) +
       geom_line(alpha = 0.5) +
       geom_point() +
       geom_hline(yintercept = 1, linetype = "dashed") +
       labs(y = "Influence", colour = "Term") +
-      theme(
-        axis.ticks.y = element_blank(),
-        axis.text.y = element_blank(),
-        axis.title.y = element_blank()
+      ggplot2::theme(
+        axis.ticks.y = ggplot2::element_blank(),
+        axis.text.y = ggplot2::element_blank(),
+        axis.title.y = ggplot2::element_blank()
       ) +
       ylim(ylim) +
-      coord_flip() +
-      theme(
+      ggplot2::coord_flip() +
+      ggplot2::theme(
         legend.position = c(0.02, 0.98),
         legend.justification = c("left", "top"),
-        legend.background = element_rect(fill = "transparent", colour = NA),
-        legend.key.size = unit(0.8, "lines"),
-        legend.text = element_text(size = rel(0.8))
+        legend.background = ggplot2::element_rect(fill = "transparent", colour = NA),
+        legend.key.size = grid::unit(0.8, "lines"),
+        legend.text = ggplot2::element_text(size = ggplot2::rel(0.8))
       )
   }
 }

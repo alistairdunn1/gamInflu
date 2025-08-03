@@ -23,8 +23,8 @@ subplot_random_effect_qq <- function(obj, term) {
   theoretical <- qnorm(ppoints(n))
   df <- data.frame(theoretical = sort(theoretical), sample = sort(coeffs_std))
   p_re <- ggplot(df, aes(x = .data$theoretical, y = .data$sample)) +
-    geom_point(color = "royalblue") +
-    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+    geom_point(colour = "royalblue") +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey50") +
     labs(x = "Theoretical Quantiles", y = "Sample quantiles")
   return(p_re)
 }
@@ -47,8 +47,8 @@ subplot_random_effect_histogram <- function(obj, term) {
   df <- data.frame(coefficient = as.numeric(coeffs))
   p_re <- ggplot(df, aes(x = .data$coefficient)) +
     geom_histogram(aes(y = after_stat(density)), bins = 15, alpha = 0.7, fill = "royalblue") +
-    geom_density(color = "royalblue") +
-    geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
+    geom_density(colour = "royalblue") +
+    geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
     labs(x = "Random Effect Coefficient", y = "Density")
   return(p_re)
 }
@@ -117,7 +117,7 @@ subplot_random_effect_caterpillar <- function(obj, term, conf_level = 0.95) {
   )
   df$level <- factor(df$level, levels = df$level)
   p_re <- ggplot(df, aes(x = level, y = estimate)) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
     geom_errorbar(aes(ymin = lower, ymax = upper), colour = "royalblue", alpha = 0.5, width = 0.3) +
     geom_point(colour = "royalblue") +
     labs(x = "Level", y = "Random effect")

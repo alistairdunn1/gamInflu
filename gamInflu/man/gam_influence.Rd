@@ -24,9 +24,9 @@ logarithmic scale. If NULL, this will be inferred automatically by
 `calculate_influence()` based on the response variable name and model family.}
 
 \item{use_coeff_method}{A logical value indicating whether to use coefficient-based
-confidence intervals (TRUE, default) following the influ.r approach, or prediction-based
+confidence intervals (TRUE, default) following traditional fisheries approaches, or prediction-based
 confidence intervals (FALSE) using modern mgcv prediction methods. The coefficient-based
-method provides traditional relative effect calculations similar to influ.r, while
+method provides traditional relative effect calculations, while
 prediction-based method uses direct model predictions with uncertainty propagation.}
 }
 \value{

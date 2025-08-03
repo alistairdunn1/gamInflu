@@ -33,24 +33,60 @@ subplot_focus_effect <- function(obj, t, term_vars, cdi = FALSE) {
     upper <- effect + 1.96 * se
     ylim <- c(NA, NA)
   }
-  df <- data.frame(level = obj$data[[term_vars[1]]], effect = effect, lower = lower, upper = upper)
+
+  # Handle potential dimension mismatch between data and predictions (subset analysis)
+  if (length(effect) != nrow(obj$data)) {
+    # This indicates subset analysis was performed
+    message("Detected subset analysis: adjusting focus variable levels to match predictions")
+
+    # Get all unique levels from the current data
+    all_levels <- unique(obj$data[[term_vars[1]]][!is.na(obj$data[[term_vars[1]]])])
+
+    # If we have the right number of levels, use them
+    if (length(all_levels) == length(effect)) {
+      df <- data.frame(level = all_levels, effect = effect, lower = lower, upper = upper)
+    } else {
+      # Create levels based on sorted unique values
+      sorted_levels <- sort(all_levels)
+      if (length(sorted_levels) >= length(effect)) {
+        used_levels <- sorted_levels[seq_len(length(effect))]
+        df <- data.frame(level = used_levels, effect = effect, lower = lower, upper = upper)
+      } else {
+        # Fallback: use the focus variable sequence if it's numeric
+        if (is.numeric(all_levels)) {
+          df <- data.frame(level = seq_len(length(effect)), effect = effect, lower = lower, upper = upper)
+        } else {
+          df <- data.frame(level = paste("Level", seq_len(length(effect))), effect = effect, lower = lower, upper = upper)
+        }
+        warning("Could not match focus variable levels to predictions. Using generic labels.")
+      }
+    }
+  } else {
+    # Normal case - dimensions match
+    df <- data.frame(level = obj$data[[term_vars[1]]], effect = effect, lower = lower, upper = upper)
+  }
 
   # Convert df$level to numeric if it is numeric-like (e.g., factor or character with numeric values)
   if (!is.numeric(df$level) && all(!is.na(as.numeric(as.character(df$level))))) {
     df$level <- as.numeric(as.character(df$level))
   }
 
-  p_coef <- ggplot(df, aes(x = level, y = effect)) +
-    geom_point(colour = "royalblue") +
-    geom_line(colour = "royalblue") +
-    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "royalblue", alpha = 0.2) +
-    ylim(ylim) +
-    labs(y = "Index")
+  p_coef <- ggplot2::ggplot(df, ggplot2::aes(x = level, y = effect)) +
+    ggplot2::geom_point(colour = "royalblue") +
+    ggplot2::geom_line(colour = "royalblue") +
+    ggplot2::geom_ribbon(ggplot2::aes(ymin = lower, ymax = upper), fill = "royalblue", alpha = 0.2) +
+    ggplot2::ylim(ylim) +
+    ggplot2::labs(y = "Index")
   if (cdi) {
-    p_coef <- p_coef + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank(), legend.title = element_blank())
+    p_coef <- p_coef + ggplot2::theme(
+      axis.ticks.x = ggplot2::element_blank(),
+      axis.text.x = ggplot2::element_blank(),
+      axis.title.x = ggplot2::element_blank(),
+      legend.title = ggplot2::element_blank()
+    )
   } else {
     p_coef <- p_coef +
-      xlab(term_vars[1])
+      ggplot2::xlab(term_vars[1])
   }
   return(p_coef)
 }

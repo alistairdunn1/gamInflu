@@ -148,7 +148,7 @@ plot.gam_influence_comparison <- function(x, type = c("standardisation", "compar
 #' @param confidence_intervals Logical indicating whether to show confidence intervals.
 #' @param ... Additional arguments (not used).
 #' @return A ggplot object.
-#' @importFrom ggplot2 ggplot aes geom_line geom_point geom_ribbon labs scale_color_viridis_d theme_minimal
+#' @importFrom ggplot2 ggplot aes geom_line geom_point geom_ribbon labs scale_colour_viridis_d theme_minimal
 #' @importFrom dplyr bind_rows
 #' @noRd
 plot_comparison_indices <- function(x, groups = NULL, confidence_intervals = TRUE, ...) {
@@ -192,11 +192,11 @@ plot_comparison_indices <- function(x, groups = NULL, confidence_intervals = TRU
     plot_data$level <- as.numeric(as.character(plot_data$level))
   }
 
-  p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = level, y = index, color = group, fill = group)) +
-    ggplot2::geom_hline(yintercept = 1, linetype = "dashed", color = "grey50") +
+  p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = level, y = index, colour = group, fill = group)) +
+    ggplot2::geom_hline(yintercept = 1, linetype = "dashed", colour = "grey50") +
     ggplot2::geom_line(size = 1) +
     ggplot2::geom_point(size = 2) +
-    ggplot2::scale_color_viridis_d(name = x$grouping_var) +
+    ggplot2::scale_colour_viridis_d(name = x$grouping_var) +
     ggplot2::labs(
       x = x$focus,
       y = "Standardized Index",

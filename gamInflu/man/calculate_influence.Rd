@@ -47,8 +47,6 @@ calculate_influence(
 \item{subset_value}{Value to subset by (e.g., "North", "Trawl"). If both subset_var and subset_value are provided, analysis is performed only on the subset, using the full model for predictions.}
 
 \item{...}{Additional arguments (currently unused).}
-
-\item{use_coeff_method}{Logical. If TRUE (default), uses coefficient-based CI calculation (influ.r approach). If FALSE, uses prediction-based CI calculation.}
 }
 \value{
 The \code{gam_influence} object, now containing a \code{calculated} list with data frames for indices, summary stats, influences, predictions, and s.e. of predictions.

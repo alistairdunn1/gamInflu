@@ -11,7 +11,7 @@ plot_term_influence <- function(obj) {
   df <- obj$calculated$influences
   if (is.null(df) || nrow(df) == 0) {
     return(ggplot() +
-      labs(title = "Term Influence Plot", subtitle = "No non-focus terms to plot."))
+      labs(subtitle = "No non-focus terms to plot."))
   }
 
   # Convert level to numeric if possible

@@ -38,14 +38,14 @@ An object of class 'gam_influence_comparison' containing influence analysis resu
 }
 \description{
 Performs influence analysis on subsets of data grouped by a categorical variable.
-This allows analysis of how focus term effects (e.g., year trends) vary across different 
+This allows analysis of how focus term effects (e.g., year trends) vary across different
 levels of another variable (e.g., areas, gear types, species).
 }
 \details{
 This function addresses the common need to analyse temporal or categorical trends
 (focus effects) separately within different groups. For example:
 - Annual CPUE trends by fishing area
-- Species abundance trends by habitat type  
+- Species abundance trends by habitat type
 - Treatment effects by experimental site
 
 The function:
@@ -66,7 +66,7 @@ library(gamInflu)
 comparison <- analyse_focus_by_group(
   model_formula = cpue ~ s(depth) + s(temperature) + year,
   focus = "year",
-  grouping_var = "area", 
+  grouping_var = "area",
   data = fisheries_data
 )
 

@@ -26,13 +26,13 @@ A data frame with columns:
 \description{
 Extracts the standardised and unstandardised indices for the focus term as a data frame.
 Works with all supported GLM families (Gaussian, binomial, gamma, Poisson) and returns the underlying
-data used by \code{plot_standardisation()} for further analysis, export, or custom visualization.
+data used by \code{plot_standardisation()} for further analysis, export, or custom visualisation.
 }
 \details{
 This function provides programmatic access to the standardised and unstandardised indices
 that are visualized in \code{plot_standardisation()}. The returned data frame contains the same
 underlying data used for plotting but in a format suitable for further analysis, export,
-or custom visualization.
+or custom visualisation.
 
 \strong{Family-specific behaviour:}
 \itemize{

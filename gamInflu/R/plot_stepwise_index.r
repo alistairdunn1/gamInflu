@@ -1,16 +1,16 @@
 #' @title Stepwise Index Plot
 #' @description Creates a step plot showing how the index for the focus term changes as each model
-#' term is added sequentially. This visualization helps understand the contribution of each term
+#' term is added sequentially. This visualisation helps understand the contribution of each term
 #' to the final standardized index and works with all supported GLM families.
 #' @param obj A `gam_influence` object containing calculated indices from `calculate_influence()`.
-#' @param show_previous Logical; if TRUE, shows previous steps on each panel in color with a legend,
+#' @param show_previous Logical; if TRUE, shows previous steps on each panel in colour with a legend,
 #'   allowing you to see how the index evolves as terms are added. If FALSE (default), shows only
 #'   the current step for each panel.
 #' @return A ggplot object with stepwise index plots for each term added. The plot shows:
 #'   - **Individual panels**: One for each term added to the model in sequence
 #'   - **Index evolution**: How the focus term's index changes with each model term
 #'   - **Reference line**: Horizontal dashed line at y=1 for relative comparison
-#'   - **Color coding**: (when show_previous=TRUE) Different colors for each step in the progression
+#'   - **Colour coding**: (when show_previous=TRUE) Different colours for each step in the progression
 #' @details
 #' The stepwise index plot visualizes the model building process by showing how the focus term's
 #' index changes as each term is sequentially added to the model. This helps identify:
@@ -46,6 +46,21 @@
 plot_stepwise_index <- function(obj, show_previous = FALSE) {
   # Select only the columns representing step-wise indices
   step_cols <- names(obj$calculated$indices)[grepl("^\\+", names(obj$calculated$indices))]
+
+  # Check if stepwise analysis was performed
+  if (length(step_cols) == 0) {
+    return(ggplot2::ggplot() +
+      ggplot2::labs(
+        title = "Stepwise Index Plot",
+        subtitle = "No stepwise data available - check if stepwise analysis completed successfully",
+        x = obj$focus,
+        y = "Index"
+      ) +
+      ggplot2::theme(
+        plot.subtitle = ggplot2::element_text(colour = "steelblue")
+      ))
+  }
+
   df_long <- tidyr::pivot_longer(obj$calculated$indices,
     cols = all_of(step_cols), names_to = "term", values_to = "index"
   )
@@ -95,8 +110,8 @@ plot_stepwise_index <- function(obj, show_previous = FALSE) {
   } else {
     ggplot2::ggplot(df_long, ggplot2::aes(x = .data$level, y = .data$index, group = 1)) +
       ggplot2::geom_hline(yintercept = 1, linetype = "dashed", colour = "grey") +
-      ggplot2::geom_line(color = "royalblue", alpha = 0.5) +
-      ggplot2::geom_point(color = "royalblue") +
+      ggplot2::geom_line(colour = "royalblue", alpha = 0.5) +
+      ggplot2::geom_point(colour = "royalblue") +
       ggplot2::facet_wrap(~label, ncol = 1, scales = "fixed") +
       ggplot2::labs(x = obj$focus, y = "Index") +
       ggplot2::theme(strip.text = ggplot2::element_text(hjust = 0)) +

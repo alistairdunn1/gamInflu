@@ -9,7 +9,7 @@ plot_stepwise_index(obj, show_previous = FALSE)
 \arguments{
 \item{obj}{A `gam_influence` object containing calculated indices from `calculate_influence()`.}
 
-\item{show_previous}{Logical; if TRUE, shows previous steps on each panel in color with a legend,
+\item{show_previous}{Logical; if TRUE, shows previous steps on each panel in colour with a legend,
 allowing you to see how the index evolves as terms are added. If FALSE (default), shows only
 the current step for each panel.}
 }
@@ -18,11 +18,11 @@ A ggplot object with stepwise index plots for each term added. The plot shows:
   - **Individual panels**: One for each term added to the model in sequence
   - **Index evolution**: How the focus term's index changes with each model term
   - **Reference line**: Horizontal dashed line at y=1 for relative comparison
-  - **Color coding**: (when show_previous=TRUE) Different colors for each step in the progression
+  - **Colour coding**: (when show_previous=TRUE) Different colours for each step in the progression
 }
 \description{
 Creates a step plot showing how the index for the focus term changes as each model
-term is added sequentially. This visualization helps understand the contribution of each term
+term is added sequentially. This visualisation helps understand the contribution of each term
 to the final standardized index and works with all supported GLM families.
 }
 \details{

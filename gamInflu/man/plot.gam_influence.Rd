@@ -17,9 +17,10 @@ plot_term_influence(obj)
 - `"step"`: Step plot.
 - `"influ"`: Influence plot.
 - `"cdi"`: Coefficient-Distribution-Influence plot (requires `term` argument).
+- `"distribution"`: Data distribution plot for a specific term (requires `term` argument).
 - `"all"`: A combined layout of the step and influence plots.}
 
-\item{...}{Additional arguments passed to specific plot functions (e.g., `term` for cdi).}
+\item{...}{Additional arguments passed to specific plot functions (e.g., `term` for cdi and distribution).}
 
 \item{obj}{A `gam_influence` object containing calculated indices.}
 }
@@ -30,7 +31,7 @@ A ggplot object showing the influence of each non-focus term.
 }
 \description{
 Dispatches to specific plotting functions based on the `type` argument. This
-is the primary user-facing function for creating visualizations.
+is the primary user-facing function for creating visualisations.
 
 Creates an influence plot showing the influence of each non-focus term on the focus term's index.
 }

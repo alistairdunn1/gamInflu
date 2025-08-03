@@ -28,24 +28,45 @@ subplot_continuous_effect <- function(obj, t, term_vars, cdi = FALSE) {
   } else {
     ylim <- c(NA, NA)
   }
-  df <- data.frame(
-    x = obj$data[[term_vars[1]]], effect = preds_df$effect, lower = preds_df$lower, upper = preds_df$upper
-  )
-  p_coef <- ggplot(df, aes(x = x, y = effect)) +
-    geom_line(colour = "royalblue") +
-    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, fill = "royalblue") +
-    labs(y = "Partial effect") +
-    ylim(ylim)
+
+  # Handle potential dimension mismatch between data and predictions (subset analysis)
+  if (length(preds_df$effect) != nrow(obj$data)) {
+    # This indicates subset analysis was performed
+    message("Detected subset analysis: using prediction data length for continuous effects")
+
+    # For continuous variables, we need to ensure the x values match the predictions
+    # Use the first n values where n = length of predictions
+    x_values <- obj$data[[term_vars[1]]][seq_len(length(preds_df$effect))]
+    df <- data.frame(
+      x = x_values,
+      effect = preds_df$effect,
+      lower = preds_df$lower,
+      upper = preds_df$upper
+    )
+  } else {
+    # Normal case - dimensions match
+    df <- data.frame(
+      x = obj$data[[term_vars[1]]],
+      effect = preds_df$effect,
+      lower = preds_df$lower,
+      upper = preds_df$upper
+    )
+  }
+  p_coef <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = effect)) +
+    ggplot2::geom_line(colour = "royalblue") +
+    ggplot2::geom_ribbon(ggplot2::aes(ymin = lower, ymax = upper), alpha = 0.2, fill = "royalblue") +
+    ggplot2::labs(y = "Partial effect") +
+    ggplot2::ylim(ylim)
   if (cdi) {
-    p_coef <- p_coef + theme(
-      axis.ticks.x = element_blank(),
-      axis.text.x = element_blank(),
-      axis.title.x = element_blank(),
-      legend.title = element_blank()
+    p_coef <- p_coef + ggplot2::theme(
+      axis.ticks.x = ggplot2::element_blank(),
+      axis.text.x = ggplot2::element_blank(),
+      axis.title.x = ggplot2::element_blank(),
+      legend.title = ggplot2::element_blank()
     )
   } else {
     p_coef <- p_coef +
-      xlab(term_vars[1])
+      ggplot2::xlab(term_vars[1])
   }
   return(p_coef)
 }

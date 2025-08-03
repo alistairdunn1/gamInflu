@@ -11,7 +11,7 @@ Description: Comprehensive influence analysis tools for Generalized Additive Mod
     and family-specific standardized indices to help understand model structure and term influences.
     Features automatic family detection, family-appropriate statistical methods, and comprehensive 
     visualization tools for fisheries CPUE standardization and ecological modeling.
-    This package is inspired by and builds upon concepts from Bentley, N.; Kendrick, T. H.; Starr, P. J.; Breen, P. A. Influence Plots and Metrics: Tools for Better Understanding Fisheries Catch-per-Unit-Effort Standardizations. ICES Journal of Marine Science 2012, 69(1), 84–88 pp.
+    This package is inspired by and builds upon concepts from Bentley, N.; Kendrick, T. H.; Starr, P. J.; Breen, P. A. Influence Plots and Metrics: Tools for Better Understanding Fisheries Catch-per-Unit-Effort Standardizations. ICES Journal of Marine Science 2012, 69(1), 84-88 pp.
 License: GPL (>= 3)
 Encoding: UTF-8
 RoxygenNote: 7.3.2
@@ -25,6 +25,7 @@ Imports:
     rlang,
     patchwork,
     stats,
-    utils
+    utils,
+    tools
 Suggests:
     testthat (>= 3.0.0)

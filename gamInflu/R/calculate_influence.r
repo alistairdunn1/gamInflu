@@ -6,7 +6,6 @@
 #' @param custom_rescale_value Numeric. Custom rescaling value when rescale_method = "custom".
 #' @param confidence_level Numeric. Confidence level for standardised index intervals (default 0.95).
 #' @param family_method Character. How to handle different GLM families. Options: "auto" (default), "gaussian", "binomial", "gamma", "poisson".
-#' @param use_coeff_method Logical. If TRUE (default), uses coefficient-based CI calculation (influ.r approach). If FALSE, uses prediction-based CI calculation.
 #' @param subset_var Character. Name of variable to subset on (e.g., "area", "gear_type").
 #' @param subset_value Value to subset by (e.g., "North", "Trawl"). If both subset_var and subset_value are provided, analysis is performed only on the subset, using the full model for predictions.
 #' @param ... Additional arguments (currently unused).
@@ -122,7 +121,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
         substr(obj$response, 1, 3) == "ln_"
 
       # NOTE: We do NOT automatically set islog=TRUE for log-link families
-      # Log link (e.g., Gamma(link="log")) ≠ Pre-logged response (log(y) ~ ...)
+      # Log link (e.g., Gamma(link="log")) != Pre-logged response (log(y) ~ ...)
       # Log link: response on original scale, link transforms internally
       # Pre-logged: response on log scale, user transformed before fitting
 
@@ -202,8 +201,8 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
   # Choose calculation method
   if (use_coeff_method) {
-    # --- COEFFICIENT-BASED APPROACH (influ.r method) ---
-    message("Using coefficient-based CI calculation (influ.r approach)")
+    # --- COEFFICIENT-BASED APPROACH (traditional method) ---
+    message("Using coefficient-based CI calculation")
 
     # Extract coefficients for the focus term
     all_coeffs <- coef(obj$model)
@@ -218,7 +217,14 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     focus_coeffs_nonref <- all_coeffs[focus_coeff_indices]
 
     # Create full coefficient vector including reference level as 0
-    focus_levels <- levels(obj$data[[obj$focus]])
+    # For subset analysis, use all levels from the original model
+    if (!is.null(subset_var) && !is.null(subset_value) && exists("original_data", inherits = FALSE)) {
+      # Use levels from original data for coefficient calculations
+      focus_levels <- levels(original_data[[obj$focus]])
+    } else {
+      # Normal analysis - use current data levels
+      focus_levels <- levels(obj$data[[obj$focus]])
+    }
     n_levels <- length(focus_levels)
     focus_coeffs <- numeric(n_levels)
     names(focus_coeffs) <- focus_levels
@@ -260,7 +266,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
           Q[i, -c(1, i)] <- -1 / n_levels # other coefficients
         }
 
-        # Calculate variance matrix for relative effects: Q * Σ * Q'
+        # Calculate variance matrix for relative effects: Q * V * Q'
         V_relative <- Q %*% focus_vcov_full %*% t(Q)
         focus_ses <- sqrt(diag(V_relative))
         names(focus_ses) <- focus_levels
@@ -290,13 +296,32 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     # CI multiplier: use z-score for consistency with confidence_level
     ci_multiplier <- qnorm(1 - (1 - confidence_level) / 2)
 
-    stan_df$standardised_index <- exp(relative_coeffs)
-    stan_df$stan_lower <- exp(relative_coeffs - ci_multiplier * focus_ses)
-    stan_df$stan_upper <- exp(relative_coeffs + ci_multiplier * focus_ses)
+    # For subset analysis, filter coefficient results to match levels in stan_df
+    if (!is.null(subset_var) && !is.null(subset_value)) {
+      # Get levels present in subset data
+      subset_levels <- as.character(stan_df$level)
 
-    # Calculate SE and CV on response scale (approximation)
-    stan_df$stan_se <- focus_ses * stan_df$standardised_index # Delta method approximation
-    stan_df$standardised_cv <- focus_ses # CV ≈ SE on log scale for coefficient method
+      # Filter coefficients and SEs to match subset levels
+      relative_coeffs_subset <- relative_coeffs[subset_levels]
+      focus_ses_subset <- focus_ses[subset_levels]
+
+      stan_df$standardised_index <- exp(relative_coeffs_subset)
+      stan_df$stan_lower <- exp(relative_coeffs_subset - ci_multiplier * focus_ses_subset)
+      stan_df$stan_upper <- exp(relative_coeffs_subset + ci_multiplier * focus_ses_subset)
+
+      # Calculate SE and CV on response scale (approximation)
+      stan_df$stan_se <- focus_ses_subset * stan_df$standardised_index # Delta method approximation
+      stan_df$standardised_cv <- focus_ses_subset # CV ~ SE on log scale for coefficient method
+    } else {
+      # Normal analysis - use all coefficients
+      stan_df$standardised_index <- exp(relative_coeffs)
+      stan_df$stan_lower <- exp(relative_coeffs - ci_multiplier * focus_ses)
+      stan_df$stan_upper <- exp(relative_coeffs + ci_multiplier * focus_ses)
+
+      # Calculate SE and CV on response scale (approximation)
+      stan_df$stan_se <- focus_ses * stan_df$standardised_index # Delta method approximation
+      stan_df$standardised_cv <- focus_ses # CV ~ SE on log scale for coefficient method
+    }
   } else {
     # --- PREDICTION-BASED APPROACH (modern method) ---
     message("Using prediction-based CI calculation (modern approach)")
@@ -337,7 +362,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       # Merge log SE with standardised data
       stan_df <- merge(stan_df, log_se_agg, by = "level", all.x = TRUE)
 
-      # Delta method CV: sqrt(exp(σ²) - 1) where σ is SE on log scale
+      # Delta method CV: sqrt(exp(sigma^2) - 1) where sigma is SE on log scale
       stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
         sqrt(exp(stan_df$log_se^2) - 1),
         NA_real_
@@ -407,7 +432,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   is_subset_analysis <- !is.null(subset_var) && !is.null(subset_value)
 
   if (!is_subset_analysis) {
-    # Perform stepwise analysis only for full dataset analysis
+    # Perform stepwise analysis for full dataset analysis
 
     # Start with an intercept-only model
     model_int <- update(obj$model, . ~ 1, data = obj$data)
@@ -463,14 +488,141 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       )
     }
   } else {
-    # For subset analysis, provide minimal summary stats
-    message("Stepwise analysis skipped for subset analysis")
-    summary_list[["full_model"]] <- data.frame(
-      term = "Full Model (Subset Analysis)",
-      logLike = as.numeric(logLik(obj$model)),
-      aic = AIC(obj$model),
-      r_sq = summary(obj$model)$r.sq,
-      deviance_explained = summary(obj$model)$dev.expl
+    # For subset analysis, perform stepwise analysis on subset data
+    message("Performing stepwise analysis on subset data")
+
+    # Pre-filter terms to exclude those with insufficient factor levels in subset data
+    valid_subset_terms <- sapply(all_terms, function(term) {
+      # Extract variable names from the term (handles interactions and smooths)
+      var_names <- all.vars(as.formula(paste("~", term)))
+
+      # Check each variable in the term
+      all(sapply(var_names, function(var_name) {
+        if (var_name %in% names(obj$data)) {
+          var_data <- obj$data[[var_name]]
+          if (is.factor(var_data) || is.character(var_data)) {
+            # For factors/characters, need at least 2 levels for contrasts
+            length(unique(var_data[!is.na(var_data)])) >= 2
+          } else {
+            # For numeric variables, just need some variation
+            length(unique(var_data[!is.na(var_data)])) >= 2
+          }
+        } else {
+          TRUE # Variable not in data, let the model fitting handle it
+        }
+      }))
+    })
+
+    # Filter out invalid terms and report what was excluded
+    invalid_terms <- all_terms[!valid_subset_terms]
+    if (length(invalid_terms) > 0) {
+      message(
+        "Excluding terms from subset stepwise analysis due to insufficient factor levels: ",
+        paste(invalid_terms, collapse = ", ")
+      )
+
+      # Record the excluded terms in the summary
+      for (invalid_term in invalid_terms) {
+        summary_list[[paste(invalid_term, "(Subset - Excluded)")]] <- data.frame(
+          term = paste(invalid_term, "(Subset - Excluded: insufficient levels)"),
+          logLike = NA,
+          aic = NA,
+          r_sq = NA,
+          deviance_explained = NA
+        )
+      }
+    }
+
+    # Use only valid terms for stepwise analysis
+    subset_terms <- all_terms[valid_subset_terms]
+
+    # Start with an intercept-only model fitted to subset data
+    tryCatch(
+      {
+        model_int <- update(obj$model, . ~ 1, data = obj$data)
+        logLike_int <- as.numeric(logLik(model_int))
+        summary_list[["intercept"]] <- data.frame(
+          term = "Intercept (Subset)",
+          logLike = logLike_int,
+          aic = AIC(model_int),
+          r_sq = 0,
+          deviance_explained = 0
+        )
+
+        # Sequentially add each valid term from the filtered list
+        for (i in seq_along(subset_terms)) {
+          current_terms <- subset_terms[1:i]
+
+          formula_str <- paste("~", paste(current_terms, collapse = " + "))
+
+          tryCatch(
+            {
+              # Fit stepwise model to subset data
+              model_step <- update(obj$model, as.formula(formula_str), data = obj$data)
+
+              # Store the step-wise index if the focus term is in the current model
+              if (obj$focus %in% current_terms) {
+                step_preds <- predict(model_step, newdata = obj$data, type = "terms")
+                focus_cols <- grep(paste0("^", obj$focus, ""), colnames(step_preds), value = TRUE)
+                if (length(focus_cols) > 0) {
+                  focus_effect_sum <- rowSums(step_preds[, focus_cols, drop = FALSE])
+                  step_focus_effects <- aggregate(focus_effect_sum ~ obj$data[[obj$focus]], FUN = mean)
+                  names(step_focus_effects) <- c("level", "effect")
+
+                  base_step <- mean(step_focus_effects$effect)
+                  step_focus_effects$index <- exp(step_focus_effects$effect - base_step)
+
+                  # Name the column after the term that was just added
+                  term_label <- paste("+", subset_terms[i])
+                  step_indices_list[[term_label]] <- step_focus_effects[, c("level", "index")]
+                  names(step_indices_list[[term_label]])[2] <- term_label
+                }
+              }
+
+              # Store summary statistics for the current step
+              logLike_step <- as.numeric(logLik(model_step))
+              model_summary <- summary(model_step)
+
+              # Get R-squared and Deviance Explained, robust to model type (gam vs. glm)
+              r_sq_step <- if ("r.sq" %in% names(model_summary)) model_summary$r.sq else NA
+              dev_expl_step <- if ("dev.expl" %in% names(model_summary)) model_summary$dev.expl else (model_step$null.deviance - deviance(model_step)) / model_step$null.deviance
+
+              summary_list[[paste(subset_terms[i], "(Subset)")]] <- data.frame(
+                term = paste(subset_terms[i], "(Subset)"),
+                logLike = logLike_step,
+                aic = AIC(model_step),
+                r_sq = r_sq_step,
+                deviance_explained = dev_expl_step
+              )
+            },
+            error = function(e) {
+              # If model fitting fails for this step, record the error and continue
+              warning(paste(
+                "Failed to fit stepwise model with terms:", paste(current_terms, collapse = " + "),
+                "Error:", e$message
+              ))
+              summary_list[[paste(subset_terms[i], "(Subset - Failed)")]] <<- data.frame(
+                term = paste(subset_terms[i], "(Subset - Failed)"),
+                logLike = NA,
+                aic = NA,
+                r_sq = NA,
+                deviance_explained = NA
+              )
+            }
+          )
+        }
+      },
+      error = function(e) {
+        # If even the intercept model fails, fall back to minimal summary
+        warning("Could not perform stepwise analysis on subset data:", e$message)
+        summary_list[["full_model"]] <- data.frame(
+          term = "Full Model (Subset Analysis)",
+          logLike = as.numeric(logLik(obj$model)),
+          aic = AIC(obj$model),
+          r_sq = summary(obj$model)$r.sq,
+          deviance_explained = summary(obj$model)$dev.expl
+        )
+      }
     )
   }
 
