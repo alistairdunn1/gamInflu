@@ -45,6 +45,11 @@ plot_terms <- function(obj, term = NULL, re_type = "points", cdi = FALSE) {
     } else if (length(term_vars) == 1 && !is_by && !is_random && is_factor) {
       subplot_factor_effect(obj, t, term_vars, cdi = cdi)
     } else {
+      message(
+        "Plotting for terms of type '", t, "' with variables ",
+        paste(term_vars, collapse = ", "),
+        " is not yet implemented yet.\n   [is_random = ", is_random, ", is_by = ", is_by, ", is_factor = ", is_factor, ", is_tensor2d = ", is_tensor2d, "]"
+      )
       patchwork::plot_spacer()
     }
   })

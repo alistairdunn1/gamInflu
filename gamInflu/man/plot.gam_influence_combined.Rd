@@ -6,7 +6,7 @@
 \usage{
 \method{plot}{gam_influence_combined}(
   x,
-  type = c("combined", "components", "comparison"),
+  type = c("comparison", "combined", "components"),
   show_points = TRUE,
   show_ci = TRUE,
   ...
@@ -16,9 +16,9 @@
 \item{x}{A gam_influence_combined object}
 
 \item{type}{Character. Type of plot:
-- "combined": Combined index with confidence intervals (default)
-- "components": All three indices (binomial, positive, combined) on separate panels
-- "comparison": Side-by-side comparison of components and combined}
+- "comparison": Single plot showing the components and combined (default)
+- "combined": Combined index with confidence intervals
+- "components": All three indices (binomial, positive, combined) on separate panels}
 
 \item{show_points}{Logical. Should individual points be shown? Default TRUE.}
 
