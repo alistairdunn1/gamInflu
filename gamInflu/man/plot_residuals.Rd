@@ -10,6 +10,7 @@ plot_residuals(
   residual_type = c("deviance", "pearson", "response", "working"),
   violin_trim = TRUE,
   add_boxplot = TRUE,
+  add_smooth = TRUE,
   by = NULL,
   ...
 )
@@ -31,6 +32,8 @@ plot_residuals(
 \item{violin_trim}{Logical. Should violin plots be trimmed to data range? Default is TRUE.}
 
 \item{add_boxplot}{Logical. Should boxplots be overlaid on violin plots? Default is TRUE.}
+
+\item{add_smooth}{Logical. Should a loess smooth line be added to the plot? Default is TRUE.}
 
 \item{by}{Character. Optional variable name for faceting plots. If provided, creates separate
 panels for each level of this variable. Must be a factor or character variable (not numeric).}
