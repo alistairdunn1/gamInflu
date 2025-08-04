@@ -3,7 +3,6 @@
 #' @param obj A `gam_influence` object containing calculated indices and model data.
 #' @param var The name of the variable for which to compute implied residual mean and quantiles.
 #' @param nbins (Optional) Number of bins if `var` is not a factor.
-#' @param islog Logical indicating if the response variable is log-transformed.
 #' @param ylim (Optional) The y-axis limits for the plot.
 #' @param n.exclude (Optional) Minimum number of records required to include a group in the plot.
 #' @return A ggplot object (multi-panel plot).
@@ -12,7 +11,7 @@
 #' @importFrom rlang .data
 #' @importFrom stats sd predict
 #' @export
-plot_implied_residuals <- function(obj, var, nbins = 6, islog = NULL, ylim = NULL, n.exclude = 0) {
+plot_implied_residuals <- function(obj, var, nbins = 6, ylim = NULL, n.exclude = 0) {
   # Check object and data
   if (is.null(obj$data)) stop("No data found in gam_influence object.", call. = FALSE)
   data <- obj$data
@@ -20,7 +19,7 @@ plot_implied_residuals <- function(obj, var, nbins = 6, islog = NULL, ylim = NUL
   response_var <- obj$response
 
   # Determine log transformation
-  if (is.null(islog)) islog <- obj$islog
+  islog <- obj$islog
 
   # Check variable existence
   if (!focus_var %in% names(data)) {

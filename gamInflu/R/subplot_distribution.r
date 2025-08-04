@@ -4,7 +4,7 @@
 #' @param term The character name of the model term to plot (e.g., "year" or "s(temp)").
 #' @return A ggplot object showing the data distribution.
 #' @export
-plot_term_distribution <- function(obj, term) {
+plot_term_distribution <- function(obj, term, by = TRUE) {
   message("Plotting data distribution for term: ", term)
   # --- Setup ---
   if (is.numeric(term) && length(term) == 1 && term == as.integer(term)) {
@@ -20,7 +20,7 @@ plot_term_distribution <- function(obj, term) {
   if (term == focus_var) {
     stop("The distribution plot cannot be generated for the focus term itself.")
   }
-  p_dist <- subplot_distribution(obj, term, focus_var)
+  p_dist <- subplot_distribution(obj, term, focus_var, by = by)
   return(p_dist)
 }
 
@@ -30,7 +30,7 @@ plot_term_distribution <- function(obj, term) {
 #' @param focus_var The focus variable name.
 #' @param term_var The term variable name.
 #' @noRd
-subplot_distribution <- function(obj, term, focus_var) {
+subplot_distribution <- function(obj, term, focus_var, by = TRUE) {
   term_vars <- all.vars(rlang::parse_expr(term))
 
   # For interactions, we need to handle multiple variables
@@ -48,6 +48,14 @@ subplot_distribution <- function(obj, term, focus_var) {
   # For multiple variables (interactions), use the first variable in the model for display
   # but consider this could be enhanced to show interaction structure
   main_var <- term_vars_in_model[1]
+
+  # Validate that focus_var and main_var are valid character strings
+  if (!is.character(focus_var) || length(focus_var) != 1 || focus_var == "" || is.na(focus_var)) {
+    stop("focus_var must be a valid character string")
+  }
+  if (!is.character(main_var) || length(main_var) != 1 || main_var == "" || is.na(main_var)) {
+    stop("main_var must be a valid character string")
+  }
 
   # Check if this is a by-variable interaction (e.g., s(year, by=area))
   is_by_interaction <- grepl("by\\s*=", term)
@@ -76,6 +84,12 @@ subplot_distribution <- function(obj, term, focus_var) {
   if (length(term_vars_in_model) > 1 && !is_by_interaction) {
     # For tensor product or other multi-variable interactions (e.g., te(year, area))
     second_var <- term_vars_in_model[2]
+
+    # Validate second_var
+    if (!is.character(second_var) || length(second_var) != 1 || second_var == "" || is.na(second_var)) {
+      stop("second_var must be a valid character string")
+    }
+
     p_dist_data <- obj$data %>%
       dplyr::group_by(.data[[focus_var]], .data[[main_var]], .data[[second_var]]) %>%
       dplyr::summarise(n = dplyr::n(), .groups = "keep") %>%
@@ -93,9 +107,28 @@ subplot_distribution <- function(obj, term, focus_var) {
       ggplot2::scale_size_identity() +
       ggplot2::theme(strip.text = ggplot2::element_text(size = ggplot2::rel(0.8)))
   } else if (is_by_interaction) {
-    # For by-variable interactions (e.g., s(year, by=area))
-    by_var <- sub(".*by\\s*=\\s*([^,\\)]+).*", "\\1", term)
-    if (by_var %in% names(obj$data)) {
+    if (by == TRUE) {
+      # For by-variable interactions (e.g., s(year, by=area))
+      if (!is.character(term) || length(term) != 1 || term == "" || is.na(term)) {
+        stop("term must be a valid character string")
+      }
+      # For by-variable interactions (e.g., s(year, by=area))
+      by_var <- sub(".*by\\s*=\\s*([^,\\)]+).*", "\\1", term)
+      # Clean the by_var string by removing any whitespace and quotes
+      by_var <- trimws(gsub("[\"']", "", by_var))
+
+      # Ensure by_var is a valid character string
+      if (!is.character(by_var) || length(by_var) != 1 || by_var == "" || is.na(by_var)) {
+        warning("Could not extract valid by-variable from term: ", term)
+        by_var <- NULL
+      }
+
+      # Additional validation: check if by_var is a valid R identifier
+      if (!is.null(by_var) && !grepl("^[a-zA-Z][a-zA-Z0-9_]*$", by_var)) {
+        warning("by_var '", by_var, "' is not a valid R identifier")
+        by_var <- NULL
+      }
+
       p_dist_data <- obj$data %>%
         dplyr::group_by(.data[[focus_var]], .data[[main_var]], .data[[by_var]]) %>%
         dplyr::summarise(n = dplyr::n(), .groups = "keep") %>%
@@ -105,13 +138,17 @@ subplot_distribution <- function(obj, term, focus_var) {
           n = if (length(unique(n)) == 1) 1 else n
         )
 
+      # Create the plot with error handling around the facet_wrap call
       p_dist <- ggplot(p_dist_data, aes(x = !!rlang::sym(focus_var), y = !!rlang::sym(main_var))) +
         geom_point(aes(size = n), colour = "royalblue", alpha = 0.5) +
-        ggplot2::facet_wrap(~ !!rlang::sym(by_var), scales = "free") +
         ggplot2::coord_flip() +
         labs(y = paste(main_var, "by", by_var), x = focus_var) +
         ggplot2::scale_size_identity() +
         ggplot2::theme(strip.text = ggplot2::element_text(size = ggplot2::rel(0.8)))
+
+      # Create a formula for faceting using the variable name directly
+      facet_formula <- as.formula(paste("~", by_var))
+      p_dist <- p_dist + ggplot2::facet_wrap(facet_formula, scales = "free")
     } else {
       # Fallback to single variable if by-variable not found
       p_dist_data <- obj$data %>%

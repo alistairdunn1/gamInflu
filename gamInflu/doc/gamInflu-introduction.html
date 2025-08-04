@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>gamInflu: Influence Analysis for Generalised Additive Models</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">gamInflu: Influence Analysis for
+Generalised Additive Models</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(gamInflu)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(mgcv)</span></code></pre></div>
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p><strong>gamInflu</strong> provides comprehensive influence analysis
+tools for Generalised Additive Models (GAMs) fitted with the
+<code>mgcv</code> package in R. The package supports multiple GLM
+families with automatic detection and provides both traditional
+coefficient-based confidence intervals and modern prediction-based
+methods.</p>
+<div id="key-features" class="section level3">
+<h3>Key Features</h3>
+<ul>
+<li><strong>Multi-family support</strong>: Gaussian, binomial, gamma,
+Poisson, and Tweedie distributions</li>
+<li><strong>Automatic family detection</strong>: No need to specify
+family manually</li>
+<li><strong>Flexible confidence intervals</strong>: Choose between
+coefficient-based (traditional) or prediction-based (modern)
+methods</li>
+<li><strong>Comprehensive diagnostics</strong>: Residual analysis, term
+influence plots, and model adequacy assessment</li>
+<li><strong>Standardised indices</strong>: Family-specific methods for
+different data types</li>
+<li><strong>Delta-GLM analysis</strong>: Combine binomial and positive
+models for fisheries data</li>
+</ul>
+</div>
+</div>
+<div id="family-support" class="section level2">
+<h2>Family Support</h2>
+<p><strong>gamInflu</strong> supports multiple GLM families with
+automatic detection:</p>
+<table>
+<colgroup>
+<col width="17%" />
+<col width="27%" />
+<col width="54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Family</th>
+<th>Data Type</th>
+<th>Use Cases</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Gaussian</strong></td>
+<td>Continuous</td>
+<td>Log-normal CPUE, linear models</td>
+</tr>
+<tr class="even">
+<td><strong>Binomial</strong></td>
+<td>Binary/proportions</td>
+<td>Presence/absence, catch probability</td>
+</tr>
+<tr class="odd">
+<td><strong>Gamma</strong></td>
+<td>Positive continuous</td>
+<td>Biomass, positive CPUE</td>
+</tr>
+<tr class="even">
+<td><strong>Poisson</strong></td>
+<td>Non-negative counts</td>
+<td>Fish numbers, abundance counts</td>
+</tr>
+<tr class="odd">
+<td><strong>Tweedie</strong></td>
+<td>Semi-continuous</td>
+<td>Fisheries catch data with exact zeros</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="basic-workflow" class="section level2">
+<h2>Basic Workflow</h2>
+<div id="create-influence-object" class="section level3">
+<h3>1. Create influence object</h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Prepare data: focus term must be a factor</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>data<span class="sc">$</span>year <span class="ot">&lt;-</span> <span class="fu">factor</span>(data<span class="sc">$</span>year)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co"># Create influence object (default: coefficient-based CIs)</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(model, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co"># Alternative: use prediction-based CIs</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(model, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>, <span class="at">use_coeff_method =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+</div>
+<div id="calculate-influence-metrics" class="section level3">
+<h3>2. Calculate influence metrics</h3>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Calculate influence metrics (automatic family detection)</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co"># Or with prediction-based CIs</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi, <span class="at">use_coeff_method =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+</div>
+<div id="extract-standardised-indices" class="section level3">
+<h3>3. Extract standardised indices</h3>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># Extract results with standardised column names</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>indices <span class="ot">&lt;-</span> <span class="fu">extract_indices</span>(gi)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">print</span>(indices)</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co"># Column names follow standardised convention:</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co"># - focus_term: The name of the focus variable</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co"># - level: The levels of the focus variable</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co"># - index: Standardised index values (main result)</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co"># - cv: Coefficient of variation </span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co"># - lower_CI: Lower confidence interval bound</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co"># - upper_CI: Upper confidence interval bound</span></span></code></pre></div>
+</div>
+<div id="visualisation" class="section level3">
+<h3>4. Visualisation</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># Main plotting functions</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">plot_standardisation</span>(gi)    <span class="co"># Index comparison</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="fu">plot_stepwise_index</span>(gi)     <span class="co"># Model progression</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="fu">plot_term_influence</span>(gi)     <span class="co"># Term influences</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="fu">plot_residuals</span>(gi)          <span class="co"># Residual diagnostics</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co"># Alternative: Use generic plot method</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="fu">plot</span>(gi, <span class="at">type =</span> <span class="st">&quot;stan&quot;</span>)     <span class="co"># Same as plot_standardisation(gi)</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="fu">plot</span>(gi, <span class="at">type =</span> <span class="st">&quot;step&quot;</span>)     <span class="co"># Same as plot_stepwise_index(gi)</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="fu">plot</span>(gi, <span class="at">type =</span> <span class="st">&quot;influ&quot;</span>)    <span class="co"># Same as plot_term_influence(gi)</span></span></code></pre></div>
+</div>
+</div>
+<div id="confidence-interval-methods" class="section level2">
+<h2>Confidence Interval Methods</h2>
+<p><strong>gamInflu</strong> provides two methods for calculating
+confidence intervals:</p>
+<div id="coefficient-based-method-default" class="section level3">
+<h3>Coefficient-Based Method (Default)</h3>
+<p>The coefficient-based approach follows traditional fisheries
+methodology:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># Default method - coefficient-based</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(model, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>)  <span class="co"># use_coeff_method = TRUE by default</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi)</span></code></pre></div>
+<p><strong>Characteristics:</strong> - Uses model coefficients directly
+for relative effect calculations - Follows established fisheries
+methodology using the <strong>Francis method</strong> - Often provides
+more pronounced between-group differences - Confidence intervals
+calculated as: <code>exp(coefficients ± CI_multiplier × SEs)</code></p>
+</div>
+<div id="prediction-based-method-modern" class="section level3">
+<h3>Prediction-Based Method (Modern)</h3>
+<p>The prediction-based approach uses modern mgcv prediction
+methods:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># Prediction-based method</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(model, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>, <span class="at">use_coeff_method =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi)</span></code></pre></div>
+<p><strong>Characteristics:</strong> - Uses model predictions with
+complete uncertainty propagation - More conservative confidence
+intervals - Modern statistical approach following mgcv best
+practices</p>
+</div>
+</div>
+<div id="family-specific-examples" class="section level2">
+<h2>Family-Specific Examples</h2>
+<div id="binomial-model-presenceabsence" class="section level3">
+<h3>Binomial Model (Presence/Absence)</h3>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># Prepare data</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>fish_data<span class="sc">$</span>year <span class="ot">&lt;-</span> <span class="fu">factor</span>(fish_data<span class="sc">$</span>year)</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co"># Fit binomial model</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>mod_binom <span class="ot">&lt;-</span> <span class="fu">gam</span>(presence <span class="sc">~</span> <span class="fu">s</span>(depth) <span class="sc">+</span> <span class="fu">s</span>(temp) <span class="sc">+</span> year, </span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>                 <span class="at">data =</span> fish_data, <span class="at">family =</span> <span class="fu">binomial</span>())</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co"># Influence analysis</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>gi_binom <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(mod_binom, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>)</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>gi_binom <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi_binom)  <span class="co"># Auto-detects binomial</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a><span class="co"># Visualise results</span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="fu">plot_standardisation</span>(gi_binom)</span></code></pre></div>
+</div>
+<div id="gamma-model-biomass" class="section level3">
+<h3>Gamma Model (Biomass)</h3>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># Prepare data</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>survey_data<span class="sc">$</span>year <span class="ot">&lt;-</span> <span class="fu">factor</span>(survey_data<span class="sc">$</span>year)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co"># Fit gamma model</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>mod_gamma <span class="ot">&lt;-</span> <span class="fu">gam</span>(biomass <span class="sc">~</span> <span class="fu">s</span>(effort) <span class="sc">+</span> <span class="fu">s</span>(sst) <span class="sc">+</span> year, </span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>                 <span class="at">data =</span> survey_data, <span class="at">family =</span> <span class="fu">Gamma</span>(<span class="at">link=</span><span class="st">&quot;log&quot;</span>))</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co"># Influence analysis</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>gi_gamma <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(mod_gamma, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>)</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>gi_gamma <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi_gamma)  <span class="co"># Auto-detects gamma</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="co"># Extract indices</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>indices_gamma <span class="ot">&lt;-</span> <span class="fu">extract_indices</span>(gi_gamma)</span></code></pre></div>
+</div>
+<div id="poisson-model-count-data" class="section level3">
+<h3>Poisson Model (Count Data)</h3>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="co"># Prepare data</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>catch_data<span class="sc">$</span>year <span class="ot">&lt;-</span> <span class="fu">factor</span>(catch_data<span class="sc">$</span>year)</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="co"># Fit Poisson model</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>mod_pois <span class="ot">&lt;-</span> <span class="fu">gam</span>(fish_count <span class="sc">~</span> <span class="fu">s</span>(depth) <span class="sc">+</span> <span class="fu">s</span>(longitude) <span class="sc">+</span> year, </span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>                <span class="at">data =</span> catch_data, <span class="at">family =</span> <span class="fu">poisson</span>())</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co"># Influence analysis</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>gi_pois <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(mod_pois, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>)</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>gi_pois <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi_pois)   <span class="co"># Auto-detects Poisson</span></span></code></pre></div>
+</div>
+<div id="tweedie-model-semi-continuous-data" class="section level3">
+<h3>Tweedie Model (Semi-Continuous Data)</h3>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co"># Prepare data</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>fisheries_data<span class="sc">$</span>year <span class="ot">&lt;-</span> <span class="fu">factor</span>(fisheries_data<span class="sc">$</span>year)</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="co"># Fit Tweedie model</span></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>mod_tweedie <span class="ot">&lt;-</span> <span class="fu">gam</span>(catch_kg <span class="sc">~</span> <span class="fu">s</span>(depth) <span class="sc">+</span> <span class="fu">s</span>(vessel_power) <span class="sc">+</span> year,</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>                   <span class="at">data =</span> fisheries_data, <span class="at">family =</span> <span class="fu">tw</span>())</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co"># Influence analysis</span></span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>gi_tweedie <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(mod_tweedie, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>)</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>gi_tweedie <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi_tweedie)  <span class="co"># Auto-detects Tweedie</span></span></code></pre></div>
+</div>
+</div>
+<div id="advanced-features" class="section level2">
+<h2>Advanced Features</h2>
+<div id="residual-pattern-analysis" class="section level3">
+<h3>Residual Pattern Analysis</h3>
+<p>Check model adequacy through residual pattern analysis:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># Analyse residual patterns for model improvement</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>residual_analysis <span class="ot">&lt;-</span> <span class="fu">analyse_residual_patterns</span>(gi)</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="fu">print</span>(residual_analysis)</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="co"># This shows variables that may improve model fit</span></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co"># if significant patterns are found in residuals</span></span></code></pre></div>
+</div>
+<div id="subset-analysis" class="section level3">
+<h3>Subset Analysis</h3>
+<p>For interaction models, analyse specific subsets:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># Subset analysis for specific area</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>gi_subset <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi, <span class="at">subset_var =</span> <span class="st">&quot;area&quot;</span>, <span class="at">subset_value =</span> <span class="st">&quot;North&quot;</span>)</span></code></pre></div>
+</div>
+<div id="delta-glm-analysis" class="section level3">
+<h3>Delta-GLM Analysis</h3>
+<p>Combine binomial and positive models for fisheries data:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co"># Fit separate models for catch probability and positive catch</span></span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>mod_binom <span class="ot">&lt;-</span> <span class="fu">gam</span>(presence <span class="sc">~</span> <span class="fu">s</span>(depth) <span class="sc">+</span> year, <span class="at">data =</span> data, <span class="at">family =</span> <span class="fu">binomial</span>())</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>mod_gamma <span class="ot">&lt;-</span> <span class="fu">gam</span>(catch <span class="sc">~</span> <span class="fu">s</span>(depth) <span class="sc">+</span> year, <span class="at">data =</span> data[data<span class="sc">$</span>catch <span class="sc">&gt;</span> <span class="dv">0</span>,], <span class="at">family =</span> <span class="fu">Gamma</span>())</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a><span class="co"># Create influence objects</span></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>gi_binom <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(mod_binom, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>)</span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>gi_gamma <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(mod_gamma, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>)</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a></span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a><span class="co"># Calculate influences</span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>gi_binom <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi_binom)</span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a>gi_gamma <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi_gamma)</span>
+<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a></span>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a><span class="co"># Combine for delta-GLM analysis</span></span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a>gi_combined <span class="ot">&lt;-</span> <span class="fu">combine_indices</span>(gi_binom, gi_gamma)</span>
+<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a><span class="fu">plot_standardisation</span>(gi_combined)</span></code></pre></div>
+</div>
+</div>
+<div id="visualization-options" class="section level2">
+<h2>Visualization Options</h2>
+<div id="standard-plots" class="section level3">
+<h3>Standard Plots</h3>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co"># Index comparison with confidence intervals</span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="fu">plot_standardisation</span>(gi)</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co"># Show only standardised indices (cleaner)</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="fu">plot_standardisation</span>(gi, <span class="at">show_unstandardised =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a></span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a><span class="co"># Model progression showing term additions</span></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="fu">plot_stepwise_index</span>(gi)</span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a></span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="co"># Term influence on final standardised index</span></span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a><span class="fu">plot_term_influence</span>(gi)</span></code></pre></div>
+</div>
+<div id="residual-diagnostics" class="section level3">
+<h3>Residual Diagnostics</h3>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="co"># Standard GAM diagnostic plots</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="fu">plot_residuals</span>(gi, <span class="at">type =</span> <span class="st">&quot;standard&quot;</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a><span class="co"># Violin plots by focus levels (shows distribution)</span></span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a><span class="fu">plot_residuals</span>(gi, <span class="at">type =</span> <span class="st">&quot;violin&quot;</span>)</span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a><span class="co"># Faceted violin plots by another variable</span></span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a><span class="fu">plot_residuals</span>(gi, <span class="at">type =</span> <span class="st">&quot;violin&quot;</span>, <span class="at">by =</span> <span class="st">&quot;area&quot;</span>)</span></code></pre></div>
+</div>
+<div id="coefficient-distribution-influence-cdi-plots" class="section level3">
+<h3>Coefficient-Distribution-Influence (CDI) Plots</h3>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co"># CDI plot for specific smooth term</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="fu">plot</span>(gi, <span class="at">type =</span> <span class="st">&quot;cdi&quot;</span>, <span class="at">term =</span> <span class="st">&quot;s(temp)&quot;</span>)</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="co"># Data distribution for specific term</span></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="fu">plot</span>(gi, <span class="at">type =</span> <span class="st">&quot;distribution&quot;</span>, <span class="at">term =</span> <span class="st">&quot;s(temp)&quot;</span>)</span></code></pre></div>
+</div>
+</div>
+<div id="best-practices" class="section level2">
+<h2>Best Practices</h2>
+<div id="data-preparation" class="section level3">
+<h3>1. Data Preparation</h3>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="co"># Always convert focus term to factor BEFORE fitting model</span></span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>data<span class="sc">$</span>year <span class="ot">&lt;-</span> <span class="fu">factor</span>(data<span class="sc">$</span>year)</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>data<span class="sc">$</span>area <span class="ot">&lt;-</span> <span class="fu">factor</span>(data<span class="sc">$</span>area)</span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a><span class="co"># Fit model with factor variables</span></span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">gam</span>(response <span class="sc">~</span> <span class="fu">s</span>(continuous_var) <span class="sc">+</span> factor_var, <span class="at">data =</span> data)</span></code></pre></div>
+</div>
+<div id="family-selection" class="section level3">
+<h3>2. Family Selection</h3>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="co"># Let the package auto-detect family (recommended)</span></span>
+<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi)</span>
+<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a><span class="co"># Only override if needed</span></span>
+<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">calculate_influence</span>(gi, <span class="at">family_method =</span> <span class="st">&quot;binomial&quot;</span>)</span></code></pre></div>
+</div>
+<div id="method-selection" class="section level3">
+<h3>3. Method Selection</h3>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="co"># Use coefficient-based for traditional fisheries work</span></span>
+<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(model, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>)  <span class="co"># Default</span></span>
+<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a></span>
+<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a><span class="co"># Use prediction-based for modern GAM applications</span></span>
+<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a>gi <span class="ot">&lt;-</span> <span class="fu">gam_influence</span>(model, <span class="at">focus =</span> <span class="st">&quot;year&quot;</span>, <span class="at">use_coeff_method =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+</div>
+<div id="model-validation" class="section level3">
+<h3>4. Model Validation</h3>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="co"># Always check residual patterns</span></span>
+<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a>residual_analysis <span class="ot">&lt;-</span> <span class="fu">analyse_residual_patterns</span>(gi)</span>
+<span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a><span class="fu">print</span>(residual_analysis)</span>
+<span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a><span class="co"># Use diagnostic plots</span></span>
+<span id="cb21-6"><a href="#cb21-6" tabindex="-1"></a><span class="fu">plot_residuals</span>(gi, <span class="at">type =</span> <span class="st">&quot;violin&quot;</span>)</span></code></pre></div>
+</div>
+</div>
+<div id="summary" class="section level2">
+<h2>Summary</h2>
+<p><strong>gamInflu</strong> provides a comprehensive framework for GAM
+influence analysis with:</p>
+<ul>
+<li><strong>Flexible methods</strong>: Choose between traditional and
+modern approaches</li>
+<li><strong>Family support</strong>: Automatic detection for all major
+GLM families</li>
+<li><strong>Rich diagnostics</strong>: Comprehensive plotting and
+analysis tools</li>
+<li><strong>Standardised output</strong>: Consistent column naming and
+data structures</li>
+<li><strong>Model validation</strong>: Residual analysis and adequacy
+assessment</li>
+</ul>
+<p>The package is particularly well-suited for fisheries applications
+but can be applied to any GAM analysis where understanding term
+influence and generating standardised indices is important.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

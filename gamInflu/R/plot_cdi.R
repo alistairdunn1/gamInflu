@@ -43,7 +43,7 @@ plot_cdi <- function(obj, term, re_type = "points") {
   p_coef <- plot_terms(obj, term = term, re_type = re_type, cdi = TRUE)
 
   # --- Plot 2: Distribution Plot ---
-  p_dist <- subplot_distribution(obj = obj, term = term, focus_var = focus_var)
+  p_dist <- plot_term_distribution(obj = obj, term = term, by = FALSE)
 
   # --- Plot 3: Influence Plot ---
   p_influ <- subplot_influence(obj = obj, term = term, focus_var = focus_var, cdi = TRUE)

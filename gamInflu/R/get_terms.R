@@ -18,6 +18,8 @@ get_terms <- function(obj, full = FALSE) {
         # Remove variables used in by= argument
         if (grepl("by\\s*=", x)) {
           by_var <- sub(".*by\\s*=\\s*([^,\\)]+).*", "\\1", x)
+          # Clean the by_var string by removing any whitespace and quotes
+          by_var <- trimws(gsub("[\"']", "", by_var))
           vars <- setdiff(vars, by_var)
         }
         # Only keep the first variable (for interactions or smooths with multiple vars)

@@ -12,6 +12,8 @@ subplot_by_variable <- function(obj, t, term_vars, cdi = FALSE) {
   message("Plotting by-variable effects for term: ", t)
   islog <- isTRUE(obj$islog)
   by_var <- sub(".*by\\s*=\\s*([^,\\)]+).*", "\\1", t)
+  # Clean the by_var string by removing any whitespace and quotes
+  by_var <- trimws(gsub("[\"']", "", by_var))
   preds_df <- obj$calculated$predictions
   se_df <- obj$calculated$prediction_se
 
@@ -64,13 +66,18 @@ subplot_by_variable <- function(obj, t, term_vars, cdi = FALSE) {
     pred_long$upper <- exp(pred_long$upper)
     ylim <- c(0, NA)
   } else {
-    ylim <- c(NA, NA)
+    ylim <- NULL  # Use NULL instead of c(NA, NA) to avoid ylim issues
   }
+
   p_coef <- ggplot2::ggplot(pred_long, ggplot2::aes(x = var2, y = x, group = var1)) +
     ggplot2::geom_line(ggplot2::aes(colour = var1)) +
     ggplot2::geom_ribbon(ggplot2::aes(fill = var1, ymin = lower, ymax = upper), alpha = 0.2, show.legend = FALSE) +
-    ggplot2::labs(y = "Partial effect", colour = by_var) +
-    ggplot2::ylim(ylim)
+    ggplot2::labs(y = "Partial effect", colour = by_var)
+
+  # Only apply ylim if it's not NULL
+  if (!is.null(ylim)) {
+    p_coef <- p_coef + ggplot2::ylim(ylim)
+  }
   if (cdi) {
     p_coef <- p_coef + ggplot2::theme(
       axis.ticks.x = ggplot2::element_blank(),

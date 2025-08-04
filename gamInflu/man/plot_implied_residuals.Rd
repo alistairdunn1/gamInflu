@@ -4,14 +4,7 @@
 \alias{plot_implied_residuals}
 \title{Implied Residuals Plot}
 \usage{
-plot_implied_residuals(
-  obj,
-  var,
-  nbins = 6,
-  islog = NULL,
-  ylim = NULL,
-  n.exclude = 0
-)
+plot_implied_residuals(obj, var, nbins = 6, ylim = NULL, n.exclude = 0)
 }
 \arguments{
 \item{obj}{A `gam_influence` object containing calculated indices and model data.}
@@ -19,8 +12,6 @@ plot_implied_residuals(
 \item{var}{The name of the variable for which to compute implied residual mean and quantiles.}
 
 \item{nbins}{(Optional) Number of bins if `var` is not a factor.}
-
-\item{islog}{Logical indicating if the response variable is log-transformed.}
 
 \item{ylim}{(Optional) The y-axis limits for the plot.}
 

@@ -1,0 +1,57 @@
+---
+title: "Quick Start"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Quick Start}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(gamInflu)
+```
+
+## Introduction
+
+This is a simple introduction to **gamInflu**.
+
+### Basic Usage
+
+```{r eval=FALSE}
+# Basic workflow
+library(gamInflu)
+library(mgcv)
+
+# 1. Prepare data (focus must be factor)
+data$year <- factor(data$year)
+
+# 2. Fit model
+model <- gam(response ~ s(x) + year, data = data)
+
+# 3. Influence analysis
+gi <- gam_influence(model, focus = "year")
+gi <- calculate_influence(gi)
+
+# 4. Results
+indices <- extract_indices(gi)
+plot_standardisation(gi)
+```
+
+## Features
+
+- Multi-family support (Gaussian, binomial, gamma, Poisson, Tweedie)
+- Automatic family detection
+- Comprehensive plotting functions
+- Standardised output format
+- Model validation tools
+
+## Next Steps
+
+For detailed examples, see the other vignettes or the package documentation.

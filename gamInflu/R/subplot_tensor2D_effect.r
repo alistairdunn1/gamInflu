@@ -16,6 +16,21 @@ subplot_tensor2d_effect <- function(obj, t, term_vars, cdi = FALSE) {
       grepl(term_vars[1], nm) && grepl(term_vars[2], nm)
     }, logical(1))
   ]
+
+  # Check if we found a matching column
+  if (length(zvar) == 0) {
+    stop(
+      "Could not find prediction column for 2D tensor term: ", t,
+      "\nAvailable columns: ", paste(names(preds_df), collapse = ", ")
+    )
+  }
+
+  # Use the first matching column if multiple found
+  if (length(zvar) > 1) {
+    message("Multiple matching columns found for tensor term, using: ", zvar[1])
+    zvar <- zvar[1]
+  }
+
   preds_df$zvar <- preds_df[[zvar]]
 
   if (islog) {
@@ -44,27 +59,27 @@ subplot_tensor2d_effect <- function(obj, t, term_vars, cdi = FALSE) {
     dplyr::group_by(x, y) %>%
     dplyr::summarise(z = mean(z, na.rm = TRUE), .groups = "drop")
 
-  p <- ggplot(df, aes(x = x, y = y, fill = z)) +
-    geom_raster() +
-    scale_fill_viridis_c(begin = 0, end = 1, option = "D", na.value = "grey90", limits = if (islog) c(0, NA) else NULL) +
-    labs(x = term_vars[1], y = term_vars[2], fill = "Effect") +
-    theme(panel.grid = element_blank())
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y, fill = z)) +
+    ggplot2::geom_raster() +
+    ggplot2::scale_fill_viridis_c(begin = 0, end = 1, option = "D", na.value = "grey90", limits = if (islog) c(0, NA) else NULL) +
+    ggplot2::labs(x = term_vars[1], y = term_vars[2], fill = "Effect") +
+    ggplot2::theme(panel.grid = ggplot2::element_blank())
 
 
   if (cdi) {
     p <- p +
-      theme(
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.title.x = element_blank(),
-        axis.ticks.y = element_blank(),
-        axis.text.y = element_blank(),
-        axis.title.y = element_blank(),
+      ggplot2::theme(
+        axis.ticks.x = ggplot2::element_blank(),
+        axis.text.x = ggplot2::element_blank(),
+        axis.title.x = ggplot2::element_blank(),
+        axis.ticks.y = ggplot2::element_blank(),
+        axis.text.y = ggplot2::element_blank(),
+        axis.title.y = ggplot2::element_blank(),
         legend.position = "top",
         legend.direction = "horizontal",
-        legend.key.height = unit(0.5, "lines"),
-        legend.key.width = unit(1.5, "lines"),
-        legend.text = element_text(size = rel(0.75))
+        legend.key.height = ggplot2::unit(0.5, "lines"),
+        legend.key.width = ggplot2::unit(1.5, "lines"),
+        legend.text = ggplot2::element_text(size = ggplot2::rel(0.75))
       )
   }
   return(p)

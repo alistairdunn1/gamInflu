@@ -4,7 +4,7 @@
 \alias{plot_term_distribution}
 \title{Plot Data Distribution for a Model Term}
 \usage{
-plot_term_distribution(obj, term)
+plot_term_distribution(obj, term, by = TRUE)
 }
 \arguments{
 \item{obj}{A `gam_influence` object.}

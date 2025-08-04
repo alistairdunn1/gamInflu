@@ -15,6 +15,7 @@
 
 #' @param violin_trim Logical. Should violin plots be trimmed to data range? Default is TRUE.
 #' @param add_boxplot Logical. Should boxplots be overlaid on violin plots? Default is TRUE.
+#' @param add_smooth Logical. Should a loess smooth line be added to the plot? Default is TRUE.
 #' @param by Character. Optional variable name for faceting plots. If provided, creates separate
 #' panels for each level of this variable. Must be a factor or character variable (not numeric).
 #' @param ... Additional arguments passed to ggplot2 functions.
@@ -95,6 +96,7 @@ plot_residuals <- function(obj,
                            residual_type = c("deviance", "pearson", "response", "working"),
                            violin_trim = TRUE,
                            add_boxplot = TRUE,
+                           add_smooth = TRUE,
                            by = NULL,
                            ...) {
   # Validate inputs
@@ -199,13 +201,16 @@ plot_residuals <- function(obj,
 #' @param ... Additional arguments
 #' @return A patchwork object with 4 diagnostic panels
 #' @noRd
-create_standard_residual_plots <- function(resid_data, residual_type, model, by = NULL, ...) {
+create_standard_residual_plots <- function(resid_data, residual_type, model, by = NULL, add_smooth = TRUE, ...) {
   # Panel 1: Residuals vs Fitted
   p1 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$fitted, y = .data$residuals)) +
-    ggplot2::geom_point(alpha = 0.6) +
-    ggplot2::geom_smooth(method = "loess", se = TRUE, colour = "royalblue") +
+    ggplot2::geom_point(alpha = 0.4, colour = "royalblue", size = 0.7) +
     ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
     ggplot2::labs(x = "Fitted Values", y = paste(tools::toTitleCase(residual_type), "Residuals"))
+
+  if (add_smooth) {
+    p1 <- p1 + ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red")
+  }
 
   if (!is.null(by)) {
     p1 <- p1 + ggplot2::facet_wrap(~ .data$by_var)
@@ -213,8 +218,8 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
 
   # Panel 2: Q-Q Plot
   p2 <- ggplot2::ggplot(resid_data, ggplot2::aes(sample = .data$residuals)) +
-    ggplot2::geom_qq(alpha = 0.6) +
-    ggplot2::geom_qq_line(colour = "royalblue") +
+    ggplot2::geom_qq(alpha = 0.4, colour = "royalblue", size = 0.7) +
+    ggplot2::geom_qq_line(colour = "black") +
     ggplot2::labs(x = "Theoretical Quantiles", y = "Sample Quantiles")
 
   if (!is.null(by)) {
@@ -224,9 +229,12 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
   # Panel 3: Scale-Location (sqrt of absolute residuals vs fitted)
   resid_data$sqrt_abs_resid <- sqrt(abs(resid_data$residuals))
   p3 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$fitted, y = .data$sqrt_abs_resid)) +
-    ggplot2::geom_point(alpha = 0.6) +
-    ggplot2::geom_smooth(method = "loess", se = TRUE, colour = "royalblue") +
+    ggplot2::geom_point(alpha = 0.4, colour = "royalblue", size = 0.7) +
     ggplot2::labs(x = "Fitted Values", y = expression(sqrt("|Residuals|")))
+
+  if (add_smooth) {
+    p3 <- p3 + ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red")
+  }
 
   if (!is.null(by)) {
     p3 <- p3 + ggplot2::facet_wrap(~ .data$by_var)
@@ -247,11 +255,18 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
         (cooks_d > 4 / length(cooks_d))
 
       ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$leverage, y = .data$residuals)) +
-        ggplot2::geom_point(ggplot2::aes(colour = .data$high_influence, size = .data$cooks_distance), alpha = 0.6) +
-        ggplot2::geom_smooth(method = "loess", se = TRUE, colour = "royalblue") +
+        ggplot2::geom_point(ggplot2::aes(colour = .data$high_influence, size = .data$cooks_distance), alpha = 0.6, size = 0.7) +
+        {
+          if (add_smooth) {
+            ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red")
+          } else {
+            NULL
+          }
+        } +
+        ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red") +
         ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
         ggplot2::scale_colour_manual(
-          values = c("FALSE" = "black", "TRUE" = "steelblue"),
+          values = c("FALSE" = "black", "TRUE" = "red"),
           name = "High Influence"
         ) +
         ggplot2::scale_size_continuous(name = "Cook's Distance") +
@@ -263,8 +278,11 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
     error = function(e) {
       # Fallback plot without leverage/Cook's distance if calculation fails
       ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$observation, y = .data$residuals)) +
-        ggplot2::geom_point(alpha = 0.6) +
-        ggplot2::geom_smooth(method = "loess", se = TRUE, colour = "royalblue") +
+        ggplot2::geom_point(alpha = 0.6, colour = "royalblue", size = 0.7) +
+        {
+          if (add_smooth) ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red") else NULL
+        } +
+        ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red") +
         ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
         ggplot2::labs(x = "Observation Index", y = paste(tools::toTitleCase(residual_type), "Residuals")) +
         {
