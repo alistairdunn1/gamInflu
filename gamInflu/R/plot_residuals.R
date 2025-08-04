@@ -263,7 +263,6 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
             NULL
           }
         } +
-        ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red") +
         ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
         ggplot2::scale_colour_manual(
           values = c("FALSE" = "black", "TRUE" = "red"),
@@ -282,7 +281,6 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
         {
           if (add_smooth) ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red") else NULL
         } +
-        ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red") +
         ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
         ggplot2::labs(x = "Observation Index", y = paste(tools::toTitleCase(residual_type), "Residuals")) +
         {
