@@ -11,7 +11,7 @@ calculate_influence(
   rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
   custom_rescale_value = 1,
   confidence_level = 0.95,
-  family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+  family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
   subset_var = NULL,
   subset_value = NULL,
   ...
@@ -23,7 +23,7 @@ calculate_influence(
   rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
   custom_rescale_value = 1,
   confidence_level = 0.95,
-  family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+  family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
   subset_var = NULL,
   subset_value = NULL,
   ...
@@ -40,7 +40,7 @@ calculate_influence(
 
 \item{confidence_level}{Numeric. Confidence level for standardised index intervals (default 0.95).}
 
-\item{family_method}{Character. How to handle different GLM families. Options: "auto" (default), "gaussian", "binomial", "gamma", "poisson".}
+\item{family}{Character. How to handle different GLM families. Options: "auto" (default), "gaussian", "binomial", "gamma", "poisson".}
 
 \item{subset_var}{Character. Name of variable to subset on (e.g., "area", "gear_type").}
 

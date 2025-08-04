@@ -113,9 +113,9 @@ Override automatic detection when needed:
 
 ```r
 # Force specific family method
-gi <- calculate_influence(gi, family_method = "binomial")
+gi <- calculate_influence(gi, family = "binomial")
 # or for Gaussian with log transformation:
-gi <- calculate_influence(gi, family_method = "gaussian", islog = TRUE)
+gi <- calculate_influence(gi, family = "gaussian", islog = TRUE)
 ```
 
 ### Family-Specific Methods

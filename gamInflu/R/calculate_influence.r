@@ -5,7 +5,7 @@
 #' @param rescale_method Character. How to rescale the indices. Options: "geometric_mean" (default), "arithmetic_mean", "raw", "custom".
 #' @param custom_rescale_value Numeric. Custom rescaling value when rescale_method = "custom".
 #' @param confidence_level Numeric. Confidence level for standardised index intervals (default 0.95).
-#' @param family_method Character. How to handle different GLM families. Options: "auto" (default), "gaussian", "binomial", "gamma", "poisson".
+#' @param family Character. How to handle different GLM families. Options: "auto" (default), "gaussian", "binomial", "gamma", "poisson".
 #' @param subset_var Character. Name of variable to subset on (e.g., "area", "gear_type").
 #' @param subset_value Value to subset by (e.g., "North", "Trawl"). If both subset_var and subset_value are provided, analysis is performed only on the subset, using the full model for predictions.
 #' @param ... Additional arguments (currently unused).
@@ -24,7 +24,7 @@ calculate_influence <- function(obj, islog = NULL,
                                 rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
                                 custom_rescale_value = 1,
                                 confidence_level = 0.95,
-                                family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+                                family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
                                 subset_var = NULL,
                                 subset_value = NULL, ...) {
   UseMethod("calculate_influence")
@@ -38,7 +38,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
                                               rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
                                               custom_rescale_value = 1,
                                               confidence_level = 0.95,
-                                              family_method = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+                                              family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
                                               subset_var = NULL,
                                               subset_value = NULL, ...) {
   # Validate inputs
@@ -82,11 +82,11 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   }
 
   # --- Setup and Family Detection ---
-  family_method <- match.arg(family_method)
+  family <- match.arg(family)
   rescale_method <- match.arg(rescale_method)
 
   # Detect model family
-  if (family_method == "auto") {
+  if (family == "auto") {
     model_family <- obj$model$family$family
     model_link <- obj$model$family$link
 
@@ -106,9 +106,9 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
         "gaussian" # Default fallback
       )
     }
-    family_method <- family_detected
+    family <- family_detected
     message("Detected model family: ", model_family, " with link: ", model_link)
-    message("Using family_method: ", family_method)
+    message("Using family: ", family)
   }
 
   # Enhanced islog detection - ONLY based on response name, NOT family link
@@ -147,7 +147,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   # --- 1. Unstandardised Index ---
   # Calculate the raw, unadjusted index for the focus term.
   # Uses family-appropriate methods for different GLM families.
-  indices_df <- calculate_unstandardised_index(observed, obj$data[[obj$focus]], islog, family_method)
+  indices_df <- calculate_unstandardised_index(observed, obj$data[[obj$focus]], islog, family)
 
   # --- 2. Standardised Index (from the full model) ---
   # This is the final index after accounting for all terms in the model.
@@ -883,10 +883,10 @@ rescale_index <- function(index, method = c("geometric_mean", "arithmetic_mean",
 #' @param observed Numeric vector of observed values
 #' @param focus_var Factor or numeric vector of focus variable levels
 #' @param islog Logical. Whether to use log transformation
-#' @param family_method Character. GLM family method to use
+#' @param family Character. GLM family method to use
 #' @return Data frame with level and unstan columns
 #' @noRd
-calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, family_method = "gaussian") {
+calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, family = "gaussian") {
   if (is.null(islog)) {
     islog <- all(observed > 0) && !any(observed == 0)
   }
@@ -905,7 +905,7 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
   }
 
   # Family-specific index calculations
-  if (family_method == "binomial") {
+  if (family == "binomial") {
     # For binomial models, work with proportions
     if (all(observed %in% c(0, 1))) {
       # Binary data - calculate proportions with binomial SE
@@ -939,7 +939,7 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
         unstan_cv = stats_agg$x[, 3]
       )
     }
-  } else if (family_method == "gamma") {
+  } else if (family == "gamma") {
     # For gamma models, always use geometric mean (positive data expected)
     if (any(observed <= 0)) {
       warning("Gamma family expects positive values. Using arithmetic mean for non-positive data.")
@@ -964,7 +964,7 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
         unstan_cv = log_stats$x[, 2] # CV is SE in log space
       )
     }
-  } else if (family_method == "poisson") {
+  } else if (family == "poisson") {
     # For Poisson models, use geometric mean if positive, arithmetic if zeros present
     if (any(observed < 0)) {
       warning("Poisson family expects non-negative values.")

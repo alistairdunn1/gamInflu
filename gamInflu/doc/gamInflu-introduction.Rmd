@@ -314,7 +314,7 @@ model <- gam(response ~ s(continuous_var) + factor_var, data = data)
 gi <- calculate_influence(gi)
 
 # Only override if needed
-gi <- calculate_influence(gi, family_method = "binomial")
+gi <- calculate_influence(gi, family = "binomial")
 ```
 
 ### 3. Method Selection
