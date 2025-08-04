@@ -4,7 +4,7 @@
 #' @return A ggplot object.
 #' @noRd
 subplot_influence <- function(obj, term, focus_var, cdi = FALSE) {
-  message("Generating influence plot for term: ", term)
+  message("Plotting influence for term: ", term)
 
   # --- Data Preparation ---
   focus_var <- obj$focus
