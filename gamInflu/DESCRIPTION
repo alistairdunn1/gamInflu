@@ -1,0 +1,34 @@
+Package: gamInflu
+Type: Package
+Title: Influence Analysis for Generalized Additive Models
+Version: 0.1
+Author: Alistair Dunn [aut, cre]
+Maintainer: Alistair Dunn <alistair.dunn@OceanEnvironmental.co.nz>
+Description: Comprehensive influence analysis tools for Generalized Additive Models (GAMs) fitted with mgcv. 
+    Enhanced with multi-family support for Gaussian, binomial, gamma, and Poisson distributions.
+    Supports all smoother types including s(), te(), ti(), t2(), and by= terms. 
+    Generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, 
+    and family-specific standardized indices to help understand model structure and term influences.
+    Features automatic family detection, family-appropriate statistical methods, and comprehensive 
+    visualization tools for fisheries CPUE standardization and ecological modeling.
+    This package is inspired by and builds upon concepts from Bentley, N.; Kendrick, T. H.; Starr, P. J.; Breen, P. A. Influence Plots and Metrics: Tools for Better Understanding Fisheries Catch-per-Unit-Effort Standardizations. ICES Journal of Marine Science 2012, 69(1), 84-88 pp.
+License: GPL (>= 3)
+Encoding: UTF-8
+RoxygenNote: 7.3.2
+Depends: 
+    R (>= 4.0.0)
+Imports:
+    mgcv,
+    ggplot2,
+    dplyr,
+    tidyr,
+    rlang,
+    patchwork,
+    stats,
+    utils,
+    tools
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
