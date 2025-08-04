@@ -2,7 +2,18 @@
 #' @description Perform calculations on a \code{gam_influence} object, including unstandardised and standardised indices, step-wise model building, and influence statistics. Supports subset-based analysis and multiple GLM families.
 #' @param obj A \code{gam_influence} object.
 #' @param islog Logical. Is the response variable log-transformed? If NULL (default), inferred from response name or model family.
-#' @param rescale_method Character. How to rescale the indices. Options: "geometric_mean" (default), "arithmetic_mean", "raw", "custom".
+#' @param rescale_method Character. How to rescale the indices. Options: "auto" (default), "geometric_mean", "arithmetic_mean", "raw", "custom".
+#' \describe{
+#'   \item{auto}{Uses sensible defaults based on model family and response transformation:}
+#'   \item{}{- Binomial: "raw" (preserves probability scale 0-1)}
+#'   \item{}{- Gaussian with log-transformed response: "geometric_mean"}
+#'   \item{}{- Gaussian with original scale response: "arithmetic_mean"}
+#'   \item{}{- Gamma/Poisson: "geometric_mean" (appropriate for positive/count data)}
+#'   \item{geometric_mean}{Rescale relative to geometric mean (good for log-normal data)}
+#'   \item{arithmetic_mean}{Rescale relative to arithmetic mean (good for normal data)}
+#'   \item{raw}{No rescaling (preserves original scale)}
+#'   \item{custom}{Rescale to custom value specified by custom_rescale_value}
+#' }
 #' @param custom_rescale_value Numeric. Custom rescaling value when rescale_method = "custom".
 #' @param confidence_level Numeric. Confidence level for standardised index intervals (default 0.95).
 #' @param family Character. How to handle different GLM families. Options: "auto" (default), "gaussian", "binomial", "gamma", "poisson".
@@ -21,7 +32,7 @@
 #' }
 #' @export
 calculate_influence <- function(obj, islog = NULL,
-                                rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+                                rescale_method = c("auto", "geometric_mean", "arithmetic_mean", "raw", "custom"),
                                 custom_rescale_value = 1,
                                 confidence_level = 0.95,
                                 family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
@@ -35,7 +46,7 @@ calculate_influence <- function(obj, islog = NULL,
 #' @importFrom stats predict aggregate logLik AIC deviance terms update as.formula var cov setNames qnorm
 #' @export
 calculate_influence.gam_influence <- function(obj, islog = NULL,
-                                              rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+                                              rescale_method = c("auto", "geometric_mean", "arithmetic_mean", "raw", "custom"),
                                               custom_rescale_value = 1,
                                               confidence_level = 0.95,
                                               family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
@@ -139,15 +150,40 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     obj$islog <- islog
   }
 
+  # Auto rescaling method selection based on family and islog
+  if (rescale_method == "auto") {
+    rescale_method <- switch(family,
+      "binomial" = "raw", # Preserve probability scale for binomial
+      "gaussian" = if (islog) "geometric_mean" else "arithmetic_mean", # Consider log transformation
+      "gamma" = "geometric_mean", # Always geometric for gamma (positive data)
+      "poisson" = "geometric_mean", # Geometric for count data
+      "geometric_mean" # Default fallback
+    )
+    message("Auto-selected rescaling method: ", rescale_method, " (based on family: ", family, ", islog: ", islog, ")")
+  }
+
   # Always ensure obj$islog is set for plotting functions
   obj$islog <- islog
 
   observed <- obj$data[[obj$response]]
 
+  # Special handling for binomial models with raw rescaling
+  # For binomial, raw rescaling should preserve the probability scale (0-1)
+  is_binomial <- family == "binomial"
+  preserve_probability_scale <- is_binomial && rescale_method == "raw"
+
+  # For binomial models, always preserve probability scale for unstandardised indices
+  # but warn if non-raw rescaling is requested
+  preserve_unstandardised_probability_scale <- is_binomial
+  if (is_binomial && rescale_method != "raw") {
+    message("Note: For binomial models, unstandardised indices will preserve probability scale (0-1) regardless of rescaling method.")
+    message("Rescaling method '", rescale_method, "' will be applied only to standardised indices.")
+  }
+
   # --- 1. Unstandardised Index ---
   # Calculate the raw, unadjusted index for the focus term.
   # Uses family-appropriate methods for different GLM families.
-  indices_df <- calculate_unstandardised_index(observed, obj$data[[obj$focus]], islog, family)
+  indices_df <- calculate_unstandardised_index(observed, obj$data[[obj$focus]], islog, family, preserve_unstandardised_probability_scale)
 
   # --- 2. Standardised Index (from the full model) ---
   # This is the final index after accounting for all terms in the model.
@@ -305,98 +341,164 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       relative_coeffs_subset <- relative_coeffs[subset_levels]
       focus_ses_subset <- focus_ses[subset_levels]
 
-      stan_df$standardised_index <- exp(relative_coeffs_subset)
-      stan_df$stan_lower <- exp(relative_coeffs_subset - ci_multiplier * focus_ses_subset)
-      stan_df$stan_upper <- exp(relative_coeffs_subset + ci_multiplier * focus_ses_subset)
+      if (preserve_probability_scale) {
+        # For binomial with raw rescaling, convert coefficients back to probability scale
+        # but don't apply relative scaling
+        stan_df$standardised_index <- plogis(relative_coeffs_subset + base_coeff)
+        stan_df$stan_lower <- plogis(relative_coeffs_subset + base_coeff - ci_multiplier * focus_ses_subset)
+        stan_df$stan_upper <- plogis(relative_coeffs_subset + base_coeff + ci_multiplier * focus_ses_subset)
 
-      # Calculate SE and CV on response scale (approximation)
-      stan_df$stan_se <- focus_ses_subset * stan_df$standardised_index # Delta method approximation
-      stan_df$standardised_cv <- focus_ses_subset # CV ~ SE on log scale for coefficient method
+        # Calculate SE on probability scale using delta method
+        linear_pred <- relative_coeffs_subset + base_coeff
+        prob_pred <- plogis(linear_pred)
+        stan_df$stan_se <- focus_ses_subset * prob_pred * (1 - prob_pred) # Delta method for logit transform
+        stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6 & stan_df$standardised_index < (1 - 1e-6),
+          stan_df$stan_se / stan_df$standardised_index,
+          NA_real_
+        )
+      } else {
+        # Standard relative index calculation
+        stan_df$standardised_index <- exp(relative_coeffs_subset)
+        stan_df$stan_lower <- exp(relative_coeffs_subset - ci_multiplier * focus_ses_subset)
+        stan_df$stan_upper <- exp(relative_coeffs_subset + ci_multiplier * focus_ses_subset)
+
+        # Calculate SE and CV on response scale (approximation)
+        stan_df$stan_se <- focus_ses_subset * stan_df$standardised_index # Delta method approximation
+        stan_df$standardised_cv <- focus_ses_subset # CV ~ SE on log scale for coefficient method
+      }
     } else {
       # Normal analysis - use all coefficients
-      stan_df$standardised_index <- exp(relative_coeffs)
-      stan_df$stan_lower <- exp(relative_coeffs - ci_multiplier * focus_ses)
-      stan_df$stan_upper <- exp(relative_coeffs + ci_multiplier * focus_ses)
+      if (preserve_probability_scale) {
+        # For binomial with raw rescaling, convert coefficients back to probability scale
+        stan_df$standardised_index <- plogis(relative_coeffs + base_coeff)
+        stan_df$stan_lower <- plogis(relative_coeffs + base_coeff - ci_multiplier * focus_ses)
+        stan_df$stan_upper <- plogis(relative_coeffs + base_coeff + ci_multiplier * focus_ses)
 
-      # Calculate SE and CV on response scale (approximation)
-      stan_df$stan_se <- focus_ses * stan_df$standardised_index # Delta method approximation
-      stan_df$standardised_cv <- focus_ses # CV ~ SE on log scale for coefficient method
+        # Calculate SE on probability scale using delta method
+        linear_pred <- relative_coeffs + base_coeff
+        prob_pred <- plogis(linear_pred)
+        stan_df$stan_se <- focus_ses * prob_pred * (1 - prob_pred) # Delta method for logit transform
+        stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6 & stan_df$standardised_index < (1 - 1e-6),
+          stan_df$stan_se / stan_df$standardised_index,
+          NA_real_
+        )
+      } else {
+        # Standard relative index calculation
+        stan_df$standardised_index <- exp(relative_coeffs)
+        stan_df$stan_lower <- exp(relative_coeffs - ci_multiplier * focus_ses)
+        stan_df$stan_upper <- exp(relative_coeffs + ci_multiplier * focus_ses)
+
+        # Calculate SE and CV on response scale (approximation)
+        stan_df$stan_se <- focus_ses * stan_df$standardised_index # Delta method approximation
+        stan_df$standardised_cv <- focus_ses # CV ~ SE on log scale for coefficient method
+      }
     }
   } else {
     # --- PREDICTION-BASED APPROACH (modern method) ---
     message("Using prediction-based CI calculation (modern approach)")
 
-    stan_df$standardised_index <- stan_df$pred / base_pred
+    if (preserve_probability_scale) {
+      # For binomial with raw rescaling, preserve original probability scale
+      stan_df$standardised_index <- stan_df$pred
 
-    # Calculate confidence intervals on the response scale
-    alpha <- 1 - confidence_level
-    z_score <- qnorm(1 - alpha / 2)
+      # Calculate confidence intervals directly on probability scale
+      alpha <- 1 - confidence_level
+      z_score <- qnorm(1 - alpha / 2)
 
-    # Calculate confidence intervals directly on response scale
-    stan_df$stan_lower <- (stan_df$pred - z_score * stan_df$se) / base_pred
-    stan_df$stan_upper <- (stan_df$pred + z_score * stan_df$se) / base_pred
+      # For probabilities, ensure CIs stay within [0,1]
+      stan_df$stan_lower <- pmax(0, pmin(1, stan_df$pred - z_score * stan_df$se))
+      stan_df$stan_upper <- pmax(0, pmin(1, stan_df$pred + z_score * stan_df$se))
 
-    # Ensure confidence intervals are non-negative for positive-valued responses
-    if (all(stan_df$pred > 0)) {
-      stan_df$stan_lower <- pmax(stan_df$stan_lower, 0)
-    }
-
-    # Calculate CV and SE on the response scale
-    stan_df$stan_se <- stan_df$se / base_pred
-
-    # Determine if we should use delta method for CV calculation
-    # Use delta method for log-link models (regardless of islog setting)
-    has_log_link <- !is.null(obj$model$family$link) && obj$model$family$link == "log"
-
-    if (has_log_link) {
-      # For log-link models (e.g., Gamma(link="log"), Poisson(link="log"))
-      # Use delta method for CV calculation - this is mathematically correct
-      # regardless of whether islog=TRUE or FALSE
-      log_preds <- predict(obj$model, newdata = obj$data, type = "link", se.fit = TRUE)
-      log_pred_df <- data.frame(
-        level = obj$data[[obj$focus]],
-        log_se = log_preds$se.fit
-      )
-      log_se_agg <- aggregate(log_se ~ level, data = log_pred_df, FUN = mean)
-
-      # Merge log SE with standardised data
-      stan_df <- merge(stan_df, log_se_agg, by = "level", all.x = TRUE)
-
-      # Delta method CV: sqrt(exp(sigma^2) - 1) where sigma is SE on log scale
-      stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
-        sqrt(exp(stan_df$log_se^2) - 1),
-        NA_real_
-      )
-
-      # Remove the temporary log_se column
-      stan_df$log_se <- NULL
-    } else {
-      # For non-log-link models (Gaussian, etc.), use standard CV = se/mean
-      stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
+      # Calculate SE and CV on probability scale
+      stan_df$stan_se <- stan_df$se
+      stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6 & stan_df$standardised_index < (1 - 1e-6),
         stan_df$stan_se / stan_df$standardised_index,
         NA_real_
       )
+    } else {
+      # Standard relative index calculation
+      stan_df$standardised_index <- stan_df$pred / base_pred
+
+      # Calculate confidence intervals on the response scale
+      alpha <- 1 - confidence_level
+      z_score <- qnorm(1 - alpha / 2)
+
+      # Calculate confidence intervals directly on response scale
+      stan_df$stan_lower <- (stan_df$pred - z_score * stan_df$se) / base_pred
+      stan_df$stan_upper <- (stan_df$pred + z_score * stan_df$se) / base_pred
+
+      # Ensure confidence intervals are non-negative for positive-valued responses
+      if (all(stan_df$pred > 0)) {
+        stan_df$stan_lower <- pmax(stan_df$stan_lower, 0)
+      }
+
+      # Calculate CV and SE on the response scale
+      stan_df$stan_se <- stan_df$se / base_pred
+
+      # Determine if we should use delta method for CV calculation
+      # Use delta method for log-link models (regardless of islog setting)
+      has_log_link <- !is.null(obj$model$family$link) && obj$model$family$link == "log"
+
+      if (has_log_link) {
+        # For log-link models (e.g., Gamma(link="log"), Poisson(link="log"))
+        # Use delta method for CV calculation - this is mathematically correct
+        # regardless of whether islog=TRUE or FALSE
+        log_preds <- predict(obj$model, newdata = obj$data, type = "link", se.fit = TRUE)
+        log_pred_df <- data.frame(
+          level = obj$data[[obj$focus]],
+          log_se = log_preds$se.fit
+        )
+        log_se_agg <- aggregate(log_se ~ level, data = log_pred_df, FUN = mean)
+
+        # Merge log SE with standardised data
+        stan_df <- merge(stan_df, log_se_agg, by = "level", all.x = TRUE)
+
+        # Delta method CV: sqrt(exp(sigma^2) - 1) where sigma is SE on log scale
+        stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
+          sqrt(exp(stan_df$log_se^2) - 1),
+          NA_real_
+        )
+
+        # Remove the temporary log_se column
+        stan_df$log_se <- NULL
+      } else {
+        # For non-log-link models (Gaussian, etc.), use standard CV = se/mean
+        stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
+          stan_df$stan_se / stan_df$standardised_index,
+          NA_real_
+        )
+      }
     }
-  } # Apply rescaling to both unstandardised and standardised indices
-  indices_df$unstan <- rescale_index(indices_df$unstan, rescale_method, custom_rescale_value)
+  } # End of else block for prediction-based approach
 
-  # Store original standardised values for rescaling bounds
-  original_stan <- stan_df$standardised_index
-  original_lower <- stan_df$stan_lower
-  original_upper <- stan_df$stan_upper
+  # Apply rescaling to unstandardised and standardised indices
+  # For binomial models, always preserve probability scale for unstandardised indices
+  if (!preserve_unstandardised_probability_scale) {
+    # Apply rescaling to unstandardised indices for non-binomial cases
+    indices_df$unstan <- rescale_index(indices_df$unstan, rescale_method, custom_rescale_value)
+  }
 
-  # Rescale the central estimate
-  stan_df$standardised_index <- rescale_index(stan_df$standardised_index, rescale_method, custom_rescale_value)
+  # For binomial models with raw rescaling, skip rescaling of standardised indices
+  # to preserve probability scale
+  if (!preserve_probability_scale) {
+    # Store original standardised values for rescaling bounds
+    original_stan <- stan_df$standardised_index
+    original_lower <- stan_df$stan_lower
+    original_upper <- stan_df$stan_upper
 
-  # For confidence intervals, maintain the same relative distance from the central estimate
-  # This preserves the statistical relationship
-  if (rescale_method != "raw") {
-    rescale_factor <- stan_df$standardised_index / original_stan
-    stan_df$stan_lower <- original_lower * rescale_factor
-    stan_df$stan_upper <- original_upper * rescale_factor
-  } else {
-    stan_df$stan_lower <- rescale_index(stan_df$stan_lower, rescale_method, custom_rescale_value)
-    stan_df$stan_upper <- rescale_index(stan_df$stan_upper, rescale_method, custom_rescale_value)
+    # Rescale the central estimate
+    stan_df$standardised_index <- rescale_index(stan_df$standardised_index, rescale_method, custom_rescale_value)
+
+    # For confidence intervals, maintain the same relative distance from the central estimate
+    # This preserves the statistical relationship
+    if (rescale_method != "raw") {
+      rescale_factor <- stan_df$standardised_index / original_stan
+      stan_df$stan_lower <- original_lower * rescale_factor
+      stan_df$stan_upper <- original_upper * rescale_factor
+    } else {
+      stan_df$stan_lower <- rescale_index(stan_df$stan_lower, rescale_method, custom_rescale_value)
+      stan_df$stan_upper <- rescale_index(stan_df$stan_upper, rescale_method, custom_rescale_value)
+    }
   }
 
   # Handle special case: levels with zero standard error (reference levels)
@@ -867,9 +969,16 @@ geometric_mean <- function(x, na.rm = TRUE) {
 #' @param custom_value Numeric. Custom rescaling value when method = "custom".
 #' @return Rescaled index vector.
 #' @noRd
-rescale_index <- function(index, method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+rescale_index <- function(index, method = c("auto", "geometric_mean", "arithmetic_mean", "raw", "custom"),
                           custom_value = 1) {
   method <- match.arg(method)
+
+  # Auto should have been resolved by this point, but provide fallback
+  if (method == "auto") {
+    method <- "geometric_mean"
+    warning("rescale_index received 'auto' method - using 'geometric_mean' as fallback")
+  }
+
   switch(method,
     "geometric_mean" = index / geometric_mean(index),
     "arithmetic_mean" = index / mean(index),
@@ -886,7 +995,7 @@ rescale_index <- function(index, method = c("geometric_mean", "arithmetic_mean",
 #' @param family Character. GLM family method to use
 #' @return Data frame with level and unstan columns
 #' @noRd
-calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, family = "gaussian") {
+calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, family = "gaussian", preserve_probability_scale = FALSE) {
   if (is.null(islog)) {
     islog <- all(observed > 0) && !any(observed == 0)
   }
@@ -917,27 +1026,49 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
         c(prop, se, cv)
       })
 
-      # Convert to relative scale
-      overall_prop <- mean(observed)
-      base_prop <- ifelse(overall_prop > 0 && overall_prop < 1, overall_prop, mean(prop_stats$x[, 1]))
+      if (preserve_probability_scale) {
+        # For raw rescaling, preserve actual proportions (probability scale)
+        agg_df <- data.frame(
+          level = prop_stats$level,
+          unstan = prop_stats$x[, 1], # Keep actual proportions
+          unstan_se = prop_stats$x[, 2], # Keep actual SEs
+          unstan_cv = prop_stats$x[, 3]
+        )
+      } else {
+        # Convert to relative scale for other rescaling methods
+        overall_prop <- mean(observed)
+        base_prop <- ifelse(overall_prop > 0 && overall_prop < 1, overall_prop, mean(prop_stats$x[, 1]))
 
-      agg_df <- data.frame(
-        level = prop_stats$level,
-        unstan = prop_stats$x[, 1] / base_prop,
-        unstan_se = prop_stats$x[, 2] / base_prop,
-        unstan_cv = prop_stats$x[, 3]
-      )
+        agg_df <- data.frame(
+          level = prop_stats$level,
+          unstan = prop_stats$x[, 1] / base_prop,
+          unstan_se = prop_stats$x[, 2] / base_prop,
+          unstan_cv = prop_stats$x[, 3]
+        )
+      }
     } else {
       # Already proportions or continuous data between 0-1
       stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
-      base_mean <- mean(stats_agg$x[, 1])
 
-      agg_df <- data.frame(
-        level = stats_agg$level,
-        unstan = stats_agg$x[, 1] / base_mean,
-        unstan_se = stats_agg$x[, 2] / base_mean,
-        unstan_cv = stats_agg$x[, 3]
-      )
+      if (preserve_probability_scale) {
+        # For raw rescaling, preserve actual proportions/values
+        agg_df <- data.frame(
+          level = stats_agg$level,
+          unstan = stats_agg$x[, 1], # Keep actual values
+          unstan_se = stats_agg$x[, 2], # Keep actual SEs
+          unstan_cv = stats_agg$x[, 3]
+        )
+      } else {
+        # Convert to relative scale for other rescaling methods
+        base_mean <- mean(stats_agg$x[, 1])
+
+        agg_df <- data.frame(
+          level = stats_agg$level,
+          unstan = stats_agg$x[, 1] / base_mean,
+          unstan_se = stats_agg$x[, 2] / base_mean,
+          unstan_cv = stats_agg$x[, 3]
+        )
+      }
     }
   } else if (family == "gamma") {
     # For gamma models, always use geometric mean (positive data expected)

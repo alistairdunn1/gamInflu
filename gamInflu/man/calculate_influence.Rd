@@ -8,7 +8,7 @@
 calculate_influence(
   obj,
   islog = NULL,
-  rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+  rescale_method = c("auto", "geometric_mean", "arithmetic_mean", "raw", "custom"),
   custom_rescale_value = 1,
   confidence_level = 0.95,
   family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
@@ -20,7 +20,7 @@ calculate_influence(
 \method{calculate_influence}{gam_influence}(
   obj,
   islog = NULL,
-  rescale_method = c("geometric_mean", "arithmetic_mean", "raw", "custom"),
+  rescale_method = c("auto", "geometric_mean", "arithmetic_mean", "raw", "custom"),
   custom_rescale_value = 1,
   confidence_level = 0.95,
   family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
@@ -34,7 +34,18 @@ calculate_influence(
 
 \item{islog}{Logical. Is the response variable log-transformed? If NULL (default), inferred from response name or model family.}
 
-\item{rescale_method}{Character. How to rescale the indices. Options: "geometric_mean" (default), "arithmetic_mean", "raw", "custom".}
+\item{rescale_method}{Character. How to rescale the indices. Options: "auto" (default), "geometric_mean", "arithmetic_mean", "raw", "custom".
+\describe{
+  \item{auto}{Uses sensible defaults based on model family and response transformation:}
+  \item{}{- Binomial: "raw" (preserves probability scale 0-1)}
+  \item{}{- Gaussian with log-transformed response: "geometric_mean"}
+  \item{}{- Gaussian with original scale response: "arithmetic_mean"}
+  \item{}{- Gamma/Poisson: "geometric_mean" (appropriate for positive/count data)}
+  \item{geometric_mean}{Rescale relative to geometric mean (good for log-normal data)}
+  \item{arithmetic_mean}{Rescale relative to arithmetic mean (good for normal data)}
+  \item{raw}{No rescaling (preserves original scale)}
+  \item{custom}{Rescale to custom value specified by custom_rescale_value}
+}}
 
 \item{custom_rescale_value}{Numeric. Custom rescaling value when rescale_method = "custom".}
 

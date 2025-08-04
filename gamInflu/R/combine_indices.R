@@ -519,8 +519,8 @@ create_combination_diagnostics <- function(combined_data, binomial_gi, positive_
     diagnostics$warnings <- c(diagnostics$warnings, "Very low catch probabilities detected")
   }
 
-  if (any(combined_data$standardised_index_binom > 1.5)) {
-    diagnostics$warnings <- c(diagnostics$warnings, "Unusually high probability indices (>1.5)")
+  if (any(combined_data$standardised_index_binom > 1.0)) {
+    diagnostics$warnings <- c(diagnostics$warnings, "Unusually high probability indices (>1.0)")
   }
 
   if (diagnostics$component_correlation < -0.5) {

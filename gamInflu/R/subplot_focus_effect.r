@@ -31,7 +31,7 @@ subplot_focus_effect <- function(obj, t, term_vars, cdi = FALSE) {
   } else {
     lower <- effect - 1.96 * se
     upper <- effect + 1.96 * se
-    ylim <- c(NA, NA)
+    ylim <- c(NA_real_, NA_real_)
   }
 
   # Handle potential dimension mismatch between data and predictions (subset analysis)

@@ -24,9 +24,9 @@ subplot_continuous_effect <- function(obj, t, term_vars, cdi = FALSE) {
     preds_df$effect <- exp(preds_df$effect)
     preds_df$lower <- exp(preds_df$lower)
     preds_df$upper <- exp(preds_df$upper)
-    ylim <- c(0, NA)
+    ylim <- c(0, NA_real_)
   } else {
-    ylim <- c(NA, NA)
+    ylim <- c(NA_real_, NA_real_)
   }
 
   # Handle potential dimension mismatch between data and predictions (subset analysis)

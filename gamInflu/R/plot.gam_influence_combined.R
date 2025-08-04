@@ -124,9 +124,9 @@ summary.gam_influence_combined <- function(object, ...) {
 #' @description Plot method for objects of class 'gam_influence_combined'
 #' @param x A gam_influence_combined object
 #' @param type Character. Type of plot:
-#'   - "combined": Combined index with confidence intervals (default)
+#'   - "comparison": Single plot showing the components and combined (default)
+#'   - "combined": Combined index with confidence intervals
 #'   - "components": All three indices (binomial, positive, combined) on separate panels
-#'   - "comparison": Side-by-side comparison of components and combined
 #' @param show_points Logical. Should individual points be shown? Default TRUE.
 #' @param show_ci Logical. Should confidence intervals be shown? Default TRUE.
 #' @param ... Additional arguments passed to ggplot2
@@ -135,7 +135,7 @@ summary.gam_influence_combined <- function(object, ...) {
 #' @importFrom patchwork wrap_plots
 #' @importFrom rlang .data
 #' @export
-plot.gam_influence_combined <- function(x, type = c("combined", "components", "comparison"),
+plot.gam_influence_combined <- function(x, type = c("comparison", "combined", "components"),
                                         show_points = TRUE, show_ci = TRUE, ...) {
   type <- match.arg(type)
 
@@ -292,36 +292,36 @@ create_comparison_plot <- function(plot_data, focus_term, method, show_points, s
           ymin = .data$stan_lower_binom,
           ymax = .data$stan_upper_binom
         ),
-        alpha = 0.2, fill = "red"
+        alpha = 0.2, fill = "#E74C3C"
       ) +
       ggplot2::geom_ribbon(
         ggplot2::aes(
           ymin = .data$stan_lower_pos,
           ymax = .data$stan_upper_pos
         ),
-        alpha = 0.2, fill = "green"
+        alpha = 0.2, fill = "#3498DB"
       ) +
       ggplot2::geom_ribbon(
         ggplot2::aes(
           ymin = .data$combined_lower,
           ymax = .data$combined_upper
         ),
-        alpha = 0.2, fill = "blue"
+        alpha = 0.2, fill = "#2ECC71"
       )
   }
 
   # Add lines
   p <- p +
-    ggplot2::geom_line(ggplot2::aes(y = .data$standardised_index_binom, colour = "Catch Probability")) +
-    ggplot2::geom_line(ggplot2::aes(y = .data$standardised_index_pos, colour = "Positive Catch Rate")) +
-    ggplot2::geom_line(ggplot2::aes(y = .data$combined_index, colour = "Combined Index"))
+    ggplot2::geom_line(ggplot2::aes(y = .data$standardised_index_binom, colour = "Catch probability")) +
+    ggplot2::geom_line(ggplot2::aes(y = .data$standardised_index_pos, colour = "Positive catch")) +
+    ggplot2::geom_line(ggplot2::aes(y = .data$combined_index, colour = "Combined index"))
 
   # Add points if requested
   if (show_points) {
     p <- p +
-      ggplot2::geom_point(ggplot2::aes(y = .data$standardised_index_binom, colour = "Catch Probability")) +
-      ggplot2::geom_point(ggplot2::aes(y = .data$standardised_index_pos, colour = "Positive Catch Rate")) +
-      ggplot2::geom_point(ggplot2::aes(y = .data$combined_index, colour = "Combined Index"))
+      ggplot2::geom_point(ggplot2::aes(y = .data$standardised_index_binom, colour = "Catch probability")) +
+      ggplot2::geom_point(ggplot2::aes(y = .data$standardised_index_pos, colour = "Positive catch")) +
+      ggplot2::geom_point(ggplot2::aes(y = .data$combined_index, colour = "Combined index"))
   }
 
   # Add reference line
@@ -330,7 +330,8 @@ create_comparison_plot <- function(plot_data, focus_term, method, show_points, s
   # Colour scale
   p <- p + ggplot2::scale_colour_manual(
     name = "Component",
-    values = c("Catch Probability" = "steelblue", "Positive Catch Rate" = "dodgerblue", "Combined Index" = "royalblue")
+    values = c("Catch probability" = "#E74C3C", "Positive catch" = "#3498DB", "Combined index" = "#2ECC71"),
+    breaks = c("Catch probability", "Positive catch", "Combined index")
   )
 
   # Formatting

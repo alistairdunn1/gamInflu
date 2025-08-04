@@ -10,6 +10,9 @@ plot_term_distribution(obj, term, by = TRUE)
 \item{obj}{A `gam_influence` object.}
 
 \item{term}{The character name of the model term to plot (e.g., "year" or "s(temp)").}
+
+\item{by}{Logical indicating whether to plot by-variable interactions (default is TRUE).
+If FALSE, it will plot the main variable only.}
 }
 \value{
 A ggplot object showing the data distribution.

@@ -78,7 +78,7 @@ subplot_random_effect_points <- function(obj, term) {
   } else {
     df$lower <- df$coefficient - 1.96 * re_info$std_errors
     df$upper <- df$coefficient + 1.96 * re_info$std_errors
-    ylim <- c(NA, NA)
+    ylim <- c(NA_real_, NA_real_)
   }
 
   p_re <- ggplot(df, aes(x = ID, y = coefficient)) +

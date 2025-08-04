@@ -2,6 +2,8 @@
 #' @description Plots the data distribution for a specified model term and focus variable.
 #' @param obj A `gam_influence` object.
 #' @param term The character name of the model term to plot (e.g., "year" or "s(temp)").
+#' @param by Logical indicating whether to plot by-variable interactions (default is TRUE).
+#'   If FALSE, it will plot the main variable only.
 #' @return A ggplot object showing the data distribution.
 #' @export
 plot_term_distribution <- function(obj, term, by = TRUE) {
@@ -29,6 +31,8 @@ plot_term_distribution <- function(obj, term, by = TRUE) {
 #' @param p_dist_data Data frame with distribution counts.
 #' @param focus_var The focus variable name.
 #' @param term_var The term variable name.
+#' @param by Logical indicating whether to plot by-variable interactions (default is TRUE).
+#' @return A ggplot object showing the data distribution.
 #' @noRd
 subplot_distribution <- function(obj, term, focus_var, by = TRUE) {
   term_vars <- all.vars(rlang::parse_expr(term))

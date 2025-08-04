@@ -26,7 +26,8 @@ Imports:
     patchwork,
     stats,
     utils,
-    tools
+    tools,
+    scales
 Suggests:
     testthat (>= 3.0.0),
     knitr,

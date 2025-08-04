@@ -61,7 +61,7 @@ subplot_tensor2d_effect <- function(obj, t, term_vars, cdi = FALSE) {
 
   p <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y, fill = z)) +
     ggplot2::geom_raster() +
-    ggplot2::scale_fill_viridis_c(begin = 0, end = 1, option = "D", na.value = "grey90", limits = if (islog) c(0, NA) else NULL) +
+    ggplot2::scale_fill_viridis_c(begin = 0, end = 1, option = "D", na.value = "grey90", limits = if (islog) c(0, NA_real_) else NULL) +
     ggplot2::labs(x = term_vars[1], y = term_vars[2], fill = "Effect") +
     ggplot2::theme(panel.grid = ggplot2::element_blank())
 
