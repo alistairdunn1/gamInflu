@@ -36,11 +36,14 @@ calculate_influence(
 
 \item{rescale_method}{Character. How to rescale the indices. Options: "auto" (default), "geometric_mean", "arithmetic_mean", "raw", "custom".
 \describe{
-  \item{auto}{Uses sensible defaults based on model family and response transformation:}
-  \item{}{- Binomial: "raw" (preserves probability scale 0-1)}
-  \item{}{- Gaussian with log-transformed response: "geometric_mean"}
-  \item{}{- Gaussian with original scale response: "arithmetic_mean"}
-  \item{}{- Gamma/Poisson: "geometric_mean" (appropriate for positive/count data)}
+  \item{auto}{Uses sensible defaults based on model family and response transformation:
+    \itemize{
+      \item Binomial: "raw" (preserves probability scale 0-1)
+      \item Gaussian with log-transformed response: "geometric_mean"
+      \item Gaussian with original scale response: "arithmetic_mean"
+      \item Gamma/Poisson: "geometric_mean" (appropriate for positive/count data)
+    }
+  }
   \item{geometric_mean}{Rescale relative to geometric mean (good for log-normal data)}
   \item{arithmetic_mean}{Rescale relative to arithmetic mean (good for normal data)}
   \item{raw}{No rescaling (preserves original scale)}

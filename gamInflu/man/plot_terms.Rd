@@ -15,7 +15,7 @@ to the corresponding term name. If `NULL`, all terms will be plotted.}
 
 \item{re_type}{Character; for random effects, one of "points", "qq", "hist", or "caterpillar".}
 
-\item{cdi}{Logical; if TRUE, use CDI plot style.}
+\item{cdi}{Logical indicating if the plot is for CDI (Cumulative Distribution Influence).}
 }
 \value{
 A ggplot object (or patchwork if multiple terms).

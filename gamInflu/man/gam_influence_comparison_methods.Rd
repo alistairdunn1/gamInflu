@@ -3,7 +3,7 @@
 \name{gam_influence_comparison_methods}
 \alias{gam_influence_comparison_methods}
 \alias{print.gam_influence_comparison}
-\title{Methods for gam_influence_comparison Objects}
+\title{Print Method for gam_influence_comparison}
 \usage{
 \method{print}{gam_influence_comparison}(x, ...)
 }
@@ -13,7 +13,5 @@
 \item{...}{Additional arguments (not used).}
 }
 \description{
-S3 methods for objects created by analyse_focus_by_group
-
 Prints a summary of the grouped influence analysis results.
 }

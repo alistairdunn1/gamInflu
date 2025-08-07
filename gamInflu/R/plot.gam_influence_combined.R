@@ -1,7 +1,7 @@
 #' @title Print Method for Combined Influence Objects
 #' @description Print method for objects of class 'gam_influence_combined'
 #' @param x A gam_influence_combined object
-#' @param ... Additional arguments (unused)
+#' @param ... Additional arguments (not used)
 #' @return Invisibly returns the input object
 #' @export
 print.gam_influence_combined <- function(x, ...) {
@@ -41,7 +41,7 @@ print.gam_influence_combined <- function(x, ...) {
 #' @title Summary Method for Combined Influence Objects
 #' @description Detailed summary for objects of class 'gam_influence_combined'
 #' @param object A gam_influence_combined object
-#' @param ... Additional arguments (unused)
+#' @param ... Additional arguments (not used)
 #' @return Invisibly returns a summary data frame
 #' @export
 summary.gam_influence_combined <- function(object, ...) {
@@ -197,6 +197,8 @@ create_combined_index_plot <- function(plot_data, focus_term, method, show_point
       colour = "royalblue"
     )
   }
+
+
 
   # Add reference line
   p <- p + ggplot2::geom_hline(yintercept = 1, linetype = "dashed", colour = "grey50")

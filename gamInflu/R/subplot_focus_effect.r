@@ -2,11 +2,9 @@
 #' @description Internal function to plot predicted effects for focus terms.
 #' @param obj A `gam_influence` object.
 #' @param t The term name.
-#' @param preds_df Data frame of predictions.
-#' @param se_df Data frame of standard errors.
 #' @param term_vars Variables in the term.
-#' @param se_col Standard error column(s).
-#' @param islog Logical; if TRUE, exponentiate effects.
+#' @param cdi Logical indicating if the plot is for CDI (Cumulative Distribution Influence).
+#' @return A ggplot object showing the focus effects.
 #' @noRd
 subplot_focus_effect <- function(obj, t, term_vars, cdi = FALSE) {
   message("Plotting focus effect for term: ", t)

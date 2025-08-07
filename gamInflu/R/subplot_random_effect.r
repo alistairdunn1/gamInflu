@@ -2,12 +2,10 @@
 #' @description Internal function to plot predicted effects for random effect terms (e.g., s(term, bs="re")).
 #' @param obj A `gam_influence` object.
 #' @param t The term name.
-#' @param re_type Plot type: "points", "qq", "hist", or "caterpillar".
-#' @param preds_df Data frame of predictions.
-#' @param se_df Data frame of standard errors.
 #' @param term_vars Variables in the term.
-#' @param se_col Standard error column(s).
-#' @param islog Logical; if TRUE, exponentiate effects.
+#' @param re_type Plot type: "points", "qq", "hist", or "caterpillar".
+#' @param cdi Logical indicating if the plot is for CDI (Cumulative Distribution Influence).
+#' @return A ggplot object showing the random effect effects.
 #' @noRd
 subplot_random_effect <- function(obj, t, term_vars, re_type = "qq", cdi = FALSE) {
   # Plot according to type

@@ -1,6 +1,9 @@
 #' @title Subplot for Influence Plot
 #' @description Internal function to plot the influence for a term in CDI plots.
-#' @param influ_data Data frame with influence values.
+#' @param obj A `gam_influence` object.
+#' @param term The term name.
+#' @param focus_var The focus variable name.
+#' @param cdi Logical indicating if the plot is for CDI (Cumulative Distribution Influence).
 #' @return A ggplot object.
 #' @noRd
 subplot_influence <- function(obj, term, focus_var, cdi = FALSE) {

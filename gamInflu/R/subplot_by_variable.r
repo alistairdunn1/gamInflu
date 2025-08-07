@@ -2,11 +2,9 @@
 #' @description Internal function to plot predicted effects for by-variable terms (e.g., s(var1, by=var2)).
 #' @param obj A `gam_influence` object.
 #' @param t The term name.
-#' @param preds_df Data frame of predictions.
-#' @param se_df Data frame of standard errors.
-#' @param term_vars Variables in the term.
-#' @param se_col Standard error column(s).
-#' @param islog Logical; if TRUE, exponentiate effects.
+#' @param term_vars A character vector of variables in the term.
+#' @param cdi Logical indicating if the plot is for CDI (Cumulative Distribution Influence).
+#' @return A ggplot object showing the by-variable effects.
 #' @noRd
 subplot_by_variable <- function(obj, t, term_vars, cdi = FALSE) {
   message("Plotting by-variable effects for term: ", t)
@@ -66,7 +64,7 @@ subplot_by_variable <- function(obj, t, term_vars, cdi = FALSE) {
     pred_long$upper <- exp(pred_long$upper)
     ylim <- c(0, NA)
   } else {
-    ylim <- NULL  # Use NULL instead of c(NA, NA) to avoid ylim issues
+    ylim <- NULL # Use NULL instead of c(NA, NA) to avoid ylim issues
   }
 
   p_coef <- ggplot2::ggplot(pred_long, ggplot2::aes(x = var2, y = x, group = var1)) +

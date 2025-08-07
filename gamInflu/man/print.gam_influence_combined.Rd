@@ -9,7 +9,7 @@
 \arguments{
 \item{x}{A gam_influence_combined object}
 
-\item{...}{Additional arguments (unused)}
+\item{...}{Additional arguments (not used)}
 }
 \value{
 Invisibly returns the input object

@@ -2,11 +2,9 @@
 #' @description Internal function to plot predicted effects for factor terms.
 #' @param obj A `gam_influence` object.
 #' @param t The term name.
-#' @param preds_df Data frame of predictions.
-#' @param se_df Data frame of standard errors.
-#' @param term_vars Variables in the term.
-#' @param se_col Standard error column(s).
-#' @param islog Logical; if TRUE, exponentiate effects.
+#' @param term_vars A character vector of variables in the term.
+#' @param cdi Logical indicating if the plot is for CDI (Cumulative Distribution Influence).
+#' @return A ggplot object showing the factor effects.
 #' @noRd
 subplot_factor_effect <- function(obj, t, term_vars, cdi = FALSE) {
   message("Plotting factor effects for term: ", t)

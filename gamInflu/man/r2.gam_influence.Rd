@@ -4,12 +4,10 @@
 \alias{r2.gam_influence}
 \title{Model Progression Statistics for gam_influence}
 \usage{
-\method{r2}{gam_influence}(obj, ...)
+\method{r2}{gam_influence}(x)
 }
 \arguments{
-\item{obj}{A `gam_influence` object that has been processed by `calculate_influence()`.}
-
-\item{...}{Unused.}
+\item{x}{A `gam_influence` object that has been processed by `calculate_influence()`.}
 }
 \value{
 A data frame containing the model progression statistics.

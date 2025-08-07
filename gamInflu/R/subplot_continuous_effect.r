@@ -3,7 +3,8 @@
 #' @param obj A `gam_influence` object.
 #' @param t The term name.
 #' @param term_vars Variables in the term.
-#' @param cdi Logical indicating if the plot is for a continuous derivative influence (CDI).
+#' @param cdi Logical indicating if the plot is for CDI (Cumulative Distribution Influence).
+#' @return A ggplot object showing the continuous effects.
 #' @noRd
 subplot_continuous_effect <- function(obj, t, term_vars, cdi = FALSE) {
   message("Plotting continuous effects for term: ", t)

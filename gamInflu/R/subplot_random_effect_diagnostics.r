@@ -1,12 +1,11 @@
-#' @importFrom ggplot2 ggplot aes geom_point geom_abline geom_histogram geom_density geom_vline geom_errorbar geom_hline labs ylim after_stat
-#' @importFrom patchwork plot_spacer
-#' @importFrom stats qnorm ppoints sd
-#' @importFrom rlang .data
-
 #' @title QQ Plot for Random Effects
 #' @description QQ plot for random effect coefficients in a gam_influence object.
 #' @param obj A `gam_influence` object.
 #' @param term Random effect term name.
+#' @return A ggplot object showing the QQ plot of random effect coefficients.
+#' @importFrom ggplot2 aes geom_point geom_abline labs geom_histogram geom_density geom_vline geom_errorbar geom_hline ylim after_stat
+#' @importFrom patchwork plot_spacer
+#' @importFrom stats qnorm ppoints sd
 #' @noRd
 subplot_random_effect_qq <- function(obj, term) {
   message("Plotting QQ plot for random effect term: ", term)

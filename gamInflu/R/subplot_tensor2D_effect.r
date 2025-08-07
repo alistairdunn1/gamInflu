@@ -4,6 +4,9 @@
 #' @param t The term name.
 #' @param term_vars Variables in the term.
 #' @param cdi Logical; if TRUE, use CDI plot style.
+#' @return A ggplot object showing the 2D tensor smooth effects.
+#' @aliases importFrom ggplot2 ggplot aes geom_raster scale_fill_viridis_c labs theme
+#' @importFrom dplyr group_by summarise
 #' @noRd
 subplot_tensor2d_effect <- function(obj, t, term_vars, cdi = FALSE) {
   message("Plotting 2D tensor effects for term: ", t)

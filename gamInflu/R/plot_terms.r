@@ -6,7 +6,7 @@
 #' be a numeric index of the term in the model. If a numeric index is provided, it will be converted
 #' to the corresponding term name. If `NULL`, all terms will be plotted.
 #' @param re_type Character; for random effects, one of "points", "qq", "hist", or "caterpillar".
-#' @param cdi Logical; if TRUE, use CDI plot style.
+#' @param cdi Logical indicating if the plot is for CDI (Cumulative Distribution Influence).
 #' @return A ggplot object (or patchwork if multiple terms).
 #' @export
 plot_terms <- function(obj, term = NULL, re_type = "points", cdi = FALSE) {

@@ -28,9 +28,9 @@ plot_term_distribution <- function(obj, term, by = TRUE) {
 
 #' @title Subplot for Data Distribution
 #' @description Internal function to plot the data distribution for a term in CDI plots.
-#' @param p_dist_data Data frame with distribution counts.
+#' @param obj A `gam_influence` object.
+#' @param term The character name of the model term to plot (e.g., "year" or "s(temp)").
 #' @param focus_var The focus variable name.
-#' @param term_var The term variable name.
 #' @param by Logical indicating whether to plot by-variable interactions (default is TRUE).
 #' @return A ggplot object showing the data distribution.
 #' @noRd

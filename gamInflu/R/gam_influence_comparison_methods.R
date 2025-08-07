@@ -1,7 +1,4 @@
-#' @title Methods for gam_influence_comparison Objects
-#' @description S3 methods for objects created by analyse_focus_by_group
 #' @name gam_influence_comparison_methods
-
 #' @title Print Method for gam_influence_comparison
 #' @description Prints a summary of the grouped influence analysis results.
 #' @param x A gam_influence_comparison object.
@@ -43,8 +40,8 @@ summary.gam_influence_comparison <- function(object, ...) {
   cat("\nModel Fit Statistics by Group:\n")
   cat("------------------------------\n")
 
-  for (group in object$groups) {
-    result <- object$results[[group]]
+  for (group in x$groups) {
+    result <- x$results[[group]]
 
     cat("\nGroup:", group, "\n")
 
@@ -83,7 +80,7 @@ summary.gam_influence_comparison <- function(object, ...) {
 #' @return A ggplot or patchwork object.
 #' @details
 #' Plot types:
-#' - "standardisation": Standardized vs unstandardized indices for each group
+#' - "standardisation": Standardized vs unstandardised indices for each group
 #' - "comparison": Direct comparison of standardized indices across groups
 #' - "stepwise": Stepwise index progression for each group
 #' - "influence": Term influence plots for each group
@@ -143,7 +140,7 @@ plot.gam_influence_comparison <- function(x, type = c("standardisation", "compar
 
 #' @title Plot Comparison of Standardized Indices
 #' @description Creates a combined plot comparing standardized indices across groups.
-#' @param x A gam_influence_comparison object.
+#' @param object A gam_influence_comparison object.
 #' @param groups Character vector of groups to include.
 #' @param confidence_intervals Logical indicating whether to show confidence intervals.
 #' @param ... Additional arguments (not used).
@@ -151,16 +148,16 @@ plot.gam_influence_comparison <- function(x, type = c("standardisation", "compar
 #' @importFrom ggplot2 ggplot aes geom_line geom_point geom_ribbon labs scale_colour_viridis_d theme_minimal
 #' @importFrom dplyr bind_rows
 #' @noRd
-plot_comparison_indices <- function(x, groups = NULL, confidence_intervals = TRUE, ...) {
+plot_comparison_indices <- function(object, groups = NULL, confidence_intervals = TRUE, ...) {
   if (is.null(groups)) {
-    groups <- x$groups
+    groups <- object$groups
   }
 
   # Combine standardized indices from all groups
   combined_data <- list()
 
   for (group in groups) {
-    result <- x$results[[group]]
+    result <- object$results[[group]]
     indices <- result$calculated$indices
 
     if ("standardized_index" %in% names(indices)) {
@@ -196,20 +193,17 @@ plot_comparison_indices <- function(x, groups = NULL, confidence_intervals = TRU
     ggplot2::geom_hline(yintercept = 1, linetype = "dashed", colour = "grey50") +
     ggplot2::geom_line(size = 1) +
     ggplot2::geom_point(size = 2) +
-    ggplot2::scale_colour_viridis_d(name = x$grouping_var) +
+    ggplot2::scale_colour_viridis_d(name = object$grouping_var) +
     ggplot2::labs(
-      x = x$focus,
+      x = object$focus,
       y = "Standardized Index",
-      title = paste("Comparison of", x$focus, "effects by", x$grouping_var),
-      subtitle = "Standardized indices with reference line at 1.0"
-    ) +
-    ggplot2::theme_minimal()
+    )
 
   # Add confidence intervals if available
   if (confidence_intervals && "lower" %in% names(plot_data)) {
     p <- p +
       ggplot2::geom_ribbon(ggplot2::aes(ymin = lower, ymax = upper), alpha = 0.2) +
-      ggplot2::scale_fill_viridis_d(name = x$grouping_var, guide = "none")
+      ggplot2::scale_fill_viridis_d(name = object$grouping_var, guide = "none")
   }
 
   return(p)

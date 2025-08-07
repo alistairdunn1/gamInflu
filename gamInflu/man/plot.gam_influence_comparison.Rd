@@ -32,7 +32,7 @@ Creates comparative plots for grouped influence analysis results.
 }
 \details{
 Plot types:
-- "standardisation": Standardized vs unstandardized indices for each group
+- "standardisation": Standardized vs unstandardised indices for each group
 - "comparison": Direct comparison of standardized indices across groups
 - "stepwise": Stepwise index progression for each group
 - "influence": Term influence plots for each group
