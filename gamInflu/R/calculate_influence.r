@@ -40,7 +40,9 @@ calculate_influence <- function(obj, islog = NULL,
                                 confidence_level = 0.95,
                                 family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
                                 subset_var = NULL,
-                                subset_value = NULL, ...) {
+                                subset_value = NULL,
+                                separate_by_smooth = FALSE,
+                                ...) {
   UseMethod("calculate_influence")
 }
 
@@ -54,7 +56,9 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
                                               confidence_level = 0.95,
                                               family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
                                               subset_var = NULL,
-                                              subset_value = NULL, ...) {
+                                              subset_value = NULL,
+                                              separate_by_smooth = FALSE,
+                                              ...) {
   # Validate inputs
   validate_gam_influence(obj)
   if (confidence_level <= 0 || confidence_level >= 1) {
@@ -530,8 +534,39 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   summary_list <- list()
   step_indices_list <- list()
 
-  # Define all_terms for use in both stepwise and influence calculations
-  all_terms <- obj$terms
+  # Define all_terms (ordered) for stepwise building.
+  # stats::terms() on a gam object only returns parametric-style labels which
+  # can collapse multiple smooths on the same variable (e.g. s(depth,by=gear,...) + s(depth,...) -> "depth").
+  # To correctly attribute smooth-specific EDF we must rebuild models adding each
+  # explicit RHS token (parametric term or full smooth specification) in the original order.
+  # We therefore parse the RHS of the model formula manually, splitting on top-level '+'
+  # while respecting parentheses.
+  parse_formula_terms <- function(frm) {
+    rhs <- deparse(formula(frm)[[3]])
+    # Collapse multi-line deparse into single string
+    rhs <- paste(rhs, collapse = " ")
+    chars <- strsplit(rhs, "")[[1]]
+    depth_paren <- 0
+    buf <- ""
+    tokens <- c()
+    for (ch in chars) {
+      if (ch == "(") depth_paren <- depth_paren + 1
+      if (ch == ")") depth_paren <- max(0, depth_paren - 1)
+      if (ch == "+" && depth_paren == 0) {
+        token <- trimws(buf)
+        if (nzchar(token)) tokens <- c(tokens, token)
+        buf <- ""
+      } else {
+        buf <- paste0(buf, ch)
+      }
+    }
+    last_token <- trimws(buf)
+    if (nzchar(last_token)) tokens <- c(tokens, last_token)
+    # Remove empty tokens and any inline comments (unlikely)
+    tokens <- tokens[nzchar(tokens)]
+    tokens
+  }
+  all_terms <- parse_formula_terms(obj$model)
 
   # Check if this is subset analysis
   is_subset_analysis <- !is.null(subset_var) && !is.null(subset_value)
@@ -547,8 +582,13 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       logLike = logLike_int,
       aic = AIC(model_int),
       r_sq = 0,
-      deviance_explained = 0
+      deviance_explained = 0,
+      df = 0,
+      smooth_edf = 0,
+      smooth_edf_cum = 0
     )
+    prev_resid_df <- model_int$df.residual
+    prev_total_smooth_edf <- 0
 
     # Sequentially add each term from the original model formula
     for (i in seq_along(all_terms)) {
@@ -559,18 +599,22 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       # Store the step-wise index if the focus term is in the current model
       if (obj$focus %in% current_terms) {
         step_preds <- predict(model_step, newdata = obj$data, type = "terms")
-        focus_cols <- grep(paste0("^", obj$focus, ""), colnames(step_preds), value = TRUE)
+        pred_cols <- colnames(step_preds)
+        # Focus columns: exact match for factor parametric term OR smooths containing the focus variable
+        # Simpler: gather columns that start with focus term or contain focus term followed by ) for smooths
+        focus_cols <- grep(paste0("^", obj$focus, "$|^", obj$focus, "(:|\\)|$)"), pred_cols, value = TRUE)
+        if (length(focus_cols) == 0) {
+          # Fallback: any column that contains the focus term as standalone word
+          focus_cols <- grep(paste0("(^|:)", obj$focus, "($|:)"), pred_cols, value = TRUE)
+        }
         if (length(focus_cols) == 0) {
           stop(paste0("Could not find any columns for focus term '", obj$focus, "' in step-wise model predictions (type='terms')."))
         }
         focus_effect_sum <- rowSums(step_preds[, focus_cols, drop = FALSE])
         step_focus_effects <- aggregate(focus_effect_sum ~ obj$data[[obj$focus]], FUN = mean)
         names(step_focus_effects) <- c("level", "effect")
-
         base_step <- mean(step_focus_effects$effect)
         step_focus_effects$index <- exp(step_focus_effects$effect - base_step)
-
-        # Name the column after the term that was just added
         term_label <- paste("+", all_terms[i])
         step_indices_list[[term_label]] <- step_focus_effects[, c("level", "index")]
         names(step_indices_list[[term_label]])[2] <- term_label
@@ -584,13 +628,38 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       r_sq_step <- if ("r.sq" %in% names(model_summary)) model_summary$r.sq else NA
       dev_expl_step <- if ("dev.expl" %in% names(model_summary)) model_summary$dev.expl else (model_step$null.deviance - deviance(model_step)) / model_step$null.deviance
 
+      # Degrees of freedom contributed by this added term (drop in residual df)
+      df_added <- prev_resid_df - model_step$df.residual
+      if (is.null(df_added) || is.na(df_added)) df_added <- NA_real_
+
+      # Smooth-specific EDF: obtain total smooth edf from the model summary
+      s_tab <- try(summary(model_step)$s.table, silent = TRUE)
+      total_smooth_edf <- if (!inherits(s_tab, "try-error") && !is.null(s_tab)) {
+        # s.table may be matrix or data.frame; edf column usually named 'edf'
+        if (is.matrix(s_tab) || is.data.frame(s_tab)) {
+          edf_col <- NULL
+          if ("edf" %in% colnames(s_tab)) edf_col <- s_tab[, "edf"] else if (ncol(s_tab) >= 1) edf_col <- s_tab[, 1]
+          suppressWarnings(sum(as.numeric(edf_col), na.rm = TRUE))
+        } else {
+          0
+        }
+      } else {
+        0
+      }
+      smooth_edf_added <- total_smooth_edf - prev_total_smooth_edf
+      if (is.null(smooth_edf_added) || is.na(smooth_edf_added)) smooth_edf_added <- NA_real_
       summary_list[[all_terms[i]]] <- data.frame(
         term = all_terms[i],
         logLike = logLike_step,
         aic = AIC(model_step),
         r_sq = r_sq_step,
-        deviance_explained = dev_expl_step
+        deviance_explained = dev_expl_step,
+        df = df_added,
+        smooth_edf = smooth_edf_added,
+        smooth_edf_cum = total_smooth_edf
       )
+      prev_resid_df <- model_step$df.residual
+      prev_total_smooth_edf <- total_smooth_edf
     }
   } else {
     # For subset analysis, perform stepwise analysis on subset data
@@ -651,8 +720,13 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
           logLike = logLike_int,
           aic = AIC(model_int),
           r_sq = 0,
-          deviance_explained = 0
+          deviance_explained = 0,
+          df = 0,
+          smooth_edf = 0,
+          smooth_edf_cum = 0
         )
+        prev_resid_df <- model_int$df.residual
+        prev_total_smooth_edf <- 0
 
         # Sequentially add each valid term from the filtered list
         for (i in seq_along(subset_terms)) {
@@ -692,13 +766,34 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
               r_sq_step <- if ("r.sq" %in% names(model_summary)) model_summary$r.sq else NA
               dev_expl_step <- if ("dev.expl" %in% names(model_summary)) model_summary$dev.expl else (model_step$null.deviance - deviance(model_step)) / model_step$null.deviance
 
+              df_added <- prev_resid_df - model_step$df.residual
+              if (is.null(df_added) || is.na(df_added)) df_added <- NA_real_
+              s_tab <- try(summary(model_step)$s.table, silent = TRUE)
+              total_smooth_edf <- if (!inherits(s_tab, "try-error") && !is.null(s_tab)) {
+                if (is.matrix(s_tab) || is.data.frame(s_tab)) {
+                  edf_col <- NULL
+                  if ("edf" %in% colnames(s_tab)) edf_col <- s_tab[, "edf"] else if (ncol(s_tab) >= 1) edf_col <- s_tab[, 1]
+                  suppressWarnings(sum(as.numeric(edf_col), na.rm = TRUE))
+                } else {
+                  0
+                }
+              } else {
+                0
+              }
+              smooth_edf_added <- total_smooth_edf - prev_total_smooth_edf
+              if (is.null(smooth_edf_added) || is.na(smooth_edf_added)) smooth_edf_added <- NA_real_
               summary_list[[paste(subset_terms[i], "(Subset)")]] <- data.frame(
                 term = paste(subset_terms[i], "(Subset)"),
                 logLike = logLike_step,
                 aic = AIC(model_step),
                 r_sq = r_sq_step,
-                deviance_explained = dev_expl_step
+                deviance_explained = dev_expl_step,
+                df = df_added,
+                smooth_edf = smooth_edf_added,
+                smooth_edf_cum = total_smooth_edf
               )
+              prev_resid_df <- model_step$df.residual
+              prev_total_smooth_edf <- total_smooth_edf
             },
             error = function(e) {
               # If model fitting fails for this step, record the error and continue
@@ -711,7 +806,10 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
                 logLike = NA,
                 aic = NA,
                 r_sq = NA,
-                deviance_explained = NA
+                deviance_explained = NA,
+                df = NA,
+                smooth_edf = NA,
+                smooth_edf_cum = NA
               )
             }
           )
@@ -725,7 +823,10 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
           logLike = as.numeric(logLik(obj$model)),
           aic = AIC(obj$model),
           r_sq = summary(obj$model)$r.sq,
-          deviance_explained = summary(obj$model)$dev.expl
+          deviance_explained = summary(obj$model)$dev.expl,
+          df = NA,
+          smooth_edf = NA,
+          smooth_edf_cum = NA
         )
       }
     )
@@ -733,8 +834,27 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
   summary_df <- do.call(rbind, summary_list)
   # Calculate successive differences
+  # If we performed a full (non-subset) analysis, ensure the final row reflects the full model metrics exactly
+  if (!is_subset_analysis && nrow(summary_df) > 1) {
+    full_mod_sum <- try(suppressWarnings(summary(obj$model)), silent = TRUE)
+    if (!inherits(full_mod_sum, "try-error")) {
+      if ("r.sq" %in% names(full_mod_sum)) {
+        summary_df$r_sq[nrow(summary_df)] <- full_mod_sum$r.sq
+      }
+      if ("dev.expl" %in% names(full_mod_sum)) {
+        summary_df$deviance_explained[nrow(summary_df)] <- full_mod_sum$dev.expl
+      }
+    }
+  }
   summary_df$r_sq_diff <- c(0, diff(summary_df$r_sq))
   summary_df$deviance_explained_diff <- c(0, diff(summary_df$deviance_explained))
+  # Clamp tiny floating point artifacts to zero for readability
+  clamp_tol <- 1e-6
+  clamp_cols <- intersect(c("df", "smooth_edf", "smooth_edf_cum", "r_sq_diff", "deviance_explained_diff"), names(summary_df))
+  for (cc in clamp_cols) {
+    bad <- !is.na(summary_df[[cc]]) & abs(summary_df[[cc]]) < clamp_tol
+    if (any(bad)) summary_df[[cc]][bad] <- 0
+  }
   rownames(summary_df) <- NULL
 
   # Combine all step-wise indices into a single data frame
@@ -758,11 +878,13 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   all_preds_se_df$level <- obj$data[[obj$focus]]
 
   influ_list <- list()
+  # store setting for downstream functions
+  obj$separate_by_smooth <- separate_by_smooth
   non_focus_terms <- setdiff(all_terms, obj$focus)
 
   for (term in non_focus_terms) {
     # Use the robust helper to find all relevant columns
-    term_cols <- find_term_columns(term, colnames(all_preds_df))
+    term_cols <- find_term_columns(term, colnames(all_preds_df), group_by_bysmooth = !separate_by_smooth)
     if (length(term_cols) == 0) next # Skip if no columns found for this term
 
     # Sum across all columns for this term (handles smooths and factors)
@@ -925,7 +1047,116 @@ validate_gam_influence <- function(obj) {
 #' @param colnames_vec Character vector of column names to search in.
 #' @return Character vector of matching column names.
 #' @noRd
-find_term_columns <- function(term, colnames_vec) {
+find_term_columns <- function(term, colnames_vec, group_by_bysmooth = TRUE) {
+  original_term <- term
+  # If term is a smooth with arguments, strip spaces
+  term_clean <- gsub("[[:space:]]+", "", term)
+  # Generic normalisation for smooth constructors s(), te(), ti(), t2()
+  normalize_smooth <- function(txt) {
+    if (!grepl("^(s|te|ti|t2)\\(", txt)) {
+      return(txt)
+    }
+    # Remove all whitespace for parsing
+    no_space <- gsub("[[:space:]]+", "", txt)
+    inner <- sub("^[a-z0-9]+\\((.*)\\)$", "\\1", no_space, ignore.case = TRUE)
+    parts <- strsplit(inner, ",")[[1]]
+    # Collect leading variable tokens up until the first argument containing '=' or 'c('
+    # This avoids accidentally capturing fragments of k=c(6,6) etc.
+    var_tokens <- c()
+    for (p in parts) {
+      if (grepl("=", p) || grepl("^c\\(", p)) break
+      var_tokens <- c(var_tokens, p)
+    }
+    if (length(var_tokens) == 0) {
+      return(txt)
+    }
+    builder <- sub("^([a-z0-9]+)\\(.*$", "\\1", no_space, ignore.case = TRUE)
+    paste0(builder, "(", paste(var_tokens, collapse = ","), ")")
+  }
+  normalized_label <- normalize_smooth(term)
+  # Direct attempt: if normalized smooth column present
+  if (normalized_label %in% colnames_vec) {
+    return(normalized_label)
+  }
+  # For tensor products predict() often drops spaces after commas, so try that variant
+  compressed_label <- gsub("[[:space:]]+", "", normalized_label)
+  if (compressed_label %in% colnames_vec) {
+    return(compressed_label)
+  }
+  # If still not found and it's a tensor product, attempt partial match (covers by-smooth expansion in future)
+  if (grepl("^(te|ti|t2)\\(", term_clean)) {
+    # Normalize: drop spaces then rebuild minimal label with just variable list
+    tensor_base <- normalize_smooth(term_clean)
+    tensor_base <- gsub("[[:space:]]+", "", tensor_base)
+    # Direct exact match
+    if (tensor_base %in% colnames_vec) {
+      return(tensor_base)
+    }
+    # Escape regex metachars (omit braces to avoid TRE 'Invalid contents of {}') for prefix search
+    esc_tensor <- gsub("([().,+*?^$|\\[\\]\\\\])", "\\\\\\1", tensor_base)
+    tensor_cols <- grep(paste0("^", esc_tensor), colnames_vec, value = TRUE)
+    if (length(tensor_cols) > 0) {
+      return(tensor_cols)
+    }
+  }
+  # Remove k=... and other arguments inside smooth for matching prediction columns
+  if (grepl("^s\\(", term_clean)) {
+    # remove ,k=... patterns
+    term_base <- sub(",k=[^,)]*", "", term_clean)
+    term_base <- sub(",bs=[^,)]*", "", term_base)
+    term_base <- sub(",by=[^,)]*", "", term_base)
+    term_base <- sub("\\)$", "", term_base)
+    # Extract variable list inside s()
+    inner <- sub("^s\\((.*)$", "\\1", term_base)
+    inner_vars <- strsplit(inner, ",")[[1]]
+    if (length(inner_vars) > 0) {
+      term_variable <- inner_vars[1]
+      # Prediction columns for simple smooths are like s(var)
+      simple_pattern <- paste0("^s\\(", term_variable, ".*\\)")
+      simple_cols <- grep(simple_pattern, colnames_vec, value = TRUE)
+      if (length(simple_cols) > 0) {
+        return(simple_cols)
+      }
+    }
+  }
+  # Handle mgcv by-variable smooths (e.g. s(depth,by=gear)) whose term.labels differ
+  # from the per-level columns produced by predict(..., type='terms'), e.g. columns like
+  #   s(depth):gearLevel1, s(depth):gearLevel2
+  # We want to group all those columns back to the single model term 's(depth,by=gear)'.
+  term_nospace <- gsub("[[:space:]]+", "", term)
+  if (grepl("by=", term_nospace, fixed = TRUE)) {
+    if (!group_by_bysmooth) {
+      # When separating by-smooths, attempt to return only columns associated with each by-smooth level
+      # Keep the core smooth columns distinct from base smooth by returning per-level pattern set
+      term_core <- sub(",k=.*$", "", term_nospace)
+      core_smooth <- sub(",by=.*$", "", term_core)
+      core_escaped <- gsub("([().,+*?^$|\\[\\]{}\\\\])", "\\\\\\1", core_smooth, perl = TRUE)
+      pattern_core <- paste0("^", core_escaped, ":")
+      candidate_cols <- grep(pattern_core, colnames_vec, value = TRUE)
+      if (length(candidate_cols) > 0) {
+        return(candidate_cols)
+      }
+      # fallback to generic flow if none found
+    }
+    # Remove trailing k= specifications first (e.g. ,k=6)
+    term_core <- sub(",k=.*$", "", term_nospace)
+    # Extract smooth without by-part
+    core_smooth <- sub(",by=.*$", "", term_core)
+    by_var <- sub(".*by=([^,)+]+).*$", "\\1", term_core)
+    # Build regex for columns: coreSmooth:byVarLevel  (mgcv drops ',by=var')
+    core_escaped <- gsub("([().,+*?^$|\\[\\]{}\\\\])", "\\\\\\1", core_smooth, perl = TRUE)
+    # Columns start with the core smooth then ':'
+    pattern_core <- paste0("^", core_escaped, ":")
+    candidate_cols <- grep(pattern_core, colnames_vec, value = TRUE)
+    if (length(candidate_cols) == 0) {
+      # Fallback: columns containing ':' then by var name (coarse)
+      by_pattern <- paste0(":", by_var)
+      candidate_cols <- grep(by_pattern, colnames_vec, value = TRUE, fixed = TRUE)
+    }
+    if (length(candidate_cols) > 0) {
+      return(candidate_cols)
+    }
+  }
   # Try exact match first
   cols <- which(colnames_vec == term)
   if (length(cols) > 0) {

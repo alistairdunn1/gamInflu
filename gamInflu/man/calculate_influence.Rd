@@ -14,6 +14,7 @@ calculate_influence(
   family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
   subset_var = NULL,
   subset_value = NULL,
+  separate_by_smooth = FALSE,
   ...
 )
 
@@ -26,6 +27,7 @@ calculate_influence(
   family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
   subset_var = NULL,
   subset_value = NULL,
+  separate_by_smooth = FALSE,
   ...
 )
 }
