@@ -26,21 +26,38 @@ subplot_influence <- function(obj, term, focus_var, cdi = FALSE) {
     stop("CDI plot cannot be generated for the focus term itself.")
   }
 
-  # Fix: Match against the full term name, not just variable names
-  influ_data <- obj$calculated$influences[obj$calculated$influences$term == term, ]
+  # Fix: Robust matching against the full term name, handling whitespace differences
+  available_terms <- unique(obj$calculated$influences$term)
+
+  # First try exact match
+  exact_match <- available_terms[available_terms == term]
+
+  if (length(exact_match) > 0) {
+    matched_term <- exact_match[1]
+  } else {
+    # If no exact match, try matching after normalizing whitespace
+    normalize_term <- function(x) gsub("\\s+", " ", gsub("\\s*,\\s*", ", ", trimws(x)))
+    term_normalized <- normalize_term(term)
+    available_normalized <- normalize_term(available_terms)
+
+    match_idx <- which(available_normalized == term_normalized)
+    if (length(match_idx) > 0) {
+      matched_term <- available_terms[match_idx[1]]
+    } else {
+      stop(
+        "No influence data found for term: ", term, ". Available terms: ",
+        paste(available_terms, collapse = ", ")
+      )
+    }
+  }
+
+  influ_data <- obj$calculated$influences[obj$calculated$influences$term == matched_term, ]
 
   # Apply transformations
   influ_data$influence <- exp(influ_data$influence)
   influ_data$influence <- influ_data$influence / mean(influ_data$influence)
 
-  # Safety check: ensure we have valid influence data
-  if (nrow(influ_data) == 0) {
-    stop(
-      "No influence data found for term: ", term, ". Available terms: ",
-      paste(unique(obj$calculated$influences$term), collapse = ", ")
-    )
-  }
-
+  # Safety check: ensure we have valid influence data after transformations
   if (all(is.na(influ_data$influence))) {
     warning("All influence values are NA for term: ", term)
     influ_data$influence <- rep(1, nrow(influ_data)) # Default to no influence
