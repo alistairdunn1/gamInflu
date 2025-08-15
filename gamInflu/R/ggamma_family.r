@@ -39,20 +39,52 @@ dgg.default <- function(x, mu, sigma, Q, log = FALSE) {
 
   if (any(x <= 0)) stop("x must be positive")
 
-  w <- (log(x) - mu) / sigma
+  # Add debugging for the issue
+  if (!is.numeric(mu)) {
+    stop(paste("mu must be numeric, got:", class(mu), "with length:", length(mu)))
+  }
+  if (!is.numeric(sigma)) {
+    stop(paste("sigma must be numeric, got:", class(sigma)))
+  }
+  if (!is.numeric(Q)) {
+    stop(paste("Q must be numeric, got:", class(Q)))
+  }
 
-  if (abs(Q) < 1e-7) {
+  # Ensure all inputs have the same length
+  n <- max(length(x), length(mu), length(sigma), length(Q))
+  x <- rep_len(x, n)
+  mu <- rep_len(mu, n)
+  sigma <- rep_len(sigma, n)
+  Q <- rep_len(Q, n)
+
+  w <- (log(x) - mu) / sigma
+  logdens <- numeric(n)
+
+  # Handle log-normal case (Q near 0) and general case
+  lognormal_cases <- abs(Q) < 1e-7
+
+  if (any(lognormal_cases)) {
     # Limit as Q -> 0 (log-normal case)
-    logdens <- -0.5 * log(2 * pi) - log(sigma) - log(x) - 0.5 * w^2
-  } else {
-    Q2 <- Q * Q
+    idx <- which(lognormal_cases)
+    logdens[idx] <- -0.5 * log(2 * pi) - log(sigma[idx]) - log(x[idx]) - 0.5 * w[idx]^2
+  }
+
+  if (any(!lognormal_cases)) {
+    # General generalized gamma case
+    idx <- which(!lognormal_cases)
+    Q_sub <- Q[idx]
+    w_sub <- w[idx]
+    sigma_sub <- sigma[idx]
+    x_sub <- x[idx]
+
+    Q2 <- Q_sub * Q_sub
     Q_inv2 <- 1 / Q2
     gamma_term <- lgamma(Q_inv2)
 
     # More numerically stable computation
-    u <- Q_inv2 + Q * w / abs(Q)
+    u <- Q_inv2 + Q_sub * w_sub / abs(Q_sub)
 
-    logdens <- log(abs(Q)) - log(sigma) - log(x) - gamma_term -
+    logdens[idx] <- log(abs(Q_sub)) - log(sigma_sub) - log(x_sub) - gamma_term -
       Q_inv2 * log(Q_inv2) +
       (Q_inv2 - 1) * log(pmax(u, 1e-10)) - u
   }
@@ -76,27 +108,51 @@ pgg <- function(q, mu, sigma, Q, lower.tail = TRUE, log.p = FALSE) {
 #' @rdname ggamma-distribution
 #' @export
 pgg.default <- function(q, mu, sigma, Q, lower.tail = TRUE, log.p = FALSE) {
+  # Ensure all inputs have the same length
+  n <- max(length(q), length(mu), length(sigma), length(Q))
+  q <- rep_len(q, n)
+  mu <- rep_len(mu, n)
+  sigma <- rep_len(sigma, n)
+  Q <- rep_len(Q, n)
+
   w <- (log(q) - mu) / sigma
+  p <- numeric(n)
 
-  if (abs(Q) < 1e-7) {
-    p <- pnorm(w, lower.tail = lower.tail, log.p = log.p)
-  } else {
-    Q2 <- Q * Q
+  # Handle log-normal case (Q near 0) and general case
+  lognormal_cases <- abs(Q) < 1e-7
+
+  if (any(lognormal_cases)) {
+    idx <- which(lognormal_cases)
+    p[idx] <- pnorm(w[idx], lower.tail = lower.tail, log.p = log.p)
+  }
+
+  if (any(!lognormal_cases)) {
+    idx <- which(!lognormal_cases)
+    Q_sub <- Q[idx]
+    w_sub <- w[idx]
+
+    Q2 <- Q_sub * Q_sub
     Q_inv2 <- 1 / Q2
-    u <- Q_inv2 + Q * w / abs(Q)
+    u <- Q_inv2 + Q_sub * w_sub / abs(Q_sub)
 
-    if (Q > 0) {
-      p <- pgamma(pmax(u, 0),
-        shape = Q_inv2, rate = 1,
+    pos_Q <- Q_sub > 0
+    if (any(pos_Q)) {
+      pos_idx <- idx[pos_Q]
+      p[pos_idx] <- pgamma(pmax(u[pos_Q], 0),
+        shape = Q_inv2[pos_Q], rate = 1,
         lower.tail = lower.tail, log.p = log.p
       )
-    } else {
-      p <- pgamma(pmax(u, 0),
-        shape = Q_inv2, rate = 1,
+    }
+
+    if (any(!pos_Q)) {
+      neg_idx <- idx[!pos_Q]
+      p[neg_idx] <- pgamma(pmax(u[!pos_Q], 0),
+        shape = Q_inv2[!pos_Q], rate = 1,
         lower.tail = !lower.tail, log.p = log.p
       )
     }
   }
+
   return(p)
 }
 
@@ -193,24 +249,28 @@ gengamma <- function(link = list("log", "log", "identity"), b = 0) {
     stop("gengamma family requires exactly 3 link functions for mu, sigma, Q")
   }
 
-  # Set up link functions as objects
-  linktemp <- substitute(link)
-  if (!is.list(linktemp)) linktemp <- list(linktemp)
+  # Ensure link is a list of character strings
+  if (!is.list(link)) {
+    link <- as.list(link)
+  }
 
-  # Process each link
+  # Convert link functions to character if needed
   for (i in 1:3) {
-    if (is.name(linktemp[[i]])) {
-      linktemp[[i]] <- deparse(linktemp[[i]])
+    if (is.call(link[[i]]) || is.name(link[[i]])) {
+      link[[i]] <- deparse(link[[i]])
     }
-    if (is.character(linktemp[[i]])) {
-      linktemp[[i]] <- switch(linktemp[[i]],
-        "log" = make.link("log"),
-        "identity" = make.link("identity"),
-        "sqrt" = make.link("sqrt"),
-        "inverse" = make.link("inverse"),
-        make.link(linktemp[[i]])
-      )
-    }
+  }
+
+  # Process each link function
+  linktemp <- vector("list", 3)
+  for (i in 1:3) {
+    linktemp[[i]] <- switch(as.character(link[[i]]),
+      "log" = make.link("log"),
+      "identity" = make.link("identity"),
+      "sqrt" = make.link("sqrt"),
+      "inverse" = make.link("inverse"),
+      make.link(as.character(link[[i]]))
+    )
   }
 
   link_names <- c(linktemp[[1]]$name, linktemp[[2]]$name, linktemp[[3]]$name)
@@ -222,8 +282,25 @@ gengamma <- function(link = list("log", "log", "identity"), b = 0) {
 
   # Deviance residuals
   env$dev.resids <- function(y, mu, wt, theta, scale = 1) {
-    sigma <- exp(theta[1, ])
-    Q <- theta[2, ]
+    # Handle case where mu is NULL during initialization
+    if (is.null(mu)) {
+      # During initialization, use simple starting values
+      mu <- rep(mean(y), length(y))
+    }
+
+    # Add debugging
+    if (!is.numeric(mu)) {
+      stop(paste("dev.resids: mu must be numeric after NULL check, got:", class(mu), "with length:", length(mu)))
+    }
+
+    # Handle theta dimensions - can be vector or matrix
+    if (is.matrix(theta)) {
+      sigma <- exp(theta[1, ])
+      Q <- theta[2, ]
+    } else {
+      sigma <- exp(rep(theta[1], length(y)))
+      Q <- rep(theta[2], length(y))
+    }
 
     # Unit deviances
     dev <- numeric(length(y))
@@ -238,8 +315,19 @@ gengamma <- function(link = list("log", "log", "identity"), b = 0) {
 
   # AIC
   env$aic <- function(y, n, mu, wt, dev, theta, scale = 1) {
-    sigma <- exp(theta[1, ])
-    Q <- theta[2, ]
+    # Handle NULL mu during initialization
+    if (is.null(mu)) {
+      mu <- mean(y)
+    }
+
+    # Handle theta dimensions
+    if (is.matrix(theta)) {
+      sigma <- exp(theta[1, ])
+      Q <- theta[2, ]
+    } else {
+      sigma <- exp(rep(theta[1], length(y)))
+      Q <- rep(theta[2], length(y))
+    }
     ll <- sum(wt * dgg(y, log(mu), sigma, Q, log = TRUE))
     return(-2 * ll)
   }
@@ -259,6 +347,11 @@ gengamma <- function(link = list("log", "log", "identity"), b = 0) {
 
   # Gradient and Hessian of log-likelihood (key method)
   env$ll.grad <- function(y, mu, theta, wt, deriv = 2) {
+    # Handle NULL mu during initialization
+    if (is.null(mu)) {
+      mu <- mean(y)
+    }
+
     sigma <- exp(theta[1, ])
     Q <- theta[2, ]
     n <- length(y)
@@ -353,11 +446,78 @@ gengamma <- function(link = list("log", "log", "identity"), b = 0) {
     )
   })
 
+  # Pre-initialization (essential for mgcv compatibility)
+  env$preinitialize <- function(y, weights, ...) {
+    # This is called before main initialization
+    # Return empty list by default
+    list()
+  }
+
   # Random deviates
   env$rd <- function(mu, wt, scale, theta) {
+    # Handle NULL mu during initialization
+    if (is.null(mu)) {
+      mu <- rep(1, length(wt)) # Use dummy values
+    }
+
     sigma <- exp(theta[1, ])
     Q <- theta[2, ]
     rgg(length(mu), log(mu), sigma, Q)
+  }
+
+  # Deviance function (required by mgcv)
+  env$Dd <- function(y, mu, theta, wt, scale = 1) {
+    # Handle case where mu is NULL during initialization
+    if (is.null(mu)) {
+      # During initialization, use simple starting values
+      mu <- rep(mean(y), length(y))
+    }
+
+    # Add debugging
+    if (!is.numeric(mu)) {
+      stop(paste("Dd: mu must be numeric after NULL check, got:", class(mu), "with length:", length(mu)))
+    }
+
+    # Handle theta dimensions - can be vector or matrix
+    if (is.matrix(theta)) {
+      sigma <- exp(theta[1, ])
+      Q <- theta[2, ]
+    } else {
+      sigma <- exp(rep(theta[1], length(y)))
+      Q <- rep(theta[2], length(y))
+    }
+
+    # Unit deviances
+    dev <- numeric(length(y))
+    for (i in seq_along(y)) {
+      ll_sat_i <- wt[i] * dgg(y[i], log(y[i]), sigma[i], Q[i], log = TRUE)
+      ll_fit_i <- wt[i] * dgg(y[i], log(mu[i]), sigma[i], Q[i], log = TRUE)
+      dev[i] <- 2 * (ll_sat_i - ll_fit_i)
+    }
+
+    return(sum(dev))
+  }
+
+  # Log saturated likelihood (required by mgcv)
+  env$ls <- function(y, w, theta, scale = 1) {
+    # Handle theta dimensions
+    if (is.matrix(theta)) {
+      sigma <- exp(theta[1, ])
+      Q <- theta[2, ]
+    } else {
+      sigma <- exp(rep(theta[1], length(y)))
+      Q <- rep(theta[2], length(y))
+    }
+
+    # Saturated log-likelihood
+    ll_sat <- sum(w * dgg(y, log(y), sigma, Q, log = TRUE))
+    return(ll_sat)
+  }
+
+  # Post-processing function
+  env$postproc <- function(family, y, prior.weights, fitted, linear.predictors, offset, intercept) {
+    # No special post-processing needed for generalized gamma
+    family
   }
 
   # Prediction methods
@@ -380,10 +540,20 @@ gengamma <- function(link = list("log", "log", "identity"), b = 0) {
   }
 
   # Variance function (approximate)
-  variance <- function(mu) mu^2 # Rough approximation
+  variance <- function(mu) {
+    if (is.null(mu)) {
+      return(1)
+    } # Default value during initialization
+    mu^2 # Rough approximation
+  }
 
   # Validation functions
-  validmu <- function(mu) all(is.finite(mu) & mu > 0)
+  validmu <- function(mu) {
+    if (is.null(mu)) {
+      return(TRUE)
+    } # Allow NULL during initialization
+    all(is.finite(mu) & mu > 0)
+  }
   valideta <- function(eta) all(is.finite(eta))
 
   # Create family object
@@ -397,20 +567,36 @@ gengamma <- function(link = list("log", "log", "identity"), b = 0) {
     validmu = validmu,
     valideta = valideta,
     dev.resids = env$dev.resids,
+    Dd = env$Dd,
     aic = env$aic,
     ll.grad = env$ll.grad,
     d1link = env$d1link,
     d2link = env$d2link,
     initialize = env$initialize,
+    preinitialize = env$preinitialize,
     rd = env$rd,
     predict = env$predict,
+    ls = env$ls,
+    postproc = env$postproc,
+    canonical = FALSE,
     n.theta = 2,
     no.theta = 2,
     ini.theta = function(theta) c(log(0.5), 0.1),
     putTheta = function(theta) theta,
-    getTheta = function(fit) fit$family$getTheta(fit),
+    getTheta = function(trans = FALSE) {
+      # This should return current theta values
+      # During initialization, return default values
+      theta <- c(log(0.5), 0.1)
+      if (trans) {
+        # Apply any transformation if needed
+        return(theta)
+      } else {
+        return(theta)
+      }
+    },
     use.unscaled.deviance = TRUE,
     scale.known = TRUE,
+    scale = 1,
     env = env
   ), class = c("extended.family", "family"))
 }

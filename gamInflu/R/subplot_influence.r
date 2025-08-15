@@ -26,9 +26,25 @@ subplot_influence <- function(obj, term, focus_var, cdi = FALSE) {
     stop("CDI plot cannot be generated for the focus term itself.")
   }
 
-  influ_data <- subset(obj$calculated$influences, term %in% term_vars_in_model) %>%
-    dplyr::mutate(influence = exp(influence)) %>%
-    dplyr::mutate(influence = influence / mean(influence))
+  # Fix: Match against the full term name, not just variable names
+  influ_data <- obj$calculated$influences[obj$calculated$influences$term == term, ]
+
+  # Apply transformations
+  influ_data$influence <- exp(influ_data$influence)
+  influ_data$influence <- influ_data$influence / mean(influ_data$influence)
+
+  # Safety check: ensure we have valid influence data
+  if (nrow(influ_data) == 0) {
+    stop(
+      "No influence data found for term: ", term, ". Available terms: ",
+      paste(unique(obj$calculated$influences$term), collapse = ", ")
+    )
+  }
+
+  if (all(is.na(influ_data$influence))) {
+    warning("All influence values are NA for term: ", term)
+    influ_data$influence <- rep(1, nrow(influ_data)) # Default to no influence
+  }
 
   ylim <- c(
     pmin(0.75, min(influ_data$influence, na.rm = TRUE)),
