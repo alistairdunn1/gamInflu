@@ -42,6 +42,8 @@ plot_terms <- function(obj, term = NULL, re_type = "points", cdi = FALSE) {
       subplot_by_variable(obj, t, term_vars, cdi = cdi)
     } else if (is_random && !is_by) {
       subplot_random_effect(obj, t, term_vars, re_type = re_type, cdi = cdi)
+    } else if (is_random && is_by && is_factor) {
+      subplot_random_by_effect(obj, t, term_vars, re_type = re_type, cdi = cdi)
     } else if (length(term_vars) == 1 && !is_by && !is_random && is_factor) {
       subplot_factor_effect(obj, t, term_vars, cdi = cdi)
     } else {
