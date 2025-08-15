@@ -30,12 +30,14 @@ subplot_random_by_effect <- function(obj, t, term_vars, re_type = "points", cdi 
   coef_names <- names(coef(model))
 
   # Find coefficients that match the random effect pattern for this term
-  # Pattern: s(vessel).f.NNetsNet1, s(vessel).f.NNetsNet2, etc.
-  pattern_base <- paste0("s\\(", main_var, "\\)\\.", gsub("\\.", "\\\\.", by_var))
+  # Pattern for s(vessel, by=f.NNets, bs="re"): s(vessel):f.NNetsNet1.1, s(vessel):f.NNetsNet2.1, etc.
+  pattern_base <- paste0("s\\(", main_var, "\\):", gsub("\\.", "\\\\.", by_var))
   matching_coefs <- grep(pattern_base, coef_names, value = TRUE)
 
   if (length(matching_coefs) == 0) {
     message("No matching random effect coefficients found for term: ", t)
+    message("Looking for pattern: ", pattern_base)
+    message("Available coefficient names: ", paste(head(coef_names, 10), collapse = ", "))
     return(patchwork::plot_spacer())
   }
 
@@ -52,35 +54,41 @@ subplot_random_by_effect <- function(obj, t, term_vars, re_type = "points", cdi 
   # main_levels <- sub(paste0("s\\(", main_var, "\\)"), "", matching_coefs)
   # main_levels <- sub(paste0("\\.", gsub("\\.", "\\\\.", by_var), ".*"), "", main_levels)
 
-  # Create a cleaner approach - extract from the data directly
+  # Create a cleaner approach - extract levels from coefficient names
   if (main_var %in% names(obj$data) && by_var %in% names(obj$data)) {
-    # main_var_levels <- levels(as.factor(obj$data[[main_var]]))
     by_var_levels <- levels(as.factor(obj$data[[by_var]]))
 
     # Create a data frame for plotting
     plot_data <- data.frame()
 
     for (by_level in by_var_levels) {
-      by_pattern <- paste0(gsub("\\.", "\\\\.", by_var), by_level)
+      # Pattern: s(vessel):f.NNetsNet1.1, s(vessel):f.NNetsNet1.2, etc.
+      by_pattern <- paste0("s\\(", main_var, "\\):", gsub("\\.", "\\\\.", by_var), by_level)
       by_coefs <- grep(by_pattern, matching_coefs, value = TRUE)
 
       if (length(by_coefs) > 0) {
         by_coef_values <- coef_values[by_coefs]
         by_coef_se <- coef_se[by_coefs]
 
-        # Extract main variable levels for this by-level
-        main_levels_this <- sub(paste0("s\\(", main_var, "\\)\\."), "", by_coefs)
-        main_levels_this <- sub(paste0(gsub("\\.", "\\\\.", by_var), by_level), "", main_levels_this)
-        main_levels_this <- gsub("^\\.", "", main_levels_this)
-        main_levels_this <- gsub("\\.$", "", main_levels_this)
+        # Extract main variable indices from coefficient names
+        # From "s(vessel):f.NNetsNet1.1" extract "1", from "s(vessel):f.NNetsNet1.2" extract "2", etc.
+        main_indices <- sub(paste0(".*", gsub("\\.", "\\\\.", by_var), by_level, "\\."), "", by_coefs)
 
-        # If main_levels_this is empty, use sequence
-        if (all(main_levels_this == "")) {
-          main_levels_this <- paste0(main_var, seq_along(by_coef_values))
+        # Create meaningful labels for main variable levels
+        # Use the actual factor levels if available
+        if (is.factor(obj$data[[main_var]])) {
+          main_var_levels <- levels(obj$data[[main_var]])
+          if (length(main_var_levels) >= max(as.numeric(main_indices), na.rm = TRUE)) {
+            main_labels <- main_var_levels[as.numeric(main_indices)]
+          } else {
+            main_labels <- paste0(main_var, main_indices)
+          }
+        } else {
+          main_labels <- paste0(main_var, main_indices)
         }
 
         temp_data <- data.frame(
-          main_var = main_levels_this,
+          main_var = main_labels, # Use main_labels instead of main_levels_this
           by_var = by_level,
           coefficient = as.numeric(by_coef_values),
           se = as.numeric(by_coef_se),
