@@ -84,6 +84,18 @@ subplot_distribution <- function(obj, term, focus_var, by = TRUE) {
     }
   }
 
+  # Ensure proper ordering of focus variable for plotting
+  # This prevents the common issue where year "1992" appears before "2010" etc.
+  if (is.factor(obj$data[[focus_var]])) {
+    # Try to convert to numeric for proper ordering
+    numeric_levels <- suppressWarnings(as.numeric(as.character(levels(obj$data[[focus_var]]))))
+    if (!any(is.na(numeric_levels))) {
+      # If all levels can be converted to numeric, reorder the factor
+      ordered_levels <- levels(obj$data[[focus_var]])[order(numeric_levels)]
+      obj$data[[focus_var]] <- factor(obj$data[[focus_var]], levels = ordered_levels)
+    }
+  }
+
   # Handle different types of interactions
   if (length(term_vars_in_model) > 1 && !is_by_interaction) {
     # For tensor product or other multi-variable interactions (e.g., te(year, area))

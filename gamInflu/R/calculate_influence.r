@@ -1337,14 +1337,21 @@ rescale_index <- function(index, method = c("auto", "geometric_mean", "arithmeti
 #' @param islog Logical. Whether data is already on log scale
 #' @param preserve_probability_scale Logical. Whether to preserve probability scale
 #' @return Data frame with level, unstan, unstan_se, unstan_cv columns
-calculate_index_by_mean_type <- function(observed, focus_var, mean_type = c("arithmetic", "geometric", "raw"), 
-                                        islog = FALSE, preserve_probability_scale = FALSE) {
+calculate_index_by_mean_type <- function(observed, focus_var, mean_type = c("arithmetic", "geometric", "raw"),
+                                         islog = FALSE, preserve_probability_scale = FALSE) {
   mean_type <- match.arg(mean_type)
-  
+
   if (mean_type == "raw") {
     # Raw values - no scaling
     if (preserve_probability_scale) {
-      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      if (islog) {
+        # Data is on log scale - exp() first to get back to original scale
+        exp_observed <- exp(observed)
+        stats_agg <- aggregate(exp_observed, list(level = focus_var), calc_group_stats)
+      } else {
+        # Data is on original scale - use directly
+        stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      }
       agg_df <- data.frame(
         level = stats_agg$level,
         unstan = stats_agg$x[, 1], # Keep actual values
@@ -1353,7 +1360,14 @@ calculate_index_by_mean_type <- function(observed, focus_var, mean_type = c("ari
       )
     } else {
       # Convert to relative scale even for raw
-      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      if (islog) {
+        # Data is on log scale - exp() first to get back to original scale
+        exp_observed <- exp(observed)
+        stats_agg <- aggregate(exp_observed, list(level = focus_var), calc_group_stats)
+      } else {
+        # Data is on original scale - use directly
+        stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      }
       base_mean <- mean(stats_agg$x[, 1])
       agg_df <- data.frame(
         level = stats_agg$level,
@@ -1364,14 +1378,28 @@ calculate_index_by_mean_type <- function(observed, focus_var, mean_type = c("ari
     }
   } else if (mean_type == "arithmetic") {
     # Arithmetic mean
-    stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
-    base_mean <- mean(stats_agg$x[, 1])
-    agg_df <- data.frame(
-      level = stats_agg$level,
-      unstan = stats_agg$x[, 1] / base_mean,
-      unstan_se = stats_agg$x[, 2] / base_mean,
-      unstan_cv = stats_agg$x[, 3]
-    )
+    if (islog) {
+      # Data is on log scale - exp() first to get back to original scale
+      exp_observed <- exp(observed)
+      stats_agg <- aggregate(exp_observed, list(level = focus_var), calc_group_stats)
+      base_mean <- mean(stats_agg$x[, 1])
+      agg_df <- data.frame(
+        level = stats_agg$level,
+        unstan = stats_agg$x[, 1] / base_mean,
+        unstan_se = stats_agg$x[, 2] / base_mean,
+        unstan_cv = stats_agg$x[, 3]
+      )
+    } else {
+      # Data is on original scale - use directly
+      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      base_mean <- mean(stats_agg$x[, 1])
+      agg_df <- data.frame(
+        level = stats_agg$level,
+        unstan = stats_agg$x[, 1] / base_mean,
+        unstan_se = stats_agg$x[, 2] / base_mean,
+        unstan_cv = stats_agg$x[, 3]
+      )
+    }
   } else if (mean_type == "geometric") {
     # Geometric mean
     if (islog) {
@@ -1400,7 +1428,7 @@ calculate_index_by_mean_type <- function(observed, focus_var, mean_type = c("ari
       )
     }
   }
-  
+
   return(agg_df)
 }
 
@@ -1431,7 +1459,7 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
     # Default fallback for other families (quasi, etc.) - respect islog parameter
     mean_type <- ifelse(islog, "geometric", "arithmetic")
   }
-  
+
   # Handle binomial family special cases
   if (family == "binomial") {
     if (all(observed %in% c(0, 1))) {

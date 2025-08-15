@@ -69,6 +69,23 @@ subplot_influence <- function(obj, term, focus_var, cdi = FALSE) {
     influ_data$influence <- rep(1, nrow(influ_data)) # Default to no influence
   }
 
+  # Ensure proper ordering of levels for plotting
+  # This prevents issues where "1992" appears before "2010" etc.
+  if (is.factor(influ_data$level)) {
+    numeric_levels <- suppressWarnings(as.numeric(as.character(levels(influ_data$level))))
+    if (!any(is.na(numeric_levels))) {
+      # If all levels can be converted to numeric, reorder the factor
+      ordered_levels <- levels(influ_data$level)[order(numeric_levels)]
+      influ_data$level <- factor(influ_data$level, levels = ordered_levels)
+    }
+  } else if (is.character(influ_data$level)) {
+    # Try to convert character to numeric for ordering
+    numeric_values <- suppressWarnings(as.numeric(influ_data$level))
+    if (!any(is.na(numeric_values))) {
+      influ_data$level <- factor(influ_data$level, levels = unique(influ_data$level)[order(numeric_values)])
+    }
+  }
+
   ylim <- c(
     pmin(0.75, min(influ_data$influence, na.rm = TRUE)),
     pmax(1.25, max(influ_data$influence, na.rm = TRUE))

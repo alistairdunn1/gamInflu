@@ -61,6 +61,23 @@ subplot_factor_effect <- function(obj, t, term_vars, cdi = FALSE) {
   # Remove duplicate rows using base R
   df <- df[!duplicated(df), ]
 
+  # Ensure proper ordering if level is numeric-like
+  # This prevents issues where "1992" appears before "2010" etc.
+  if (is.factor(df$level)) {
+    numeric_levels <- suppressWarnings(as.numeric(as.character(levels(df$level))))
+    if (!any(is.na(numeric_levels))) {
+      # If all levels can be converted to numeric, reorder the factor
+      ordered_levels <- levels(df$level)[order(numeric_levels)]
+      df$level <- factor(df$level, levels = ordered_levels)
+    }
+  } else if (is.character(df$level)) {
+    # Try to convert character to numeric for ordering
+    numeric_values <- suppressWarnings(as.numeric(df$level))
+    if (!any(is.na(numeric_values))) {
+      df$level <- factor(df$level, levels = unique(df$level)[order(numeric_values)])
+    }
+  }
+
   p_coef <- ggplot2::ggplot(df, ggplot2::aes(x = level, y = effect)) +
     ggplot2::geom_point(size = 3, colour = "royalblue") +
     ggplot2::geom_errorbar(ggplot2::aes(ymin = lower, ymax = upper), colour = "royalblue", alpha = 0.5, width = 0.2, na.rm = TRUE) +

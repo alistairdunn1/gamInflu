@@ -7,13 +7,13 @@
 geometric_mean(x, na.rm = TRUE)
 }
 \arguments{
-\item{x}{A numeric vector.}
+\item{x}{Numeric vector of positive values}
 
-\item{na.rm}{Logical. Should missing values be removed before calculation? Default is TRUE.}
+\item{na.rm}{Logical. Should NA values be removed?}
 }
 \value{
-The geometric mean of the input vector.
+Geometric mean value
 }
 \description{
-Calculate the geometric mean of a numeric vector, with robust handling of missing values and non-positive values.
+Calculate the geometric mean of a numeric vector
 }
