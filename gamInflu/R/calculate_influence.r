@@ -1116,7 +1116,7 @@ find_term_columns <- function(term, colnames_vec, group_by_bysmooth = TRUE) {
       return(tensor_base)
     }
     # Escape regex metachars (omit braces to avoid TRE 'Invalid contents of {}') for prefix search
-    esc_tensor <- gsub("([().,+*?^$|\\[\\]\\\\])", "\\\\\\1", tensor_base)
+    esc_tensor <- gsub("([().,+*?^$|\\[\\]{}\\\\])", "\\\\\\1", tensor_base)
     tensor_cols <- grep(paste0("^", esc_tensor), colnames_vec, value = TRUE)
     if (length(tensor_cols) > 0) {
       return(tensor_cols)
@@ -1440,15 +1440,15 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
   } else {
     # Gaussian or other families - original logic
     if (islog && all(observed > 0)) {
-      # Use geometric mean for positive data - work in log space
-      log_stats <- aggregate(log(observed), list(level = focus_var), calc_group_stats)
+      # Data is already log-transformed, so work directly with observed values
+      log_stats <- aggregate(observed, list(level = focus_var), calc_group_stats) # Remove log() wrapper
       base_log_mean <- mean(log_stats$x[, 1])
 
       agg_df <- data.frame(
         level = log_stats$level,
         unstan = exp(log_stats$x[, 1] - base_log_mean),
-        unstan_se = NA_real_, # SE not meaningful on linear scale for log data
-        unstan_cv = log_stats$x[, 2] # CV is SE in log space
+        unstan_se = NA_real_,
+        unstan_cv = log_stats$x[, 2]
       )
     } else {
       # Fallback to arithmetic mean for data with zeros or non-log
