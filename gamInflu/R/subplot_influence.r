@@ -16,7 +16,6 @@ match_term_robust <- function(search_term, available_terms) {
   }
 
   # If no exact match, try matching after stripping ALL whitespace
-  strip_whitespace <- function(x) gsub("\\s+", "", x)
   search_stripped <- strip_whitespace(search_term)
   available_stripped <- strip_whitespace(available_terms)
 

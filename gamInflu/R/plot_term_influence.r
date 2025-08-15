@@ -31,7 +31,6 @@ plot_term_influence <- function(obj) {
         return(exact_match[1])
       }
       # Try whitespace-stripped match
-      strip_whitespace <- function(x) gsub("\\s+", "", x)
       formula_stripped <- strip_whitespace(formula_term)
       available_stripped <- strip_whitespace(available_terms)
       match_idx <- which(available_stripped == formula_stripped)

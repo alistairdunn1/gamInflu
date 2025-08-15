@@ -121,7 +121,9 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
         "Gamma" = "gamma",
         "gamma" = "gamma",
         "poisson" = "poisson",
-        "quasi" = "gaussian", # Default for quasi families
+        "quasipoisson" = "poisson", # Treat quasi-poisson like poisson
+        "quasibinomial" = "binomial", # Treat quasi-binomial like binomial
+        "quasi" = "gaussian", # Default for other quasi families
         "gaussian" # Default fallback
       )
     }
@@ -947,7 +949,6 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
             }
 
             # Try whitespace-normalized matching
-            strip_whitespace <- function(x) gsub("\\s+", "", x)
             pattern_stripped <- strip_whitespace(term_pattern)
             formula_stripped <- strip_whitespace(terms_in_formula)
             match_idx <- which(formula_stripped == pattern_stripped)
@@ -1265,6 +1266,34 @@ find_term_columns <- function(term, colnames_vec, group_by_bysmooth = TRUE) {
 #' @param x A numeric vector.
 #' @param na.rm Logical. Should missing values be removed before calculation? Default is TRUE.
 #' @return The geometric mean of the input vector.
+#' @title Calculate Group Statistics
+#' @description Helper function to calculate mean, standard error, and coefficient of variation for a group
+#' @param x Numeric vector
+#' @return Named vector with mean, se, cv
+#' @noRd
+calc_group_stats <- function(x) {
+  n <- length(x)
+  if (n <= 1) {
+    return(c(mean = mean(x), se = NA_real_, cv = NA_real_))
+  }
+  m <- mean(x)
+  se <- sd(x) / sqrt(n)
+  cv <- se / abs(m)
+  return(c(mean = m, se = se, cv = cv))
+}
+
+#' @title Strip Whitespace
+#' @description Remove all whitespace from a string
+#' @param x Character string
+#' @return String with whitespace removed
+#' @noRd
+strip_whitespace <- function(x) gsub("\\s+", "", x)
+
+#' @title Geometric Mean
+#' @description Calculate the geometric mean of a numeric vector
+#' @param x Numeric vector of positive values
+#' @param na.rm Logical. Should NA values be removed?
+#' @return Geometric mean value
 #' @export
 geometric_mean <- function(x, na.rm = TRUE) {
   if (na.rm) x <- x[!is.na(x)]
@@ -1300,6 +1329,81 @@ rescale_index <- function(index, method = c("auto", "geometric_mean", "arithmeti
   )
 }
 
+#' @title Calculate Index by Mean Type
+#' @description Standardized helper function to calculate indices using specified mean type
+#' @param observed Numeric vector of observed values
+#' @param focus_var Factor or numeric vector of focus variable levels
+#' @param mean_type Character. Type of mean to use: "arithmetic", "geometric", "raw"
+#' @param islog Logical. Whether data is already on log scale
+#' @param preserve_probability_scale Logical. Whether to preserve probability scale
+#' @return Data frame with level, unstan, unstan_se, unstan_cv columns
+calculate_index_by_mean_type <- function(observed, focus_var, mean_type = c("arithmetic", "geometric", "raw"), 
+                                        islog = FALSE, preserve_probability_scale = FALSE) {
+  mean_type <- match.arg(mean_type)
+  
+  if (mean_type == "raw") {
+    # Raw values - no scaling
+    if (preserve_probability_scale) {
+      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      agg_df <- data.frame(
+        level = stats_agg$level,
+        unstan = stats_agg$x[, 1], # Keep actual values
+        unstan_se = stats_agg$x[, 2],
+        unstan_cv = stats_agg$x[, 3]
+      )
+    } else {
+      # Convert to relative scale even for raw
+      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      base_mean <- mean(stats_agg$x[, 1])
+      agg_df <- data.frame(
+        level = stats_agg$level,
+        unstan = stats_agg$x[, 1] / base_mean,
+        unstan_se = stats_agg$x[, 2] / base_mean,
+        unstan_cv = stats_agg$x[, 3]
+      )
+    }
+  } else if (mean_type == "arithmetic") {
+    # Arithmetic mean
+    stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
+    base_mean <- mean(stats_agg$x[, 1])
+    agg_df <- data.frame(
+      level = stats_agg$level,
+      unstan = stats_agg$x[, 1] / base_mean,
+      unstan_se = stats_agg$x[, 2] / base_mean,
+      unstan_cv = stats_agg$x[, 3]
+    )
+  } else if (mean_type == "geometric") {
+    # Geometric mean
+    if (islog) {
+      # Data is already on log scale - use directly
+      log_stats <- aggregate(observed, list(level = focus_var), calc_group_stats)
+      base_log_mean <- mean(log_stats$x[, 1])
+      agg_df <- data.frame(
+        level = log_stats$level,
+        unstan = exp(log_stats$x[, 1] - base_log_mean),
+        unstan_se = NA_real_, # SE not meaningful on linear scale for log data
+        unstan_cv = log_stats$x[, 2] # CV is SE in log space
+      )
+    } else {
+      # Data is on original scale - need to log first
+      if (any(observed <= 0)) {
+        warning("Non-positive values detected for geometric mean. Using arithmetic mean instead.")
+        return(calculate_index_by_mean_type(observed, focus_var, "arithmetic", islog, preserve_probability_scale))
+      }
+      log_stats <- aggregate(log(observed), list(level = focus_var), calc_group_stats)
+      base_log_mean <- mean(log_stats$x[, 1])
+      agg_df <- data.frame(
+        level = log_stats$level,
+        unstan = exp(log_stats$x[, 1] - base_log_mean),
+        unstan_se = NA_real_, # SE not meaningful on linear scale for log data
+        unstan_cv = log_stats$x[, 2] # CV is SE in log space
+      )
+    }
+  }
+  
+  return(agg_df)
+}
+
 #' @title Calculate Unstandardised Index
 #' @description Calculate the unstandardised index with robust zero handling and family-specific methods
 #' @param observed Numeric vector of observed values
@@ -1313,22 +1417,23 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
     islog <- all(observed > 0) && !any(observed == 0)
   }
 
-  # Helper function to calculate statistics for a group
-  calc_group_stats <- function(x) {
-    n <- length(x)
-    if (n <= 1) {
-      return(c(mean = mean(x), se = NA_real_, cv = NA_real_))
-    }
-    mean_val <- mean(x)
-    sd_val <- sd(x)
-    se_val <- sd_val / sqrt(n)
-    cv_val <- ifelse(mean_val != 0, sd_val / abs(mean_val), NA_real_)
-    return(c(mean = mean_val, se = se_val, cv = cv_val))
-  }
-
-  # Family-specific index calculations
+  # Determine the appropriate mean type based on family and islog
   if (family == "binomial") {
-    # For binomial models, work with proportions
+    # For binomial models, use specialized handling for proportions
+    mean_type <- ifelse(preserve_probability_scale, "raw", "arithmetic")
+  } else if (family %in% c("gamma", "poisson")) {
+    # For gamma and poisson models, use geometric mean (appropriate for positive/count data)
+    mean_type <- "geometric"
+  } else if (family == "gaussian") {
+    # For gaussian models, respect islog parameter
+    mean_type <- ifelse(islog, "geometric", "arithmetic")
+  } else {
+    # Default fallback for other families (quasi, etc.) - respect islog parameter
+    mean_type <- ifelse(islog, "geometric", "arithmetic")
+  }
+  
+  # Handle binomial family special cases
+  if (family == "binomial") {
     if (all(observed %in% c(0, 1))) {
       # Binary data - calculate proportions with binomial SE
       prop_stats <- aggregate(observed, list(level = focus_var), function(x) {
@@ -1361,112 +1466,12 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
       }
     } else {
       # Already proportions or continuous data between 0-1
-      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
-
-      if (preserve_probability_scale) {
-        # For raw rescaling, preserve actual proportions/values
-        agg_df <- data.frame(
-          level = stats_agg$level,
-          unstan = stats_agg$x[, 1], # Keep actual values
-          unstan_se = stats_agg$x[, 2], # Keep actual SEs
-          unstan_cv = stats_agg$x[, 3]
-        )
-      } else {
-        # Convert to relative scale for other rescaling methods
-        base_mean <- mean(stats_agg$x[, 1])
-
-        agg_df <- data.frame(
-          level = stats_agg$level,
-          unstan = stats_agg$x[, 1] / base_mean,
-          unstan_se = stats_agg$x[, 2] / base_mean,
-          unstan_cv = stats_agg$x[, 3]
-        )
-      }
-    }
-  } else if (family == "gamma") {
-    # For gamma models, always use geometric mean (positive data expected)
-    if (any(observed <= 0)) {
-      warning("Gamma family expects positive values. Using arithmetic mean for non-positive data.")
-      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
-      base_mean <- mean(stats_agg$x[, 1])
-
-      agg_df <- data.frame(
-        level = stats_agg$level,
-        unstan = stats_agg$x[, 1] / base_mean,
-        unstan_se = stats_agg$x[, 2] / base_mean,
-        unstan_cv = stats_agg$x[, 3]
-      )
-    } else {
-      # Use geometric mean for positive gamma data - work in log space
-      log_stats <- aggregate(log(observed), list(level = focus_var), calc_group_stats)
-      base_log_mean <- mean(log_stats$x[, 1])
-
-      agg_df <- data.frame(
-        level = log_stats$level,
-        unstan = exp(log_stats$x[, 1] - base_log_mean),
-        unstan_se = NA_real_, # SE not meaningful on linear scale for log data
-        unstan_cv = log_stats$x[, 2] # CV is SE in log space
-      )
-    }
-  } else if (family == "poisson") {
-    # For Poisson models, use geometric mean if positive, arithmetic if zeros present
-    if (any(observed < 0)) {
-      warning("Poisson family expects non-negative values.")
-    }
-
-    if (all(observed > 0)) {
-      # Use geometric mean for positive count data - work in log space
-      log_stats <- aggregate(log(observed), list(level = focus_var), calc_group_stats)
-      base_log_mean <- mean(log_stats$x[, 1])
-
-      agg_df <- data.frame(
-        level = log_stats$level,
-        unstan = exp(log_stats$x[, 1] - base_log_mean),
-        unstan_se = NA_real_, # SE not meaningful on linear scale for log data
-        unstan_cv = log_stats$x[, 2] # CV is SE in log space
-      )
-    } else {
-      # Use arithmetic mean when zeros present
-      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
-      base_mean <- mean(stats_agg$x[, 1])
-
-      agg_df <- data.frame(
-        level = stats_agg$level,
-        unstan = stats_agg$x[, 1] / base_mean,
-        unstan_se = stats_agg$x[, 2] / base_mean,
-        unstan_cv = stats_agg$x[, 3]
-      )
+      return(calculate_index_by_mean_type(observed, focus_var, mean_type, islog, preserve_probability_scale))
     }
   } else {
-    # Gaussian or other families - original logic
-    if (islog && all(observed > 0)) {
-      # Data is already log-transformed, so work directly with observed values
-      log_stats <- aggregate(observed, list(level = focus_var), calc_group_stats) # Remove log() wrapper
-      base_log_mean <- mean(log_stats$x[, 1])
-
-      agg_df <- data.frame(
-        level = log_stats$level,
-        unstan = exp(log_stats$x[, 1] - base_log_mean),
-        unstan_se = NA_real_,
-        unstan_cv = log_stats$x[, 2]
-      )
-    } else {
-      # Fallback to arithmetic mean for data with zeros or non-log
-      stats_agg <- aggregate(observed, list(level = focus_var), calc_group_stats)
-      base_mean <- mean(stats_agg$x[, 1])
-
-      agg_df <- data.frame(
-        level = stats_agg$level,
-        unstan = stats_agg$x[, 1] / base_mean,
-        unstan_se = stats_agg$x[, 2] / base_mean,
-        unstan_cv = stats_agg$x[, 3]
-      )
-    }
+    # Use the standardized helper function for all other families
+    agg_df <- calculate_index_by_mean_type(observed, focus_var, mean_type, islog, preserve_probability_scale)
   }
-
-  # Ensure all required columns exist
-  if (!"unstan_se" %in% names(agg_df)) agg_df$unstan_se <- NA_real_
-  if (!"unstan_cv" %in% names(agg_df)) agg_df$unstan_cv <- NA_real_
 
   return(agg_df)
 }

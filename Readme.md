@@ -1,6 +1,6 @@
 # gamInflu
 
-**gamInflu** provides influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. The package supports Gaussian, binomial, gamma, Poisson, Tweedie, and generalised gamma distributions with automatic family detection. It offers both traditional coefficient-based confidence intervals and modern prediction-based methods for the model terms. The package handles smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms) and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, residual diagnostics, residual pattern analysis for model adequacy assessment, delta-GLM analysis (combined indices) for fisheries data, diagnostics for random effects, and family-specific standardised indices to understand model structure and the influence of each term.
+**gamInflu** provides influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. The package supports Gaussian, binomial, gamma, Poisson, and Tweedie distributions with automatic family detection. It offers both traditional coefficient-based confidence intervals and modern prediction-based methods for the model terms. The package handles smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms) and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, residual diagnostics, residual pattern analysis for model adequacy assessment, delta-GLM analysis (combined indices) for fisheries data, diagnostics for random effects, and family-specific standardised indices to understand model structure and the influence of each term.
 
 [![R Package](https://img.shields.io/badge/R-package-blue.svg)](https://www.r-project.org/)
 [![Version](https://img.shields.io/badge/version-0.2-orange.svg)](https://github.com/alistairdunn1/gamInflu)
@@ -84,13 +84,6 @@ mod_tweedie <- gam(catch_kg ~ s(depth) + s(vessel_power) + year,
                    data = fisheries_data, family = tw())
 gi_tweedie <- gam_influence(mod_tweedie, focus = "year")
 gi_tweedie <- calculate_influence(gi_tweedie)  # Auto-detects Tweedie
-
-# Generalised gamma model (flexible 3-parameter distribution)
-abundance_data$year <- factor(abundance_data$year)
-mod_gengamma <- gam(abundance ~ s(temperature) + s(salinity) + year,
-                    data = abundance_data, family = gengamma())
-gi_gengamma <- gam_influence(mod_gengamma, focus = "year")
-gi_gengamma <- calculate_influence(gi_gengamma)  # Auto-detects generalised gamma
 ```
 
 ---
@@ -104,7 +97,6 @@ gi_gengamma <- calculate_influence(gi_gengamma)  # Auto-detects generalised gamm
 - **Gamma** 📊 Positive continuous data (biomass, CPUE without zeros)
 - **Poisson** 🔢 Count data (fish numbers, abundance indices)
 - **Tweedie** 🎲 Semi-continuous data (fisheries catch with exact zeros)
-- **Generalised Gamma** 🎭 Flexible 3-parameter family (includes log-normal, Weibull, gamma as special cases)
 
 ### Automatic Family Detection
 
@@ -128,14 +120,13 @@ gi <- calculate_influence(gi, family = "gaussian", islog = TRUE)
 
 ### Family-Specific Methods
 
-| Family                | Data Type           | Index Calculation         | Use Cases                                |
-| --------------------- | ------------------- | ------------------------- | ---------------------------------------- |
-| **Gaussian**          | Continuous          | Geometric/arithmetic mean | Log-normal CPUE, linear models           |
-| **Binomial**          | Binary/proportions  | Proportion-based          | Presence/absence, catch probability      |
-| **Gamma**             | Positive continuous | Geometric mean            | Biomass, positive CPUE                   |
-| **Poisson**           | Non-negative counts | Count-appropriate         | Fish numbers, abundance counts           |
-| **Tweedie**           | Semi-continuous     | Gamma-like treatment      | Fisheries catch data with exact zeros    |
-| **Generalised Gamma** | Positive continuous | Flexible 3-parameter      | Complex distributions, model flexibility |
+| Family       | Data Type           | Index Calculation         | Use Cases                             |
+| ------------ | ------------------- | ------------------------- | ------------------------------------- |
+| **Gaussian** | Continuous          | Geometric/arithmetic mean | Log-normal CPUE, linear models        |
+| **Binomial** | Binary/proportions  | Proportion-based          | Presence/absence, catch probability   |
+| **Gamma**    | Positive continuous | Geometric mean            | Biomass, positive CPUE                |
+| **Poisson**  | Non-negative counts | Count-appropriate         | Fish numbers, abundance counts        |
+| **Tweedie**  | Semi-continuous     | Gamma-like treatment      | Fisheries catch data with exact zeros |
 
 ---
 
