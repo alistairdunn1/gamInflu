@@ -1142,6 +1142,37 @@ find_term_columns <- function(term, colnames_vec, group_by_bysmooth = TRUE) {
       }
     }
   }
+  # Handle interaction terms: convert * to : for prediction column matching
+  # In GAM formulas, A*B creates interactions but predict() uses A:B format
+  if (grepl("\\*", term) && !grepl("^(s|te|ti|t2)\\(", term)) {
+    # Convert interaction term from * format to : format
+    interaction_term <- gsub("\\s*\\*\\s*", ":", term)
+    if (interaction_term %in% colnames_vec) {
+      return(interaction_term)
+    }
+    # Also try with spaces removed
+    interaction_term_clean <- gsub("[[:space:]]+", "", interaction_term)
+    if (interaction_term_clean %in% colnames_vec) {
+      return(interaction_term_clean)
+    }
+
+    # Handle variable order differences: A*B vs B:A
+    # Split the interaction term and try both orders
+    vars <- strsplit(gsub("\\s*\\*\\s*", "*", term), "\\*")[[1]]
+    if (length(vars) == 2) {
+      # Try original order A:B
+      order1 <- paste(trimws(vars), collapse = ":")
+      if (order1 %in% colnames_vec) {
+        return(order1)
+      }
+      # Try reversed order B:A
+      order2 <- paste(trimws(rev(vars)), collapse = ":")
+      if (order2 %in% colnames_vec) {
+        return(order2)
+      }
+    }
+  }
+
   # Handle mgcv by-variable smooths (e.g. s(depth,by=gear)) whose term.labels differ
   # from the per-level columns produced by predict(..., type='terms'), e.g. columns like
   #   s(depth):gearLevel1, s(depth):gearLevel2
