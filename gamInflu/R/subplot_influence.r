@@ -6,6 +6,29 @@
 #' @param cdi Logical indicating if the plot is for CDI (Cumulative Distribution Influence).
 #' @return A ggplot object.
 #' @noRd
+
+# Helper function for robust term matching
+match_term_robust <- function(search_term, available_terms) {
+  # First try exact match
+  exact_match <- available_terms[available_terms == search_term]
+  if (length(exact_match) > 0) {
+    return(exact_match[1])
+  }
+
+  # If no exact match, try matching after stripping ALL whitespace
+  strip_whitespace <- function(x) gsub("\\s+", "", x)
+  search_stripped <- strip_whitespace(search_term)
+  available_stripped <- strip_whitespace(available_terms)
+
+  match_idx <- which(available_stripped == search_stripped)
+  if (length(match_idx) > 0) {
+    return(available_terms[match_idx[1]])
+  }
+
+  # No match found
+  return(NULL)
+}
+
 subplot_influence <- function(obj, term, focus_var, cdi = FALSE) {
   message("Plotting influence for term: ", term)
 
@@ -28,32 +51,16 @@ subplot_influence <- function(obj, term, focus_var, cdi = FALSE) {
 
   # Fix: Robust matching against the full term name, handling whitespace differences
   available_terms <- unique(obj$calculated$influences$term)
+  matched_term <- match_term_robust(term, available_terms)
 
-  # First try exact match
-  exact_match <- available_terms[available_terms == term]
-
-  if (length(exact_match) > 0) {
-    matched_term <- exact_match[1]
-  } else {
-    # If no exact match, try matching after normalizing whitespace
-    normalize_term <- function(x) gsub("\\s+", " ", gsub("\\s*,\\s*", ", ", trimws(x)))
-    term_normalized <- normalize_term(term)
-    available_normalized <- normalize_term(available_terms)
-
-    match_idx <- which(available_normalized == term_normalized)
-    if (length(match_idx) > 0) {
-      matched_term <- available_terms[match_idx[1]]
-    } else {
-      stop(
-        "No influence data found for term: ", term, ". Available terms: ",
-        paste(available_terms, collapse = ", ")
-      )
-    }
+  if (is.null(matched_term)) {
+    stop(
+      "No influence data found for term: ", term, ". Available terms: ",
+      paste(available_terms, collapse = ", ")
+    )
   }
 
-  influ_data <- obj$calculated$influences[obj$calculated$influences$term == matched_term, ]
-
-  # Apply transformations
+  influ_data <- obj$calculated$influences[obj$calculated$influences$term == matched_term, ] # Apply transformations
   influ_data$influence <- exp(influ_data$influence)
   influ_data$influence <- influ_data$influence / mean(influ_data$influence)
 

@@ -22,6 +22,7 @@
 #' @param family Character. How to handle different GLM families. Options: "auto" (default), "gaussian", "binomial", "gamma", "poisson".
 #' @param subset_var Character. Name of variable to subset on (e.g., "area", "gear_type").
 #' @param subset_value Value to subset by (e.g., "North", "Trawl"). If both subset_var and subset_value are provided, analysis is performed only on the subset, using the full model for predictions.
+#' @param separate_by_smooth Logical. Whether to separate by-variable smooths (e.g., s(depth, by=gear)) into individual components for influence analysis. If FALSE (default), by-smooths are treated as separate terms for each level. If TRUE, they are grouped together as a single term. This affects how smooth terms with by-variables are handled in influence calculations.
 #' @param ... Additional arguments (currently unused).
 #' @return The \code{gam_influence} object, now containing a \code{calculated} list with data frames for indices, summary stats, influences, predictions, and s.e. of predictions.
 #' @details
@@ -932,8 +933,30 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
           sapply(step_cols, function(col) {
             # Remove leading '+' and find matching term
             term_pattern <- sub("^\\+", "", col)
-            matches <- grep(term_pattern, terms_in_formula, value = TRUE, fixed = TRUE)
-            if (length(matches) > 0) matches[1] else col
+
+            # First try exact match
+            exact_matches <- terms_in_formula[terms_in_formula == term_pattern]
+            if (length(exact_matches) > 0) {
+              return(exact_matches[1])
+            }
+
+            # Try fixed string match (original approach)
+            fixed_matches <- grep(term_pattern, terms_in_formula, value = TRUE, fixed = TRUE)
+            if (length(fixed_matches) > 0) {
+              return(fixed_matches[1])
+            }
+
+            # Try whitespace-normalized matching
+            strip_whitespace <- function(x) gsub("\\s+", "", x)
+            pattern_stripped <- strip_whitespace(term_pattern)
+            formula_stripped <- strip_whitespace(terms_in_formula)
+            match_idx <- which(formula_stripped == pattern_stripped)
+            if (length(match_idx) > 0) {
+              return(terms_in_formula[match_idx[1]])
+            }
+
+            # Fall back to original column name if no match
+            col
           }),
           step_cols
         )

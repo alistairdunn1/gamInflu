@@ -22,9 +22,27 @@ plot_term_influence <- function(obj) {
   # Get model term order from formula
   if (!is.null(obj$model$formula)) {
     term_order <- attr(terms(obj$model), "term.labels")
-    # Only keep terms present in df
-    term_order <- term_order[term_order %in% unique(df$term)]
-    df$term <- factor(df$term, levels = term_order)
+    # Robust matching to handle whitespace differences
+    matched_terms <- sapply(term_order, function(formula_term) {
+      available_terms <- unique(df$term)
+      # First try exact match
+      exact_match <- available_terms[available_terms == formula_term]
+      if (length(exact_match) > 0) {
+        return(exact_match[1])
+      }
+      # Try whitespace-stripped match
+      strip_whitespace <- function(x) gsub("\\s+", "", x)
+      formula_stripped <- strip_whitespace(formula_term)
+      available_stripped <- strip_whitespace(available_terms)
+      match_idx <- which(available_stripped == formula_stripped)
+      if (length(match_idx) > 0) {
+        return(available_terms[match_idx[1]])
+      }
+      return(NA)
+    })
+    # Only keep terms that actually matched
+    matched_terms <- matched_terms[!is.na(matched_terms)]
+    df$term <- factor(df$term, levels = matched_terms)
   } else {
     df$term <- factor(df$term, levels = unique(df$term))
   }

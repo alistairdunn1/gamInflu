@@ -62,6 +62,8 @@ calculate_influence(
 
 \item{subset_value}{Value to subset by (e.g., "North", "Trawl"). If both subset_var and subset_value are provided, analysis is performed only on the subset, using the full model for predictions.}
 
+\item{separate_by_smooth}{Logical. Whether to separate by-variable smooths (e.g., s(depth, by=gear)) into individual components for influence analysis. If FALSE (default), by-smooths are treated as separate terms for each level. If TRUE, they are grouped together as a single term. This affects how smooth terms with by-variables are handled in influence calculations.}
+
 \item{...}{Additional arguments (currently unused).}
 }
 \value{
