@@ -12,6 +12,7 @@ if errorlevel 1 (
 
 rem Generate documentation with roxygen2
 echo Generating documentation...
+rm -rf gamInflu.Rcheck
 call R --vanilla < run-roxygen.R
 if errorlevel 1 exit /b 1
 

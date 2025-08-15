@@ -57,7 +57,9 @@ subplot_factor_effect <- function(obj, t, term_vars, cdi = FALSE) {
     df <- data.frame(level = obj$data[[term_vars[1]]], effect = effect, lower = lower, upper = upper)
   }
 
-  df <- df[!is.na(df$level), ] %>% distinct()
+  df <- df[!is.na(df$level), ]
+  # Remove duplicate rows using base R
+  df <- df[!duplicated(df), ]
 
   p_coef <- ggplot2::ggplot(df, ggplot2::aes(x = level, y = effect)) +
     ggplot2::geom_point(size = 3, colour = "royalblue") +

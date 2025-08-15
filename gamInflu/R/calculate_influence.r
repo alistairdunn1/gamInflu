@@ -1173,6 +1173,31 @@ find_term_columns <- function(term, colnames_vec, group_by_bysmooth = TRUE) {
     }
   }
 
+  # Handle interaction terms that are already in colon format
+  # Sometimes the formula parsing gives us A:B but prediction columns have B:A
+  if (grepl(":", term) && !grepl("^(s|te|ti|t2)\\(", term)) {
+    # First try exact match
+    if (term %in% colnames_vec) {
+      return(term)
+    }
+
+    # Try with spaces removed
+    term_clean_colon <- gsub("[[:space:]]+", "", term)
+    if (term_clean_colon %in% colnames_vec) {
+      return(term_clean_colon)
+    }
+
+    # Try reversed order for colon-separated terms
+    vars <- strsplit(term, ":")[[1]]
+    if (length(vars) == 2) {
+      # Try reversed order B:A
+      reversed_term <- paste(trimws(rev(vars)), collapse = ":")
+      if (reversed_term %in% colnames_vec) {
+        return(reversed_term)
+      }
+    }
+  }
+
   # Handle mgcv by-variable smooths (e.g. s(depth,by=gear)) whose term.labels differ
   # from the per-level columns produced by predict(..., type='terms'), e.g. columns like
   #   s(depth):gearLevel1, s(depth):gearLevel2
