@@ -377,6 +377,9 @@ stepCPUE_gam <- function(object, scope, r2.change = 0.005, scale = 0,
 
     # If no moves possible, break
     if (is.null(aod.drop) && is.null(aod.add)) {
+      if (trace > 0) {
+        cat("No beneficial changes found. Stopping.\n")
+      }
       break
     }
 
@@ -432,7 +435,7 @@ stepCPUE_gam <- function(object, scope, r2.change = 0.005, scale = 0,
     }
 
     # Update the model
-    tryCatch(
+    update_success <- tryCatch(
       {
         fit <- update(fit, eval(parse(text = paste("~ .", change))), ...)
         Terms <- fit$terms
@@ -456,14 +459,21 @@ stepCPUE_gam <- function(object, scope, r2.change = 0.005, scale = 0,
         if (!is.null(keep)) {
           keep.list[[nm]] <- keep(fit, bR2)
         }
+
+        TRUE # Success
       },
       error = function(e) {
         if (trace > 0) {
           cat("Error updating model:", e$message, "\n")
         }
-        break
+        FALSE # Failure
       }
     )
+
+    # If update failed, break out of loop
+    if (!update_success) {
+      break
+    }
 
     count.steps <- count.steps + 1
   }
