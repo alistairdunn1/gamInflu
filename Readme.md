@@ -1,6 +1,6 @@
 # gamInflu
 
-**gamInflu** provides influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. The package supports Gaussian, binomial, gamma, Poisson, and Tweedie distributions with automatic family detection. It offers both traditional coefficient-based confidence intervals and modern prediction-based methods for the model terms. The package handles smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms) and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, residual diagnostics, residual pattern analysis for model adequacy assessment, delta-GLM analysis (combined indices) for fisheries data, diagnostics for random effects, and family-specific standardised indices to understand model structure and the influence of each term.
+**gamInflu** provides influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. The package supports Gaussian, binomial, gamma, Poisson, and Tweedie distributions with automatic family detection. It offers coefficient-based confidence intervals and prediction-based methods for the model terms. The package handles smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms) and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, residual diagnostics, residual pattern analysis for model adequacy assessment, delta-GLM analysis (combined indices) for fisheries data, diagnostics for random effects, and family-specific standardised indices to understand model structure and the influence of each term.
 
 [![R Package](https://img.shields.io/badge/R-package-blue.svg)](https://www.r-project.org/)
 [![Version](https://img.shields.io/badge/version-0.2-orange.svg)](https://github.com/alistairdunn1/gamInflu)
@@ -132,7 +132,7 @@ gi <- calculate_influence(gi, family = "gaussian", islog = TRUE)
 
 ## Confidence Interval Calculation Methods
 
-**gamInflu** provides two methods for calculating confidence intervals, allowing users to choose between traditional and modern approaches:
+**gamInflu** provides two methods for calculating confidence intervals, allowing users to choose between coefficient-based and prediction-based approaches:
 
 ### Coefficient-Based Method (Default)
 
@@ -155,14 +155,14 @@ gi <- calculate_influence(gi)
 - Confidence intervals calculated as: `exp(coefficients ± CI_multiplier × SEs)`
 
 **Francis Method Implementation:**
-The coefficient-based approach implements the Francis method with the variance-covariance matrix transformation to ensure **non-zero confidence intervals for all levels**, including reference levels. This is achieved through:
+The coefficient-based approach implements the Francis method with the variance-covariance matrix transformation to ensure **confidence intervals for all levels**, including reference levels. This is achieved through:
 - Q matrix transformation: `Q %*% vcov %*% t(Q)` where Q transforms contrasts to relative-to-mean effects
-- Proper uncertainty propagation from model coefficients to standardised indices
+- Uncertainty propagation from model coefficients to standardised indices
 - Consistent with established fisheries assessment methodology
 
-### Prediction-Based Method (Modern)
+### Prediction-Based Method
 
-The **prediction-based approach** uses modern mgcv prediction methods with full uncertainty propagation.
+The **prediction-based approach** uses mgcv prediction methods with uncertainty propagation.
 
 ```r
 # Prediction-based method (modern approach)
@@ -171,34 +171,34 @@ gi <- calculate_influence(gi)
 ```
 
 **Characteristics:**
-- Uses model predictions with complete uncertainty propagation  
-- Incorporates full model uncertainty
-- More conservative confidence intervals
+- Uses model predictions with uncertainty propagation  
+- Incorporates model uncertainty
+- Conservative confidence intervals
 - Applies delta method for log-link models automatically
-- Modern statistical approach following mgcv best practices
+- Statistical approach following mgcv best practices
 
 ### Method Comparison
 
-| Aspect                      | Coefficient-Based (Default)  | Prediction-Based (Modern)   |
-| --------------------------- | ---------------------------- | --------------------------- |
-| **Backwards Compatibility** | ✅ Traditional equivalent     | ❌ Modern approach           |
-| **Index Differences**       | More pronounced              | More conservative           |
-| **Uncertainty Handling**    | Francis method with Q matrix | Full prediction uncertainty |
-| **Statistical Approach**    | Traditional (coefficient)    | Modern mgcv methods         |
-| **CI Coverage**             | Non-zero CIs for all levels  | Non-zero CIs for all levels |
-| **Use Case**                | Traditional fisheries users  | Modern GAM best practices   |
+| Aspect                      | Coefficient-Based (Default)         | Prediction-Based                    |
+| --------------------------- | ----------------------------------- | ----------------------------------- |
+| **Backwards Compatibility** | ✅ Traditional equivalent            | ❌ Approach                          |
+| **Index Differences**       | Pronounced                          | Conservative                        |
+| **Uncertainty Handling**    | Francis method with Q matrix        | Prediction uncertainty              |
+| **Statistical Approach**    | Coefficient                         | mgcv methods                        |
+| **CI Coverage**             | Confidence intervals for all levels | Confidence intervals for all levels |
+| **Use Case**                | Traditional fisheries users         | GAM best practices                  |
 
 ### Choosing the Right Method
 
 - **Use coefficient-based (default)** when:
-  - Working with traditional fisheries applications
-  - Wanting established results with Francis method guarantees
-  - Need more pronounced index differences
-  - Require non-zero confidence intervals for all levels (including reference)
+  - Working with fisheries applications
+  - Want results with Francis method guarantees
+  - Need pronounced index differences
+  - Require confidence intervals for all levels (including reference)
 
 - **Use prediction-based** when:
-  - Following modern GAM best practices  
-  - Want complete uncertainty propagation
+  - Following GAM best practices  
+  - Want uncertainty propagation
   - Prefer conservative confidence intervals
   - Working with complex model structures
 
@@ -306,7 +306,7 @@ plot_cdi(gi, term = 2)
 
 ### Plot residual diagnostics
 
-Generate comprehensive residual diagnostic plots for model validation. Supports both traditional 4-panel diagnostics and violin plots showing residual distributions by focus term levels. Includes automatic numeric axis conversion for sequential focus terms (e.g., years) and optional faceting by grouping variables.
+Generate residual diagnostic plots for model validation. Supports 4-panel diagnostics and violin plots showing residual distributions by focus term levels. Includes automatic numeric axis conversion for sequential focus terms (e.g., years) and optional faceting by grouping variables.
 
 ```r
 plot_residuals(gi)                                    # Default: standard 4-panel diagnostics
@@ -412,7 +412,7 @@ rpa_check <- analyse_residual_patterns(gi_improved)
 
 ### Delta-GLM Analysis for Fisheries Data
 
-Combine binomial (catch probability) and positive catch GAMs for comprehensive fisheries indices.
+Combine binomial (catch probability) and positive catch GAMs for fisheries indices.
 
 ```r
 # Fit separate models for catch probability and positive catch amounts
@@ -551,7 +551,7 @@ combined_indices <- extract_indices(gi_combined)
 
 ### Subset Analysis
 
-Perform influence analysis on a subset of the data whilst using the full model for predictions. This is particularly useful for models with interaction terms (e.g., `year:area`) where focus term effects within specific subsets are of interest:
+Perform influence analysis on a subset of the data whilst using the full model for predictions. This is useful for models with interaction terms (e.g., `year:area`) where focus term effects within specific subsets are of interest:
 
 ```r
 # For models with interactions like year + area + year:area
@@ -633,10 +633,10 @@ The package provides both specific plotting functions and a generic `plot()` met
 | `plot_step_and_influence()` | Combined stepwise and influence plots              | `plot_step_and_influence(gi)`                  |
 | `plot_cdi()`                | Coefficient-Distribution-Influence plot for a term | `plot_cdi(gi, term = "s(temp)")`               |
 | `plot_terms()`              | Plot predicted effects for model terms             | `plot_terms(gi, term = "s(depth)")`            |
-| `plot_residuals()`          | Comprehensive residual diagnostic plots            | `plot_residuals(gi, type = "violin")`          |
+| `plot_residuals()`          | Residual diagnostic plots                          | `plot_residuals(gi, type = "violin")`          |
 | `plot_re()`                 | Random effects diagnostics                         | `plot_re(gi, term = "site", re_type = "qq")`   |
 | `plot_term_distribution()`  | Data distribution for a specific term              | `plot_term_distribution(gi, term = "s(temp)")` |
-| `plot_implied_residuals()`  | Advanced residual analysis                         | `plot_implied_residuals(gi)`                   |
+| `plot_implied_residuals()`  | Residual analysis                                  | `plot_implied_residuals(gi)`                   |
 
 ### Delta-GLM Functions
 
@@ -665,9 +665,9 @@ The package provides both specific plotting functions and a generic `plot()` met
 
 ## Testing and Validation
 
-### Comprehensive Function Testing
+### Function Testing
 
-The package includes comprehensive testing for all user-facing functions:
+The package includes testing for all user-facing functions:
 
 **Core Analysis Functions:**
 - ✅ `gam_influence()` - Object creation with all GLM families
@@ -679,15 +679,15 @@ The package includes comprehensive testing for all user-facing functions:
 
 **Plotting Functions:**
 - ✅ `plot_standardisation()` - Index comparison plots
-- ✅ `plot_stepwise_index()` - Stepwise progression visualization
+- ✅ `plot_stepwise_index()` - Stepwise progression visualisation
 - ✅ `plot_term_influence()` - Term influence plots  
 - ✅ `plot_step_and_influence()` - Combined plotting
 - ✅ `plot_cdi()` - Coefficient-Distribution-Influence plots
-- ✅ `plot_terms()` - Term effect visualization (all smoother types)
-- ✅ `plot_residuals()` - Comprehensive residual diagnostics
+- ✅ `plot_terms()` - Term effect visualisation (all smoother types)
+- ✅ `plot_residuals()` - Residual diagnostics
 - ✅ `plot_re()` - Random effects diagnostics
 - ✅ `plot_term_distribution()` - Data distribution plots
-- ✅ `plot_implied_residuals()` - Advanced residual analysis
+- ✅ `plot_implied_residuals()` - Residual analysis
 - ✅ `plot.gam_influence()` - Generic plot method with type selection
 
 **Delta-GLM Functions:**

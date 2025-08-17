@@ -1,14 +1,14 @@
-# gamInflu Package - Comprehensive Unit Test Suite
+# gamInflu Package - Unit Test Suite
 
 ## Overview
 
-This document describes the comprehensive unit test suite created for the gamInflu package, which provides extensive testing for GAM (Generalized Additive Model) influence analysis across different GLM families and the `islog` parameter.
+This document describes the unit test suite created for the gamInflu package, which provides testing for GAM (Generalised Additive Model) influence analysis across different GLM families and the `islog` parameter.
 
 ## Test Coverage
 
 ### Core Functionality Tests (`test-simple-comprehensive.R`)
 
-The main comprehensive test covers all key functionality:
+The main test covers all key functionality:
 
 1. **Lognormal Models with Pre-logged Data**
    - Tests `islog = FALSE` (default handling of log-scaled data)
@@ -54,7 +54,7 @@ The package correctly handles all major GLM families:
 
 ### islog Parameter Testing
 
-The `islog` parameter is comprehensively tested:
+The `islog` parameter is tested:
 
 1. **When `islog = FALSE`** (default):
    - Data treated as on original scale
@@ -81,11 +81,11 @@ The package supports multiple rescaling approaches:
 All major plotting functions are tested:
 
 - `plot_standardisation()`: Index comparison plots
-- `plot_stepwise_index()`: Model progression visualization  
+- `plot_stepwise_index()`: Model progression visualisation  
 - `plot_step_and_influence()`: Combined plotting
-- `plot_terms()`: Term effect visualization
+- `plot_terms()`: Term effect visualisation
 - `plot_cdi()`: Coefficient-Distribution-Influence plots
-- `plot_residuals()`: Comprehensive residual diagnostics
+- `plot_residuals()`: Residual diagnostics
 
 ### Utility Function Tests
 
@@ -111,7 +111,7 @@ Advanced functionality is tested where applicable:
 ### Quick Test Suite
 
 ```r
-# Run comprehensive functionality test
+# Run functionality test
 source("run-comprehensive-unit-tests.R")
 ```
 
@@ -123,8 +123,11 @@ library(testthat)
 library(gamInflu) 
 library(mgcv)
 
-# Run specific test file
-test_file("gamInflu/tests/testthat/test-simple-comprehensive.R")
+# Run specific test file (open file first, then run)
+test_active_file("gamInflu/tests/testthat/test-simple-comprehensive.R")
+
+# Alternative: run specific test by name
+test_dir("gamInflu/tests/testthat", filter = "simple-comprehensive")
 ```
 
 ### Using testthat Framework
@@ -139,7 +142,7 @@ test_dir("gamInflu/tests/testthat")
 
 ✅ **All Core Tests Pass**
 
-The comprehensive test suite validates:
+The test suite validates:
 
 - ✅ Lognormal data handling with `islog = TRUE/FALSE`
 - ✅ All GLM family support (Gaussian, Gamma, Binomial, Poisson, Tweedie*)
@@ -172,9 +175,9 @@ The comprehensive test suite validates:
 
 ## Files in Test Suite
 
-- `gamInflu/tests/testthat/test-simple-comprehensive.R`: Main comprehensive tests
+- `gamInflu/tests/testthat/test-simple-comprehensive.R`: Main tests
 - `gamInflu/tests/testthat/helper-test-data.R`: Test data generation functions
-- `run-comprehensive-unit-tests.R`: Standalone test runner
+- `run-comprehensive-unit-tests.R`: Test runner
 - `gamInflu/tests/testthat.R`: testthat integration file
 
-This comprehensive test suite ensures the gamInflu package works reliably across all supported GLM families and parameter combinations, providing confidence for users working with diverse ecological and fisheries datasets.
+This test suite ensures the gamInflu package works reliably across all supported GLM families and parameter combinations, providing confidence for users working with diverse ecological and fisheries datasets.

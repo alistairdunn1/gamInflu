@@ -17,6 +17,7 @@
 #' **Main Functions:**
 #' - `gam_influence()`: Create influence analysis object
 #' - `calculate_influence()`: Compute indices and influence metrics with family support
+#' - `stepCPUE_gam()`: Stepwise model selection for GAM objects using R-squared criterion
 #' - `plot_standardisation()`: Compare unstandardised vs standardised indices
 #' - `plot_stepwise_index()`: Show model building progression
 #' - `plot_term_influence()`: Visualize term-specific influences

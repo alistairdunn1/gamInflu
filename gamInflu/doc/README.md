@@ -5,8 +5,8 @@ This directory contains vignettes for the **gamInflu** package:
 ## Available Vignettes
 
 1. **quick-start.Rmd** - Basic introduction and simple usage examples
-2. **getting-started.Rmd** - Comprehensive tutorial with working examples  
-3. **gamInflu-introduction.Rmd** - Complete package overview based on README
+2. **getting-started.Rmd** - Tutorial with working examples  
+3. **gamInflu-introduction.Rmd** - Package overview based on README
 
 ## Building Vignettes
 

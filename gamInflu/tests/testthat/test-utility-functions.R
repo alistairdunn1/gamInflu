@@ -6,7 +6,7 @@ test_that("extract_indices works with all families and islog settings", {
     model <- models[[family_name]]
 
     # Test with islog = FALSE
-    gi_false <- calculate_influence(gam_influence(model, focus = "year"), islog = FALSE)
+    gi_false <- calculate_influence(gam_influence(model, focus = "year", data = test_data), islog = FALSE)
     indices_false <- extract_indices(gi_false)
 
     expect_s3_class(indices_false, "data.frame")
@@ -18,7 +18,7 @@ test_that("extract_indices works with all families and islog settings", {
 
     # Test with islog = TRUE for applicable families
     if (family_name %in% c("lognormal_prelogged", "lognormal_gamma", "gamma")) {
-      gi_true <- calculate_influence(gam_influence(model, focus = "year"), islog = TRUE)
+      gi_true <- calculate_influence(gam_influence(model, focus = "year", data = test_data), islog = TRUE)
       indices_true <- extract_indices(gi_true)
 
       expect_s3_class(indices_true, "data.frame")

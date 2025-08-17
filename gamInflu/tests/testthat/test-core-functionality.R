@@ -70,8 +70,8 @@ test_that("lognormal handling works correctly", {
     family = gaussian()
   )
 
-  gi_prelogged_false <- calculate_influence(gam_influence(model_prelogged, focus = "year"), islog = FALSE)
-  gi_prelogged_true <- calculate_influence(gam_influence(model_prelogged, focus = "year"), islog = TRUE)
+  gi_prelogged_false <- calculate_influence(gam_influence(model_prelogged, focus = "year", data = test_data), islog = FALSE)
+  gi_prelogged_true <- calculate_influence(gam_influence(model_prelogged, focus = "year", data = test_data), islog = TRUE)
 
   # Test raw response with Gamma family (log link)
   model_gamma <- gam(
@@ -80,8 +80,8 @@ test_that("lognormal handling works correctly", {
     family = Gamma(link = "log")
   )
 
-  gi_gamma_false <- calculate_influence(gam_influence(model_gamma, focus = "year"), islog = FALSE)
-  gi_gamma_true <- calculate_influence(gam_influence(model_gamma, focus = "year"), islog = TRUE)
+  gi_gamma_false <- calculate_influence(gam_influence(model_gamma, focus = "year", data = test_data), islog = FALSE)
+  gi_gamma_true <- calculate_influence(gam_influence(model_gamma, focus = "year", data = test_data), islog = TRUE)
 
   # Check that islog=TRUE transforms the results appropriately
   expect_true(all(gi_prelogged_true$indices$index > gi_prelogged_false$indices$index))
@@ -109,7 +109,7 @@ test_that("family detection works correctly", {
   for (family_name in names(expected_families)) {
     if (family_name %in% names(models)) {
       model <- models[[family_name]]
-      gi <- gam_influence(model, focus = "year")
+      gi <- gam_influence(model, focus = "year", data = test_data)
 
       expect_equal(gi$family$family, expected_families[family_name])
       message(paste("✓ Family detection correct for", family_name))
@@ -125,7 +125,7 @@ test_that("interaction terms work with different families", {
     model <- interaction_models[[family_name]]
 
     # Test with interaction term as focus
-    gi <- gam_influence(model, focus = "year")
+    gi <- gam_influence(model, focus = "year", data = test_data)
     gi <- calculate_influence(gi)
 
     expect_s3_class(gi, "gam_influence")
