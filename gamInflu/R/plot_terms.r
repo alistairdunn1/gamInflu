@@ -32,6 +32,19 @@ plot_terms <- function(obj, term = NULL, re_type = "points", cdi = FALSE) {
     is_factor <- is.factor(obj$data[[term_vars[1]]])
     is_tensor2d <- length(term_vars) == 2 && !is_by && !is_random && !is_factor
 
+    # Check if variable appears to be categorical but isn't a factor
+    if (length(term_vars) >= 1 && !is_factor && !is_random) {
+      var_data <- obj$data[[term_vars[1]]]
+      # Check if variable is character or has limited unique values suggesting categories
+      if (is.character(var_data)) {
+        message(
+          "Variable '", term_vars[1], "' appears to be categorical but is not a factor. ",
+          "Consider converting it to a factor before fitting the GAM for this plot to work properly: ",
+          "data$", term_vars[1], " <- factor(data$", term_vars[1], ")"
+        )
+      }
+    }
+
     if (t == obj$focus) {
       subplot_focus_effect(obj, t, term_vars, cdi = cdi)
     } else if (is_tensor2d) {
