@@ -1,6 +1,6 @@
 #' @title Coefficient-Distribution-Influence (CDI) Plot
 #' @description Creates a Coefficient-Distribution-Influence (CDI) plot.
-#' This is a multi-panel plot that visualizes a term's effect, its data
+#' This is a multi-panel plot that visualises a term's effect, its data
 #' distribution, and its influence on the focus term.
 #' @param obj A `gam_influence` object.
 #' @param term The character name of the model term to plot (e.g., `"s(temp)"`). Alternatively, it can be a numeric index of the term in the model. If a numeric index is provided, it will be converted to the corresponding term name.

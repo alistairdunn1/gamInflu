@@ -39,6 +39,10 @@ create_test_data <- function(n = 200, seed = 123) {
 
   data$y_poisson <- rpois(n, exp(pmax(data$linear_pred + data$noise - 1, -5)))
 
+  # Weibull response (shape parameter = 2, scale from linear predictor)
+  weibull_scale <- exp(pmax(data$linear_pred + data$noise, -5))
+  data$y_weibull <- rweibull(n, shape = 2, scale = weibull_scale)
+
   # Tweedie response (using power = 1.5)
   # For simplicity, approximate with Gamma distribution
   data$y_tweedie <- data$y_gamma
@@ -96,6 +100,13 @@ fit_test_models <- function(data, formula_base = "~ s(depth) + s(temp) + year + 
     as.formula(paste("y_poisson", formula_base)),
     data = data,
     family = poisson()
+  )
+
+  # Weibull model
+  models$weibull <- gam(
+    as.formula(paste("y_weibull", formula_base)),
+    data = data,
+    family = weibull_family()
   )
 
   # Tweedie model (if available)

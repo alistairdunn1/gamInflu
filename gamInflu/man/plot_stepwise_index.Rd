@@ -23,10 +23,10 @@ A ggplot object with stepwise index plots for each term added. The plot shows:
 \description{
 Creates a step plot showing how the index for the focus term changes as each model
 term is added sequentially. This visualisation helps understand the contribution of each term
-to the final standardized index and works with all supported GLM families.
+to the final standardised index and works with all supported GLM families.
 }
 \details{
-The stepwise index plot visualizes the model building process by showing how the focus term's
+The stepwise index plot visualises the model building process by showing how the focus term's
 index changes as each term is sequentially added to the model. This helps identify:
 - Which terms have the largest impact on the focus index
 - Whether the index stabilizes or continues to change with additional terms

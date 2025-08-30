@@ -35,7 +35,7 @@ An object of S3 class 'gam_influence'. This is a list containing the model,
   used for family-specific influence calculations.
 }
 \description{
-Initializes a gam_influence object for a given model and focus term. This is the
+Initialises a gam_influence object for a given model and focus term. This is the
 main constructor for the 'gam_influence' class that supports multiple GLM families
 including Gaussian, binomial, gamma, and Poisson distributions. It sets up the basic structure,
 which is then populated by `calculate_influence()` with family-specific methods.

@@ -303,7 +303,7 @@ stepCPUE_gam <- function(object, scope, r2.change = 0.005, scale = 0,
     forward <- FALSE
   }
 
-  # Initialize tracking variables
+  # Initialise tracking variables
   models <- vector("list", steps)
   if (!is.null(keep)) {
     keep.list <- vector("list", steps)
@@ -478,7 +478,7 @@ stepCPUE_gam <- function(object, scope, r2.change = 0.005, scale = 0,
     count.steps <- count.steps + 1
   }
 
-  # Finalize the result
+  # Finalise the result
   if (!is.null(keep) && nm > 0) {
     fit$keep <- re.arrange(keep.list[seq(nm)])
   }

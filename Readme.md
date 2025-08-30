@@ -1,6 +1,10 @@
 # gamInflu
 
-**gamInflu** provides influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. The package supports Gaussian, binomial, gamma, Poisson, and Tweedie distributions with automatic family detection. It offers coefficient-based confidence intervals and prediction-based methods for the model terms. The package handles smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms) and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, residual diagnostics, residual pattern analysis for model adequacy assessment, delta-GLM analysis (combined indices) for fisheries data, diagnostics for random effects, and family-specific standardised indices to understand model structure and the influence of each term.
+**gamInflu** provides influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. 
+
+**Note, this package is in development. Functionality may be not be fully complete in some cases.**
+
+The package supports Gaussian, binomial, gamma, Poisson, and Tweedie distributions with automatic family detection. Weibull is also available as a limited custom family. It offers coefficient-based confidence intervals and prediction-based methods for the model terms. The package handles smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms) and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, residual diagnostics, residual pattern analysis for model adequacy assessment, delta-GLM analysis (combined indices) for fisheries data, diagnostics for random effects, and family-specific standardised indices to understand model structure and the influence of each term.
 
 [![R Package](https://img.shields.io/badge/R-package-blue.svg)](https://www.r-project.org/)
 [![Version](https://img.shields.io/badge/version-0.2-orange.svg)](https://github.com/alistairdunn1/gamInflu)
@@ -78,6 +82,13 @@ mod_pois <- gam(fish_count ~ s(depth) + s(longitude) + year,
 gi_pois <- gam_influence(mod_pois, focus = "year")
 gi_pois <- calculate_influence(gi_pois)   # Auto-detects Poisson
 
+# Weibull model (survival/duration data)
+survival_data$year <- factor(survival_data$year)
+mod_weibull <- gam(survival_time ~ s(depth) + s(temperature) + year, 
+                   data = survival_data, family = weibull_family())
+gi_weibull <- gam_influence(mod_weibull, focus = "year")
+gi_weibull <- calculate_influence(gi_weibull)  # Auto-detects Weibull
+
 # Tweedie model (semi-continuous data with exact zeros)
 fisheries_data$year <- factor(fisheries_data$year)
 mod_tweedie <- gam(catch_kg ~ s(depth) + s(vessel_power) + year,
@@ -92,10 +103,11 @@ gi_tweedie <- calculate_influence(gi_tweedie)  # Auto-detects Tweedie
 
 **gamInflu** supports multiple GLM families with automatic detection and family-specific statistical methods:
 
-- **Gaussian** 📈 Traditional log-normal CPUE standardisation  
+- **Gaussian** 📈 Traditional log-normal CPUE standardisation
 - **Binomial** 🎯 Presence/absence, catch probability, proportion data
 - **Gamma** 📊 Positive continuous data (biomass, CPUE without zeros)
 - **Poisson** 🔢 Count data (fish numbers, abundance indices)
+- **Weibull** ⏱️ Survival/duration data (time-to-event, reliability analysis)
 - **Tweedie** 🎲 Semi-continuous data (fisheries catch with exact zeros)
 
 ### Automatic Family Detection
@@ -120,15 +132,47 @@ gi <- calculate_influence(gi, family = "gaussian", islog = TRUE)
 
 ### Family-Specific Methods
 
-| Family       | Data Type           | Index Calculation         | Use Cases                             |
-| ------------ | ------------------- | ------------------------- | ------------------------------------- |
-| **Gaussian** | Continuous          | Geometric/arithmetic mean | Log-normal CPUE, linear models        |
-| **Binomial** | Binary/proportions  | Proportion-based          | Presence/absence, catch probability   |
-| **Gamma**    | Positive continuous | Geometric mean            | Biomass, positive CPUE                |
-| **Poisson**  | Non-negative counts | Count-appropriate         | Fish numbers, abundance counts        |
-| **Tweedie**  | Semi-continuous     | Gamma-like treatment      | Fisheries catch data with exact zeros |
+| Family       | Data Type           | Index Calculation         | Use Cases                                  |
+| ------------ | ------------------- | ------------------------- | ------------------------------------------ |
+| **Gaussian** | Continuous          | Geometric/arithmetic mean | Log-normal CPUE, linear models             |
+| **Binomial** | Binary/proportions  | Proportion-based          | Presence/absence, catch probability        |
+| **Gamma**    | Positive continuous | Geometric mean            | Biomass, positive CPUE                     |
+| **Poisson**  | Non-negative counts | Count-appropriate         | Fish numbers, abundance counts             |
+| **Weibull**  | Positive continuous | Geometric mean            | Survival times, duration data, reliability |
+| **Tweedie**  | Semi-continuous     | Gamma-like treatment      | Fisheries catch data with exact zeros      |
 
----
+### Weibull Distribution Support
+
+**gamInflu** includes custom Weibull family support for survival analysis and duration data:
+
+```r
+library(mgcv)
+library(gamInflu)
+
+# Generate Weibull data (e.g., survival times)
+set.seed(123)
+n <- 200
+depth <- runif(n, 10, 100)
+year <- factor(sample(2018:2023, n, replace = TRUE))
+lambda <- exp(2 + 0.02 * depth + year_effect)  # Scale parameter
+survival_time <- rweibull(n, shape = 2, scale = lambda)
+
+data <- data.frame(depth = depth, year = year, survival_time = survival_time)
+
+# Fit Weibull GAM using custom family
+model <- gam(survival_time ~ s(depth) + year, family = weibull_family(), data = data)
+
+# Analyse with gamInflu
+gi <- gam_influence(model, focus = "year", data = data)
+gi <- calculate_influence(gi, family = "weibull")  # Auto-detects Weibull
+```
+
+**Weibull Family Features:**
+
+- 📊 **Distribution**: Weibull with log-link for scale parameter modeling
+- 🔧 **Implementation**: Uses quasi-family base with Weibull-specific characteristics
+- 📈 **Shape Parameter**: Fixed at k=2 (Rayleigh approximation) for stability
+- 🎯 **Applications**: Survival analysis, reliability modeling, duration data
 
 ## Confidence Interval Calculation Methods
 
@@ -149,6 +193,7 @@ gi <- calculate_influence(gi)
 ```
 
 **Characteristics:**
+
 - Uses model coefficients directly for relative effect calculations
 - Follows established fisheries methodology using the **Francis method**
 - Often provides more pronounced between-group differences
@@ -156,6 +201,7 @@ gi <- calculate_influence(gi)
 
 **Francis Method Implementation:**
 The coefficient-based approach implements the Francis method with the variance-covariance matrix transformation to ensure **confidence intervals for all levels**, including reference levels. This is achieved through:
+
 - Q matrix transformation: `Q %*% vcov %*% t(Q)` where Q transforms contrasts to relative-to-mean effects
 - Uncertainty propagation from model coefficients to standardised indices
 - Consistent with established fisheries assessment methodology
@@ -171,7 +217,8 @@ gi <- calculate_influence(gi)
 ```
 
 **Characteristics:**
-- Uses model predictions with uncertainty propagation  
+
+- Uses model predictions with uncertainty propagation
 - Incorporates model uncertainty
 - Conservative confidence intervals
 - Applies delta method for log-link models automatically
@@ -191,13 +238,14 @@ gi <- calculate_influence(gi)
 ### Choosing the Right Method
 
 - **Use coefficient-based (default)** when:
+
   - Working with fisheries applications
   - Want results with Francis method guarantees
   - Need pronounced index differences
   - Require confidence intervals for all levels (including reference)
-
 - **Use prediction-based** when:
-  - Following GAM best practices  
+
+  - Following GAM best practices
   - Want uncertainty propagation
   - Prefer conservative confidence intervals
   - Working with complex model structures
@@ -208,7 +256,7 @@ gi <- calculate_influence(gi)
 
 ### Create a gam_influence object
 
-Initializes the analysis object for your fitted GAM.
+Initialises the analysis object for your fitted GAM.
 
 ```r
 # Assuming your data has been prepared with year as factor
@@ -218,6 +266,7 @@ gi <- gam_influence(mod, focus = "year")  # Default: coefficient-based CIs
 ```
 
 **Parameters:**
+
 - `model`: A fitted GAM or GLM model object
 - `focus`: Character string specifying the focus term (must be a factor)
 - `data`: Optional data frame (extracted from model if not provided)
@@ -608,7 +657,7 @@ plot_terms(gi, term = "te(lon, lat)")
 
 | Function                      | Purpose                                    | Usage Example                                |
 | ----------------------------- | ------------------------------------------ | -------------------------------------------- |
-| `gam_influence()`             | Initialize influence analysis object       | `gi <- gam_influence(model, focus = "year")` |
+| `gam_influence()`             | Initialise influence analysis object       | `gi <- gam_influence(model, focus = "year")` |
 | `calculate_influence()`       | Compute all indices and influence metrics  | `gi <- calculate_influence(gi)`              |
 | `analyse_residual_patterns()` | Identify missing covariates from residuals | `analyse_residual_patterns(gi)`              |
 | `extract_indices()`           | Extract standardised results as data frame | `indices <- extract_indices(gi)`             |
@@ -618,8 +667,9 @@ plot_terms(gi, term = "te(lon, lat)")
 ### Plotting Functions
 
 The package provides both specific plotting functions and a generic `plot()` method. The generic method supports the following types:
+
 - `"stan"`: Standardisation plot (`plot_standardisation()`)
-- `"step"`: Stepwise plot (`plot_stepwise_index()`) 
+- `"step"`: Stepwise plot (`plot_stepwise_index()`)
 - `"influ"`: Influence plot (`plot_term_influence()`)
 - `"cdi"`: CDI plot (`plot_cdi()`, requires `term` argument)
 - `"distribution"`: Data distribution plot (`plot_term_distribution()`, requires `term` argument)
@@ -637,6 +687,7 @@ The package provides both specific plotting functions and a generic `plot()` met
 | `plot_re()`                 | Random effects diagnostics                         | `plot_re(gi, term = "site", re_type = "qq")`   |
 | `plot_term_distribution()`  | Data distribution for a specific term              | `plot_term_distribution(gi, term = "s(temp)")` |
 | `plot_implied_residuals()`  | Residual analysis                                  | `plot_implied_residuals(gi)`                   |
+| `plot_binomial()`           | Binomial-specific diagnostic plots                 | `plot_binomial(gi)`                            |
 
 ### Delta-GLM Functions
 
@@ -648,9 +699,11 @@ The package provides both specific plotting functions and a generic `plot()` met
 
 ### Utility Functions
 
-| Function           | Purpose                                | Usage Example                          |
-| ------------------ | -------------------------------------- | -------------------------------------- |
-| `geometric_mean()` | Calculate geometric mean for rescaling | `geometric_mean(values, na.rm = TRUE)` |
+| Function           | Purpose                                | Usage Example                              |
+| ------------------ | -------------------------------------- | ------------------------------------------ |
+| `geometric_mean()` | Calculate geometric mean for rescaling | `geometric_mean(values, na.rm = TRUE)`     |
+| `weibull_family()` | Custom Weibull family for GAM fitting  | `gam(y ~ s(x), family = weibull_family())` |
+| `stepCPUE_gam()`   | Stepwise GAM building with CPUE data   | `stepCPUE_gam(data, response = "cpue")`    |
 
 ### S3 Methods
 
@@ -670,6 +723,7 @@ The package provides both specific plotting functions and a generic `plot()` met
 The package includes testing for all user-facing functions:
 
 **Core Analysis Functions:**
+
 - ✅ `gam_influence()` - Object creation with all GLM families
 - ✅ `calculate_influence()` - Influence calculations across family types
 - ✅ `analyse_residual_patterns()` - Residual pattern analysis for model improvement
@@ -678,9 +732,10 @@ The package includes testing for all user-facing functions:
 - ✅ `r2()` - Model progression statistics
 
 **Plotting Functions:**
+
 - ✅ `plot_standardisation()` - Index comparison plots
 - ✅ `plot_stepwise_index()` - Stepwise progression visualisation
-- ✅ `plot_term_influence()` - Term influence plots  
+- ✅ `plot_term_influence()` - Term influence plots
 - ✅ `plot_step_and_influence()` - Combined plotting
 - ✅ `plot_cdi()` - Coefficient-Distribution-Influence plots
 - ✅ `plot_terms()` - Term effect visualisation (all smoother types)
@@ -691,34 +746,41 @@ The package includes testing for all user-facing functions:
 - ✅ `plot.gam_influence()` - Generic plot method with type selection
 
 **Delta-GLM Functions:**
+
 - ✅ `combine_indices()` - Multiple combination methods
 - ✅ `compare_focus_by_groups()` - Multi-group comparisons
 - ✅ `analyse_focus_by_group()` - Group-wise analysis
 
 **Utility Functions:**
+
 - ✅ `geometric_mean()` - Statistical calculations
 
 **S3 Methods:**
+
 - ✅ All `plot.*()` methods with type specifications
 - ✅ All `summary.*()` methods for formatted output
 
 ### Test Coverage Areas
 
 **Family Support Testing:**
-- Gaussian, binomial, gamma, Poisson, and Tweedie distributions
+
+- Gaussian, binomial, gamma, Poisson, Weibull, and Tweedie distributions
 - Automatic family detection and appropriate statistical methods
 - Log-link and identity-link model handling
 - Pre-logged response variable detection
+- Custom family integration (Weibull) with mgcv compatibility
 
 **Smoother Type Testing:**
+
 - `s()` - Standard smoothers (splines, random effects)
-- `te()` - Tensor product smoothers  
+- `te()` - Tensor product smoothers
 - `ti()` - Tensor product interactions
 - `t2()` - Scaled tensor products
 - `by=` terms - Factor-smoother interactions
 - Random effects with `bs="re"`
 
 **Advanced Feature Testing:**
+
 - Subset analysis with interaction terms
 - Coefficient-based vs prediction-based confidence intervals
 - Bootstrap confidence intervals for combined models

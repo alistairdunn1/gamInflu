@@ -12,7 +12,7 @@
 #'   - Confidence ribbon (light blue): Uncertainty bounds around the standardised index
 #'   - Reference line at y=1: Baseline for relative comparison
 #' @details
-#' The standardisation plot visualizes the effect of model standardisation on the focus term index.
+#' The standardisation plot visualises the effect of model standardisation on the focus term index.
 #' The unstandardised index shows the raw relationship, while the standardised index accounts for
 #' all other model terms and their interactions.
 #'
@@ -72,14 +72,14 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE) {
   # Start building the plot
   p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$level, group = 1)) +
     ggplot2::geom_hline(ggplot2::aes(yintercept = 1), linetype = "dashed", colour = "grey")
-  
+
   # Conditionally add unstandardised index
   if (show_unstandardised) {
     p <- p +
       ggplot2::geom_line(ggplot2::aes(y = .data$unstan, colour = "Unstandardised")) +
       ggplot2::geom_point(ggplot2::aes(y = .data$unstan, colour = "Unstandardised"))
   }
-  
+
   # Add standardised index and confidence ribbon
   p <- p +
     ggplot2::geom_line(ggplot2::aes(y = .data$standardised_index, colour = "Standardised")) +
@@ -87,7 +87,7 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE) {
     ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$stan_lower, ymax = .data$stan_upper), fill = "royalblue", alpha = 0.2) +
     ggplot2::labs(x = obj$focus, y = "Index") +
     ggplot2::scale_y_continuous(limits = c(0, NA))
-  
+
   # Conditionally add legend and colour scale
   if (show_unstandardised) {
     p <- p +

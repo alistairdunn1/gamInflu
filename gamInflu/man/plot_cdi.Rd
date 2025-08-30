@@ -18,6 +18,6 @@ A patchwork ggplot object.
 }
 \description{
 Creates a Coefficient-Distribution-Influence (CDI) plot.
-This is a multi-panel plot that visualizes a term's effect, its data
+This is a multi-panel plot that visualises a term's effect, its data
 distribution, and its influence on the focus term.
 }

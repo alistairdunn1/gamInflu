@@ -1,7 +1,7 @@
 #' @title Stepwise Index Plot
 #' @description Creates a step plot showing how the index for the focus term changes as each model
 #' term is added sequentially. This visualisation helps understand the contribution of each term
-#' to the final standardized index and works with all supported GLM families.
+#' to the final standardised index and works with all supported GLM families.
 #' @param obj A `gam_influence` object containing calculated indices from `calculate_influence()`.
 #' @param show_previous Logical; if TRUE, shows previous steps on each panel in colour with a legend,
 #'   allowing you to see how the index evolves as terms are added. If FALSE (default), shows only
@@ -12,7 +12,7 @@
 #'   - **Reference line**: Horizontal dashed line at y=1 for relative comparison
 #'   - **Colour coding**: (when show_previous=TRUE) Different colours for each step in the progression
 #' @details
-#' The stepwise index plot visualizes the model building process by showing how the focus term's
+#' The stepwise index plot visualises the model building process by showing how the focus term's
 #' index changes as each term is sequentially added to the model. This helps identify:
 #' - Which terms have the largest impact on the focus index
 #' - Whether the index stabilizes or continues to change with additional terms

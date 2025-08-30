@@ -59,8 +59,8 @@ summary.gam_influence_comparison <- function(object, ...) {
     # Focus term index range
     if ("indices" %in% names(result$calculated)) {
       indices <- result$calculated$indices
-      if ("standardized_index" %in% names(indices)) {
-        index_range <- range(indices$standardized_index, na.rm = TRUE)
+      if ("standardised_index" %in% names(indices)) {
+        index_range <- range(indices$standardised_index, na.rm = TRUE)
         cat("  Index range:", round(index_range[1], 3), "to", round(index_range[2], 3), "\n")
       }
     }
@@ -80,8 +80,8 @@ summary.gam_influence_comparison <- function(object, ...) {
 #' @return A ggplot or patchwork object.
 #' @details
 #' Plot types:
-#' - "standardisation": Standardized vs unstandardised indices for each group
-#' - "comparison": Direct comparison of standardized indices across groups
+#' - "standardisation": Standardised vs unstandardised indices for each group
+#' - "comparison": Direct comparison of standardised indices across groups
 #' - "stepwise": Stepwise index progression for each group
 #' - "influence": Term influence plots for each group
 #' - "terms": Model term effects for each group
@@ -138,8 +138,8 @@ plot.gam_influence_comparison <- function(x, type = c("standardisation", "compar
   }
 }
 
-#' @title Plot Comparison of Standardized Indices
-#' @description Creates a combined plot comparing standardized indices across groups.
+#' @title Plot Comparison of Standardised Indices
+#' @description Creates a combined plot comparing standardised indices across groups.
 #' @param object A gam_influence_comparison object.
 #' @param groups Character vector of groups to include.
 #' @param confidence_intervals Logical indicating whether to show confidence intervals.
@@ -153,17 +153,17 @@ plot_comparison_indices <- function(object, groups = NULL, confidence_intervals 
     groups <- object$groups
   }
 
-  # Combine standardized indices from all groups
+  # Combine standardised indices from all groups
   combined_data <- list()
 
   for (group in groups) {
     result <- object$results[[group]]
     indices <- result$calculated$indices
 
-    if ("standardized_index" %in% names(indices)) {
+    if ("standardised_index" %in% names(indices)) {
       df <- data.frame(
         level = indices$level,
-        index = indices$standardized_index,
+        index = indices$standardised_index,
         group = group,
         stringsAsFactors = FALSE
       )
@@ -179,7 +179,7 @@ plot_comparison_indices <- function(object, groups = NULL, confidence_intervals 
   }
 
   if (length(combined_data) == 0) {
-    stop("No standardized indices found in results")
+    stop("No standardised indices found in results")
   }
 
   plot_data <- dplyr::bind_rows(combined_data)
@@ -196,7 +196,7 @@ plot_comparison_indices <- function(object, groups = NULL, confidence_intervals 
     ggplot2::scale_colour_viridis_d(name = object$grouping_var) +
     ggplot2::labs(
       x = object$focus,
-      y = "Standardized Index",
+      y = "Standardised Index",
     )
 
   # Add confidence intervals if available

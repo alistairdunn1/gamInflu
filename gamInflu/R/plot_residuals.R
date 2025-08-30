@@ -311,7 +311,7 @@ create_violin_residual_plot <- function(resid_data, focus_name, residual_type,
   # Determine whether to use numeric or original focus values for x-axis
   use_numeric <- !is.null(resid_data$focus_numeric) && !any(is.na(resid_data$focus_numeric))
 
-  # Initialize mapping variable
+  # Initialise mapping variable
   unique_mappings <- NULL
 
   # For violin plots, we need discrete groups even if the underlying data is numeric

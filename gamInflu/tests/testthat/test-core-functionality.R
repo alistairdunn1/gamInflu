@@ -103,7 +103,8 @@ test_that("family detection works correctly", {
     "lognormal_gamma" = "Gamma",
     "binomial" = "binomial",
     "gamma" = "Gamma",
-    "poisson" = "poisson"
+    "poisson" = "poisson",
+    "weibull" = "weibull"
   )
 
   for (family_name in names(expected_families)) {

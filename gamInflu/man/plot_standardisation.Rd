@@ -26,7 +26,7 @@ standardised index for the focus term. Works with all supported GLM families (Ga
 gamma, Poisson) and displays family-appropriate confidence intervals.
 }
 \details{
-The standardisation plot visualizes the effect of model standardisation on the focus term index.
+The standardisation plot visualises the effect of model standardisation on the focus term index.
 The unstandardised index shows the raw relationship, while the standardised index accounts for
 all other model terms and their interactions.
 

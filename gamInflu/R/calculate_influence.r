@@ -39,7 +39,7 @@ calculate_influence <- function(obj, islog = NULL,
                                 rescale_method = c("auto", "geometric_mean", "arithmetic_mean", "raw", "custom"),
                                 custom_rescale_value = 1,
                                 confidence_level = 0.95,
-                                family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+                                family = c("auto", "gaussian", "binomial", "gamma", "poisson", "weibull"),
                                 subset_var = NULL,
                                 subset_value = NULL,
                                 separate_by_smooth = FALSE,
@@ -55,7 +55,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
                                               rescale_method = c("auto", "geometric_mean", "arithmetic_mean", "raw", "custom"),
                                               custom_rescale_value = 1,
                                               confidence_level = 0.95,
-                                              family = c("auto", "gaussian", "binomial", "gamma", "poisson"),
+                                              family = c("auto", "gaussian", "binomial", "gamma", "poisson", "weibull"),
                                               subset_var = NULL,
                                               subset_value = NULL,
                                               separate_by_smooth = FALSE,
@@ -115,17 +115,24 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     } else if (grepl("^Negative Binomial\\(", model_family)) {
       family_detected <- "poisson" # Treat NB like Poisson for calculations
     } else {
-      family_detected <- switch(model_family,
-        "gaussian" = "gaussian",
-        "binomial" = "binomial",
-        "Gamma" = "gamma",
-        "gamma" = "gamma",
-        "poisson" = "poisson",
-        "quasipoisson" = "poisson", # Treat quasi-poisson like poisson
-        "quasibinomial" = "binomial", # Treat quasi-binomial like binomial
-        "quasi" = "gaussian", # Default for other quasi families
-        "gaussian" # Default fallback
-      )
+      # Check for Weibull family (custom attribute)
+      if (!is.null(attr(obj$model$family, "weibull_approximation")) &&
+        attr(obj$model$family, "weibull_approximation") == TRUE) {
+        family_detected <- "weibull"
+      } else {
+        family_detected <- switch(model_family,
+          "gaussian" = "gaussian",
+          "binomial" = "binomial",
+          "Gamma" = "gamma",
+          "gamma" = "gamma",
+          "poisson" = "poisson",
+          "weibull" = "weibull",
+          "quasipoisson" = "poisson", # Treat quasi-poisson like poisson
+          "quasibinomial" = "binomial", # Treat quasi-binomial like binomial
+          "quasi" = "gaussian", # Default for other quasi families
+          "gaussian" # Default fallback
+        )
+      }
     }
     family <- family_detected
     message("Detected model family: ", model_family, " with link: ", model_link)
@@ -167,6 +174,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       "gaussian" = if (islog) "geometric_mean" else "arithmetic_mean", # Consider log transformation
       "gamma" = "geometric_mean", # Always geometric for gamma (positive data)
       "poisson" = "geometric_mean", # Geometric for count data
+      "weibull" = "geometric_mean", # Geometric for Weibull (positive data)
       "geometric_mean" # Default fallback
     )
     message("Auto-selected rescaling method: ", rescale_method, " (based on family: ", family, ", islog: ", islog, ")")
@@ -1021,7 +1029,7 @@ validate_gam_influence <- function(obj) {
   # Check family compatibility
   if (!is.null(obj$model$family)) {
     family_name <- obj$model$family$family
-    supported_families <- c("gaussian", "binomial", "Gamma", "gamma", "poisson", "quasi", "quasipoisson", "quasibinomial", "Tweedie", "nb")
+    supported_families <- c("gaussian", "binomial", "Gamma", "gamma", "poisson", "weibull", "quasi", "quasipoisson", "quasibinomial", "Tweedie", "nb")
 
     # Check for Tweedie family (which reports as "Tweedie(p=X.XXX)")
     is_tweedie <- grepl("^Tweedie\\(", family_name)
@@ -1045,6 +1053,10 @@ validate_gam_influence <- function(obj) {
 
     if (family_name %in% c("Gamma", "gamma") && any(observed <= 0)) {
       warning("Gamma family detected but response contains non-positive values. This may cause issues.", call. = FALSE)
+    }
+
+    if (family_name == "weibull" && any(observed <= 0)) {
+      warning("Weibull family detected but response contains non-positive values. This may cause issues.", call. = FALSE)
     }
 
     if (family_name == "poisson" && any(observed < 0)) {
@@ -1449,8 +1461,8 @@ calculate_unstandardised_index <- function(observed, focus_var, islog = NULL, fa
   if (family == "binomial") {
     # For binomial models, use specialized handling for proportions
     mean_type <- ifelse(preserve_probability_scale, "raw", "arithmetic")
-  } else if (family %in% c("gamma", "poisson")) {
-    # For gamma and poisson models, use geometric mean (appropriate for positive/count data)
+  } else if (family %in% c("gamma", "poisson", "weibull")) {
+    # For gamma, poisson, and weibull models, use geometric mean (appropriate for positive/count data)
     mean_type <- "geometric"
   } else if (family == "gaussian") {
     # For gaussian models, respect islog parameter
