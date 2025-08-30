@@ -562,6 +562,59 @@ get_terms(gi)            # Variable names
 get_terms(gi, full=TRUE) # Full term expressions (e.g., s(temp), te(lon,lat))
 ```
 
+### Rescale influence indices across groups
+
+Rescales influence indices across different groups (e.g., different model types or stocks) using common years as reference points. This function is useful when comparing influence indices from different models or datasets that may have different baseline levels.
+
+```r
+# Rescale indices from a gam_influence object
+gi_rescaled <- rescale_indices(gi, group_col = "stock", year_col = "year")
+
+# Rescale indices from a data frame
+rescaled_data <- rescale_indices(
+  data_frame,
+  group_col = "stock",
+  year_col = "year",
+  index_col = "standardised_index",
+  lowerCI_col = "stan_lower",
+  upperCI_col = "stan_upper",
+  common_years_only = TRUE  # Use only years present in all groups
+)
+
+# Example: Compare indices from different stocks
+stock_data <- data.frame(
+  stock = rep(c("StockA", "StockB"), each = 5),
+  year = rep(2015:2019, 2),
+  standardised_index = c(1.0, 1.1, 0.9, 1.2, 0.8, 1.5, 1.6, 1.4, 1.7, 1.3),
+  stan_lower = c(0.9, 1.0, 0.8, 1.1, 0.7, 1.4, 1.5, 1.3, 1.6, 1.2),
+  stan_upper = c(1.1, 1.2, 1.0, 1.3, 0.9, 1.6, 1.7, 1.5, 1.8, 1.4)
+)
+
+rescaled_stocks <- rescale_indices(
+  stock_data,
+  group_col = "stock",
+  year_col = "year"
+)
+
+# Verify rescaling: means of common years should be 1.0 for each group
+library(dplyr)
+rescaled_stocks %>%
+  group_by(stock) %>%
+  summarise(mean_rescaled = mean(rescaled_index))
+```
+
+**Parameters:**
+
+- `obj`: A `gam_influence` object or data frame containing influence indices
+- `group_col`: Column name containing the grouping variable (e.g., "stock", "model_type")
+- `year_col`: Column name containing the year/time variable
+- `index_col`: Column name containing the index values (default: "standardised_index")
+- `lowerCI_col`: Column name for lower confidence intervals (default: "stan_lower")
+- `upperCI_col`: Column name for upper confidence intervals (default: "stan_upper")
+- `common_years_only`: Use only years present in all groups for reference (default: TRUE)
+
+**Returns:** A data frame with rescaled indices where the mean of each group over reference years equals 1.0, enabling direct comparison of relative changes across groups.
+
 ### Model progression statistics
 
 Extracts a summary table of model progression statistics (AIC, R-squared, deviance explained).
