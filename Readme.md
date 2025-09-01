@@ -51,6 +51,10 @@ plot_residuals(gi)          # Residual diagnostics
 # 5. Check model adequacy through residual pattern analysis
 residual_analysis <- analyse_residual_patterns(gi)
 print(residual_analysis)    # Shows variables that may improve model fit
+
+# 6. Comprehensive model diagnostics and influence assessment
+diagnostics <- diagnose_model_influence(gi)
+print(diagnostics)          # Comprehensive diagnostic summary
 ```
 
 ### Family-Specific Examples
@@ -458,6 +462,87 @@ mod_improved <- gam(response ~ s(depth) + s(temp) + s(bottom_temp) + year,
 gi_improved <- calculate_influence(gam_influence(mod_improved, focus = "year"))
 rpa_check <- analyse_residual_patterns(gi_improved)
 ```
+
+### Comprehensive model diagnostics and influence summary
+
+Provides a comprehensive diagnostic assessment of model adequacy, residual patterns, and explains differences between unstandardised and standardised indices through influence analysis.
+
+```r
+# Run comprehensive diagnostics
+diagnostics <- diagnose_model_influence(gi)
+
+# Print detailed summary
+print(diagnostics)
+
+# Customised diagnostic analysis
+detailed_diagnostics <- diagnose_model_influence(
+  gi,
+  residual_type = "pearson",
+  qq_test_threshold = 0.01,      # More stringent normality test
+  funnel_threshold = 1.5,        # Detect weaker heteroscedasticity
+  influence_threshold = 0.15,    # Higher influence threshold
+  index_difference_threshold = 0.1,  # Flag smaller index differences
+  detailed_output = TRUE         # Include diagnostic plots
+)
+
+# Access specific diagnostic components
+print("Residual Pattern Analysis:")
+print(detailed_diagnostics$residual_diagnostics)
+
+print("Distributional Assumption Tests:")
+print(detailed_diagnostics$distributional_tests)
+
+print("Index Differences (Unstandardised vs Standardised):")
+print(detailed_diagnostics$index_differences)
+
+print("Influence Summary:")
+print(detailed_diagnostics$influence_summary)
+
+print("Overall Model Adequacy:")
+print(detailed_diagnostics$model_adequacy)
+
+# View diagnostic plots
+if (!is.null(detailed_diagnostics$diagnostic_plots)) {
+  print(detailed_diagnostics$diagnostic_plots$residual_patterns)
+  print(detailed_diagnostics$diagnostic_plots$qq_plot)
+  print(detailed_diagnostics$diagnostic_plots$index_comparison)
+}
+
+# Example of addressing identified issues:
+# If funnel-shaped residuals detected:
+mod_improved <- gam(log(cpue) ~ year + s(depth) + s(temp), 
+                    family = gaussian(), data = data)
+
+# If specific years show large index differences:
+# Examine the influence statistics for those years
+problem_years <- detailed_diagnostics$index_differences$summary$flagged_levels
+if (length(problem_years) > 0) {
+  for (year in problem_years) {
+    cat("Year", year, "explanations:\n")
+    print(detailed_diagnostics$index_differences$explanations[[as.character(year)]])
+  }
+}
+```
+
+**Key Features:**
+
+- **Residual Pattern Detection**: Identifies funnel-shaped (heteroscedastic) residuals and systematic patterns
+- **Distributional Assumption Testing**: Tests normality and family-specific assumptions with p-value thresholds
+- **Index Difference Analysis**: Explains large differences between unstandardised and standardised indices
+- **Influence Impact Assessment**: Quantifies which model terms drive the largest changes to focus indices
+- **Comprehensive Recommendations**: Provides specific suggestions for model improvement
+- **Diagnostic Plots**: Visual assessment of residual patterns, Q-Q plots, and index comparisons
+
+**Parameters:**
+
+- `residual_type`: Type of residuals for analysis ("deviance", "pearson", "response", "working")
+- `qq_test_threshold`: P-value threshold for normality tests (default 0.05)
+- `funnel_threshold`: Variance ratio threshold for heteroscedasticity detection (default 2.0)
+- `influence_threshold`: Threshold for identifying influential terms (default 0.1)
+- `index_difference_threshold`: Threshold for flagging large index differences (default 0.2)
+- `detailed_output`: Include diagnostic plots and detailed statistics (default TRUE)
+
+**Returns:** A comprehensive list containing residual diagnostics, distributional tests, index difference analysis, influence summary, model adequacy assessment, and optional diagnostic plots.
 
 ### Delta-GLM Analysis for Fisheries Data
 

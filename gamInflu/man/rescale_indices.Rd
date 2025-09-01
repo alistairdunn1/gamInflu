@@ -54,8 +54,9 @@ combined_data <- do.call(rbind, data_list)
 
 # Rescale indices
 rescaled <- rescale_indices(combined_data,
-                                      group_col = "stock",
-                                      year_col = "year",
-                                      index_col = "index")
+  group_col = "stock",
+  year_col = "year",
+  index_col = "index"
+)
 }
 }
