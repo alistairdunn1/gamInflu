@@ -1,6 +1,6 @@
 # gamInflu
 
-**gamInflu** provides influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. 
+**gamInflu** provides  influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. 
 
 **Note, this package is in development. Functionality may be not be fully complete in some cases.**
 
@@ -253,6 +253,135 @@ gi <- calculate_influence(gi)
   - Want uncertainty propagation
   - Prefer conservative confidence intervals
   - Working with complex model structures
+
+---
+
+## Box-Cox Transformation
+
+**gamInflu** provides comprehensive Box-Cox transformation functions to normalize response variables before fitting GAM models. Box-Cox transformations can help stabilize variance, improve normality of residuals, and enhance model performance.
+
+### Box-Cox Functions
+
+The package includes several functions for Box-Cox transformation:
+
+- **`box_cox_transform()`** - Apply Box-Cox transformation to response variables
+- **`inverse_box_cox()`** - Convert transformed values back to original scale
+- **`box_cox_gam()`** - Transform response and fit GAM in one step
+- **`gam_influence_from_box_cox()`** - Create influence objects from Box-Cox transformed models
+
+### Basic Box-Cox Transformation
+
+Transform a response variable with automatic lambda estimation:
+
+```r
+# Transform response variable (automatic lambda estimation)
+bc_result <- box_cox_transform(data$response)
+print(paste("Optimal lambda:", bc_result$lambda))
+
+# View transformation results
+head(data.frame(
+  original = bc_result$original,
+  transformed = bc_result$transformed
+))
+```
+
+### Manual Lambda Selection
+
+Specify lambda values for common transformations:
+
+```r
+# Log transformation (lambda = 0)
+bc_log <- box_cox_transform(data$response, lambda = 0)
+
+# Square root transformation (lambda = 0.5)  
+bc_sqrt <- box_cox_transform(data$response, lambda = 0.5)
+
+# Reciprocal transformation (lambda = -1)
+bc_recip <- box_cox_transform(data$response, lambda = -1)
+
+# No transformation (lambda = 1)
+bc_none <- box_cox_transform(data$response, lambda = 1)
+```
+
+### Box-Cox with GAM Models
+
+Transform the response variable and fit a GAM model in one step:
+
+```r
+# Transform response and fit GAM automatically
+bc_gam <- box_cox_gam(response ~ s(x1) + s(x2) + factor(year), 
+                      data = data, 
+                      family = gaussian())
+
+# View transformation details
+print(bc_gam)  # Shows lambda value and transformation type
+summary(bc_gam)  # Full model summary with Box-Cox info
+
+# Make predictions (automatically back-transformed to original scale)
+new_data <- data.frame(x1 = c(1, 2, 3), x2 = c(0.5, 1.0, 1.5), year = c(2020, 2021, 2022))
+predictions <- predict(bc_gam, newdata = new_data)
+print(predictions)  # Already on original scale
+```
+
+### Integration with Influence Analysis
+
+Use Box-Cox transformed models with **gamInflu** functions:
+
+```r
+# Create influence object from Box-Cox GAM
+bc_gam <- box_cox_gam(response ~ s(depth) + s(temp) + factor(year), 
+                      data = fish_data)
+
+# Create gam_influence object (method 1: direct from Box-Cox model)
+gi_bc <- gam_influence_from_box_cox(bc_gam, focus = "year")
+
+# Calculate influence metrics
+gi_bc <- calculate_influence(gi_bc)
+
+# All standard gamInflu plotting functions work
+plot_standardisation(gi_bc)
+plot_stepwise_index(gi_bc)
+plot_residuals(gi_bc)
+
+# Method 2: Manual approach for more control
+bc_model <- bc_gam$model  # Extract the underlying GAM
+gi_manual <- gam_influence(bc_model, focus = "year")
+gi_manual <- calculate_influence(gi_manual)
+```
+
+### Handling Zeros and Negative Values
+
+Add epsilon for data containing zeros or negative values:
+
+```r
+# Data with zeros - add small constant
+bc_with_eps <- box_cox_transform(data$response, eps = 0.01)
+
+# Inverse transformation accounts for epsilon automatically
+original_values <- inverse_box_cox(bc_with_eps$transformed, 
+                                  lambda = bc_with_eps$lambda,
+                                  eps = bc_with_eps$eps)
+```
+
+### Box-Cox Transformation Benefits
+
+- **Variance Stabilization**: Reduces heteroscedasticity in residuals
+- **Improved Normality**: Helps achieve more normal residual distributions  
+- **Better Model Fit**: Can improve GAM performance and diagnostics
+- **Automatic Lambda Selection**: Finds optimal transformation parameter
+- **Seamless Integration**: Works directly with **gamInflu** influence analysis
+- **Easy Back-transformation**: Predictions automatically returned to original scale
+
+### Common Lambda Values
+
+| Lambda   | Transformation       | Use Case                                   |
+| -------- | -------------------- | ------------------------------------------ |
+| **2**    | Square (y²)          | Compress small values, expand large values |
+| **1**    | Identity (y)         | No transformation needed                   |
+| **0.5**  | Square root (√y)     | Right-skewed data, count-like data         |
+| **0**    | Natural log (ln y)   | Log-normal data, multiplicative effects    |
+| **-0.5** | Reciprocal √ (-1/√y) | Highly right-skewed data                   |
+| **-1**   | Reciprocal (-1/y)    | Rate/time data, extreme right skew         |
 
 ---
 
@@ -802,6 +931,15 @@ plot_terms(gi, term = "te(lon, lat)")
 | `get_terms()`                 | Get model term names or full expressions   | `get_terms(gi, full = TRUE)`                 |
 | `r2()`                        | Extract model progression statistics       | `r2(gi)`                                     |
 
+### Data Transformation Functions
+
+| Function                       | Purpose                                      | Usage Example                                      |
+| ------------------------------ | -------------------------------------------- | -------------------------------------------------- |
+| `box_cox_transform()`          | Apply Box-Cox transformation to response     | `bc <- box_cox_transform(data$response)`           |
+| `inverse_box_cox()`            | Convert transformed values to original scale | `original <- inverse_box_cox(x, lambda)`           |
+| `box_cox_gam()`                | Transform response and fit GAM in one step   | `bc_gam <- box_cox_gam(y ~ s(x), data)`            |
+| `gam_influence_from_box_cox()` | Create influence object from Box-Cox GAM     | `gi <- gam_influence_from_box_cox(bc_gam, "year")` |
+
 ### Plotting Functions
 
 The package provides both specific plotting functions and a generic `plot()` method. The generic method supports the following types:
@@ -851,6 +989,9 @@ The package provides both specific plotting functions and a generic `plot()` met
 | `plot.gam_influence_combined()`    | Plot method for combined delta-GLM objects | `plot(gi_combined, type = "comparison")`   |
 | `summary.gam_influence()`          | Formatted summary of analysis results      | `summary(gi)`                              |
 | `summary.gam_influence_combined()` | Summary for combined objects               | `summary(gi_combined)`                     |
+| `predict.gam_box_cox()`            | Predictions from Box-Cox transformed GAMs  | `predict(bc_gam, newdata)`                 |
+| `summary.gam_box_cox()`            | Summary for Box-Cox transformed GAMs       | `summary(bc_gam)`                          |
+| `print.gam_box_cox()`              | Print method for Box-Cox GAMs              | `print(bc_gam)`                            |
 
 ---
 
