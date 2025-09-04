@@ -19,9 +19,37 @@ plot_term_influence <- function(obj) {
     df$level <- as.numeric(as.character(df$level))
   }
 
-  # Get model term order from formula
-  if (!is.null(obj$model$formula)) {
-    term_order <- attr(terms(obj$model), "term.labels")
+  # Get model term order from formula using the same method as calculate_influence
+  if (!is.null(obj$model)) {
+    # Use the same parse_formula_terms function that's used in calculate_influence
+    parse_formula_terms <- function(frm) {
+      rhs <- deparse(formula(frm)[[3]])
+      rhs <- paste(rhs, collapse = " ")
+      chars <- strsplit(rhs, "")[[1]]
+      depth_paren <- 0
+      buf <- ""
+      tokens <- c()
+      for (ch in chars) {
+        if (ch == "(") depth_paren <- depth_paren + 1
+        if (ch == ")") depth_paren <- max(0, depth_paren - 1)
+        if (ch == "+" && depth_paren == 0) {
+          token <- trimws(buf)
+          if (nzchar(token)) tokens <- c(tokens, token)
+          buf <- ""
+        } else {
+          buf <- paste0(buf, ch)
+        }
+      }
+      last_token <- trimws(buf)
+      if (nzchar(last_token)) tokens <- c(tokens, last_token)
+      tokens <- tokens[nzchar(tokens)]
+      tokens
+    }
+
+    term_order <- parse_formula_terms(obj$model)
+    # Remove focus term from the order
+    term_order <- setdiff(term_order, obj$focus)
+
     # Robust matching to handle whitespace differences
     matched_terms <- sapply(term_order, function(formula_term) {
       available_terms <- unique(df$term)

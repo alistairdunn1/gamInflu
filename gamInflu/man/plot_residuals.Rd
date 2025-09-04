@@ -43,9 +43,9 @@ panels for each level of this variable. Must be a factor or character variable (
 \value{
 A ggplot object or patchwork object (for combined plots) showing:
   **Standard plots:**
-  - Residuals vs fitted values
+  - Residuals vs fitted values (or linear predictor for deviance residuals)
   - Q-Q plot of residuals
-  - Scale-location plot (sqrt(|residuals|) vs fitted)
+  - Scale-location plot (sqrt(|residuals|) vs fitted values or linear predictor)
   - Residuals vs leverage (Cook's distance contours)
 
   **Violin plots:**
@@ -59,10 +59,10 @@ comprehensive residual diagnostics.
 }
 \details{
 **Residual Types:**
-- **Deviance residuals**: Default choice, appropriate for all GLM families
-- **Pearson residuals**: Standardised residuals, useful for checking variance assumptions
-- **Response residuals**: Simple observed - fitted, interpretable but may not be appropriate for all families
-- **Working residuals**: Used in iterative fitting, less commonly needed for diagnostics
+- **Deviance residuals**: Default choice, appropriate for all GLM families. Plotted against linear predictor.
+- **Pearson residuals**: Standardised residuals, useful for checking variance assumptions. Plotted against fitted values.
+- **Response residuals**: Simple observed - fitted, interpretable but may not be appropriate for all families. Plotted against fitted values.
+- **Working residuals**: Used in iterative fitting, less commonly needed for diagnostics. Plotted against fitted values.
 
 **Family-specific behaviour:**
 - **Gaussian**: All residual types available, deviance = Pearson for identity link

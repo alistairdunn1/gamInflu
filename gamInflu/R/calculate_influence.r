@@ -71,15 +71,15 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   if (is.null(use_coeff_method)) {
     use_coeff_method <- TRUE # Default to coefficient method for backwards compatibility
   }
-  
+
   # Check for Gamma with inverse link - override method if needed
   if (is.null(obj$model$family)) {
     # Not a GLM/GAM, so cannot check family
     is_gamma_inverse <- FALSE
   } else {
-    is_gamma_inverse <- obj$model$family$family == "Gamma" && 
-                        obj$model$family$link == "inverse"
-                        
+    is_gamma_inverse <- obj$model$family$family == "Gamma" &&
+      obj$model$family$link == "inverse"
+
     if (is_gamma_inverse && use_coeff_method) {
       message("Detected Gamma model with inverse link - forcing prediction-based method")
       message("(Coefficient-based method can produce NaN values with inverse link)")
@@ -152,7 +152,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     family <- family_detected
     message("Detected model family: ", model_family, " with link: ", model_link)
     message("Using family: ", family)
-    
+
     # Special handling for Gamma with inverse link - force prediction method
     # Note: We already check for this at the beginning of the function,
     # but keep this check for safety with user-specified "auto" family parameter
@@ -431,20 +431,20 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       }
     }
   } else {
-      # --- PREDICTION-BASED APPROACH (modern method) ---
+    # --- PREDICTION-BASED APPROACH (modern method) ---
     message("Using prediction-based CI calculation (modern approach)")
-    
+
     # Special handling for Gamma with inverse link - these can produce NaN values
-    is_gamma_inverse <- !is.null(obj$model$family) && 
-                        obj$model$family$family == "Gamma" && 
-                        obj$model$family$link == "inverse"
-    
+    is_gamma_inverse <- !is.null(obj$model$family) &&
+      obj$model$family$family == "Gamma" &&
+      obj$model$family$link == "inverse"
+
     if (is_gamma_inverse) {
       message("Detected Gamma model with inverse link - using robust prediction handling")
       # Replace any NaN or Inf values with NA for safer processing
       stan_df$pred[!is.finite(stan_df$pred)] <- NA
       stan_df$se[!is.finite(stan_df$se)] <- NA
-      
+
       # Use median instead of mean for base value calculation if there are NAs
       if (sum(is.na(stan_df$pred)) > 0) {
         message("Found non-finite predictions - using median of finite values for base calculation")
@@ -454,7 +454,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
     if (preserve_probability_scale) {
       # For binomial with raw rescaling, preserve original probability scale
-      stan_df$standardised_index <- stan_df$pred      # Calculate confidence intervals directly on probability scale
+      stan_df$standardised_index <- stan_df$pred # Calculate confidence intervals directly on probability scale
       alpha <- 1 - confidence_level
       z_score <- qnorm(1 - alpha / 2)
 
@@ -490,7 +490,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
         # For Gamma(inverse), ensure all indices are valid by handling NAs
         stan_df$stan_lower[!is.finite(stan_df$stan_lower)] <- NA
         stan_df$stan_upper[!is.finite(stan_df$stan_upper)] <- NA
-        
+
         # Use robust method for handling potential NaN values in standardized indices
         stan_df$standardised_index[!is.finite(stan_df$standardised_index)] <- NA
       }
@@ -1021,6 +1021,12 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       setNames(step_cols, step_cols)
     }
   )
+
+  # Normalize whitespace in step_labels (convert multiple spaces to single space)
+  step_labels <- sapply(step_labels, function(x) {
+    # Replace multiple consecutive spaces with single space
+    gsub("\\s+", " ", x)
+  })
 
   # Rename standardised index columns for consistency with package API
   if ("stan" %in% names(indices_df)) {

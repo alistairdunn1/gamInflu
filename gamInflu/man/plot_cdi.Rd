@@ -4,7 +4,7 @@
 \alias{plot_cdi}
 \title{Coefficient-Distribution-Influence (CDI) Plot}
 \usage{
-plot_cdi(obj, term, re_type = "points")
+plot_cdi(obj, term, re_type = "points", show_summary = FALSE)
 }
 \arguments{
 \item{obj}{A `gam_influence` object.}
@@ -12,6 +12,8 @@ plot_cdi(obj, term, re_type = "points")
 \item{term}{The character name of the model term to plot (e.g., `"s(temp)"`). Alternatively, it can be a numeric index of the term in the model. If a numeric index is provided, it will be converted to the corresponding term name.}
 
 \item{re_type}{Character; for random effects, one of "points", "qq", "hist", or "caterpillar".}
+
+\item{show_summary}{Logical; whether to show the model summary table in the top right corner (default: FALSE).}
 }
 \value{
 A patchwork ggplot object.

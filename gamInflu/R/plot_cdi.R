@@ -5,12 +5,12 @@
 #' @param obj A `gam_influence` object.
 #' @param term The character name of the model term to plot (e.g., `"s(temp)"`). Alternatively, it can be a numeric index of the term in the model. If a numeric index is provided, it will be converted to the corresponding term name.
 #' @param re_type Character; for random effects, one of "points", "qq", "hist", or "caterpillar".
-#' @param show_summary Logical; whether to show the model summary table in the top right corner (default: TRUE).
+#' @param show_summary Logical; whether to show the model summary table in the top right corner (default: FALSE).
 #' @return A patchwork ggplot object.
 #' @importFrom rlang parse_expr
 #' @importFrom patchwork wrap_plots plot_spacer
 #' @export
-plot_cdi <- function(obj, term, re_type = "points", show_summary = TRUE) {
+plot_cdi <- function(obj, term, re_type = "points", show_summary = FALSE) {
   # --- Setup ---
   if (is.numeric(term) && length(term) == 1 && term == as.integer(term)) {
     all_terms <- get_terms(obj, full = TRUE)
@@ -50,40 +50,26 @@ plot_cdi <- function(obj, term, re_type = "points", show_summary = TRUE) {
   if (show_summary) {
     # --- Plot 4: Model Summary Table ---
     p_summary <- create_model_summary_table(obj)
-
-    # --- Combine with Patchwork: p_coef top left, p_summary top right, p_dist bottom left, p_influ bottom right ---
-    layout <- "
-    AC
-    BD
-    "
-
-    patchwork::wrap_plots(
-      A = p_coef,
-      B = p_dist,
-      C = p_summary,
-      D = p_influ,
-      design = layout,
-      widths = c(1, 1),
-      heights = c(1, 1)
-    )
   } else {
-    # --- Combine with Patchwork: p_coef on top left, p_dist bottom left, p_influ right ---
-    layout <- "
+    p_summary <- patchwork::plot_spacer()
+  }
+  # --- Combine with Patchwork: p_coef on top left, p_dist bottom left, p_influ right ---
+  layout <- "
     AB
     CD
     "
 
-    patchwork::wrap_plots(
-      A = p_coef,
-      B = patchwork::plot_spacer(),
-      C = p_dist,
-      D = p_influ,
-      design = layout,
-      widths = c(1, 0.5),
-      heights = c(1, 2)
-    )
-  }
+  patchwork::wrap_plots(
+    A = p_coef,
+    B = p_summary,
+    C = p_dist,
+    D = p_influ,
+    design = layout,
+    widths = c(1, 0.5),
+    heights = c(1, 2)
+  )
 }
+
 
 #' @title Create Model Summary Table for CDI Plot
 #' @description Creates a table showing model deviance and R² information
@@ -114,24 +100,24 @@ create_model_summary_table <- function(obj) {
 
   # Create data frame for the table
   table_data <- data.frame(
-    Label = c("Deviance:", "Null Dev:", "R²:", "Adj R²:"),
+    Label = c("Deviance:", "Null Dev:", "Dev Expl:", "R²:"),
     Value = c(
       as.character(model_deviance),
       as.character(null_deviance),
-      if (!is.na(r_squared)) as.character(r_squared) else "N/A",
-      if (!is.na(adj_r_squared)) as.character(adj_r_squared) else "N/A"
+      if (!is.na(adj_r_squared)) paste0(as.character(adj_r_squared * 100), "%") else "N/A",
+      if (!is.na(r_squared)) as.character(r_squared) else "N/A"
     ),
-    y = c(4, 3, 2, 1) # Position from top to bottom
+    y = c(5, 4, 3, 2) # Position from top to bottom
   )
 
   # Create ggplot table
   ggplot2::ggplot(table_data, ggplot2::aes(x = 0.1, y = .data$y, label = paste(.data$Label, .data$Value))) +
-    ggplot2::geom_text(hjust = 0, size = 3, family = "mono") +
+    ggplot2::geom_text(hjust = 0, size = 2.5) +
     ggplot2::theme_void() +
     ggplot2::theme(
       plot.background = ggplot2::element_rect(fill = "white", color = NA),
       panel.background = ggplot2::element_rect(fill = "white", color = NA)
     ) +
     ggplot2::xlim(0, 1) +
-    ggplot2::ylim(0.5, 4.5)
+    ggplot2::ylim(0.5, 6.5)
 }

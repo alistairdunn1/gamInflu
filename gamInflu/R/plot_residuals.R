@@ -21,9 +21,9 @@
 #' @param ... Additional arguments passed to ggplot2 functions.
 #' @return A ggplot object or patchwork object (for combined plots) showing:
 #'   **Standard plots:**
-#'   - Residuals vs fitted values
+#'   - Residuals vs fitted values (or linear predictor for deviance residuals)
 #'   - Q-Q plot of residuals
-#'   - Scale-location plot (sqrt(|residuals|) vs fitted)
+#'   - Scale-location plot (sqrt(|residuals|) vs fitted values or linear predictor)
 #'   - Residuals vs leverage (Cook's distance contours)
 #'
 #'   **Violin plots:**
@@ -31,10 +31,10 @@
 #'   - Optional boxplots
 #' @details
 #' **Residual Types:**
-#' - **Deviance residuals**: Default choice, appropriate for all GLM families
-#' - **Pearson residuals**: Standardised residuals, useful for checking variance assumptions
-#' - **Response residuals**: Simple observed - fitted, interpretable but may not be appropriate for all families
-#' - **Working residuals**: Used in iterative fitting, less commonly needed for diagnostics
+#' - **Deviance residuals**: Default choice, appropriate for all GLM families. Plotted against linear predictor.
+#' - **Pearson residuals**: Standardised residuals, useful for checking variance assumptions. Plotted against fitted values.
+#' - **Response residuals**: Simple observed - fitted, interpretable but may not be appropriate for all families. Plotted against fitted values.
+#' - **Working residuals**: Used in iterative fitting, less commonly needed for diagnostics. Plotted against fitted values.
 #'
 #' **Family-specific behaviour:**
 #' - **Gaussian**: All residual types available, deviance = Pearson for identity link
@@ -129,9 +129,12 @@ plot_residuals <- function(obj,
     }
   }
 
-  # Calculate residuals and fitted values
+  # Calculate residuals and fitted values/linear predictor
   model <- obj$model
   fitted_vals <- fitted(model)
+
+  # Get linear predictor (systematic component before link function)
+  linear_predictor <- predict(model, type = "link")
 
   # Get residuals based on type
   residuals_vals <- switch(residual_type,
@@ -158,6 +161,7 @@ plot_residuals <- function(obj,
 
   resid_data <- data.frame(
     fitted = fitted_vals,
+    linear_predictor = linear_predictor,
     residuals = residuals_vals,
     focus_level = focus_values,
     focus_numeric = focus_numeric,
@@ -202,11 +206,21 @@ plot_residuals <- function(obj,
 #' @return A patchwork object with 4 diagnostic panels
 #' @noRd
 create_standard_residual_plots <- function(resid_data, residual_type, model, by = NULL, add_smooth = TRUE, ...) {
-  # Panel 1: Residuals vs Fitted
-  p1 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$fitted, y = .data$residuals)) +
+  # Determine x-axis variable based on residual type
+  # For deviance residuals, use linear predictor; for others, use fitted values
+  if (residual_type == "deviance") {
+    x_var <- resid_data$linear_predictor
+    x_label <- "Linear Predictor"
+  } else {
+    x_var <- resid_data$fitted
+    x_label <- "Fitted Values"
+  }
+
+  # Panel 1: Residuals vs Fitted/Linear Predictor
+  p1 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = x_var, y = .data$residuals)) +
     ggplot2::geom_point(alpha = 0.4, colour = "royalblue", size = 0.7) +
     ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-    ggplot2::labs(x = "Fitted Values", y = paste(tools::toTitleCase(residual_type), "Residuals"))
+    ggplot2::labs(x = x_label, y = paste(tools::toTitleCase(residual_type), "Residuals"))
 
   if (add_smooth) {
     p1 <- p1 + ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red")
@@ -226,11 +240,11 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
     p2 <- p2 + ggplot2::facet_wrap(~ .data$by_var)
   }
 
-  # Panel 3: Scale-Location (sqrt of absolute residuals vs fitted)
+  # Panel 3: Scale-Location (sqrt of absolute residuals vs fitted/linear predictor)
   resid_data$sqrt_abs_resid <- sqrt(abs(resid_data$residuals))
-  p3 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$fitted, y = .data$sqrt_abs_resid)) +
+  p3 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = x_var, y = .data$sqrt_abs_resid)) +
     ggplot2::geom_point(alpha = 0.4, colour = "royalblue", size = 0.7) +
-    ggplot2::labs(x = "Fitted Values", y = expression(sqrt("|Residuals|")))
+    ggplot2::labs(x = x_label, y = expression(sqrt("|Residuals|")))
 
   if (add_smooth) {
     p3 <- p3 + ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red")
