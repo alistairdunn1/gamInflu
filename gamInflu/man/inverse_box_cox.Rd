@@ -40,8 +40,10 @@ mod <- gam(bc_transform$transformed ~ s(x), data = data)
 pred_transformed <- predict(mod, newdata = new_data)
 
 # Convert predictions back to original scale
-pred_original <- inverse_box_cox(pred_transformed, 
-                               lambda = bc_transform$lambda,
-                               eps = bc_transform$eps)
+pred_original <- inverse_box_cox(pred_transformed,
+  lambda = bc_transform$lambda,
+  eps = bc_transform$eps
+)
 }
+
 }

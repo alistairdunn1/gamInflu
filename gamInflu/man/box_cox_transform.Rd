@@ -7,7 +7,8 @@
 box_cox_transform(y, lambda = NULL, lower = -2, upper = 2, eps = 0)
 }
 \arguments{
-\item{y}{Numeric vector. The response variable to transform.}
+\item{y}{Numeric vector or gam_influence object. If numeric, the response variable to transform.
+If gam_influence object, the lambda will be estimated using the fitted model and data.}
 
 \item{lambda}{Numeric or NULL. The Box-Cox transformation parameter.
 If NULL (default), the optimal lambda is estimated from the data.
@@ -38,6 +39,9 @@ A list containing:
 Apply a Box-Cox transformation to a response variable for use in GAMs,
   automatically estimating the optimal lambda parameter or using a specified value.
   The Box-Cox transformation can help normalize data and stabilize variance.
+
+  This function can work with either raw response data or with a gam_influence object
+  to properly utilize the MASS::boxcox function for optimal lambda estimation.
 }
 \details{
 The Box-Cox transformation is defined as:
@@ -51,9 +55,13 @@ should be added to make all values positive before transformation.
 }
 \examples{
 \dontrun{
-# Automatically estimate optimal lambda
+# Automatically estimate optimal lambda from data
 bc_transform <- box_cox_transform(data$response)
 transformed_y <- bc_transform$transformed
+
+# Use with gam_influence object for proper MASS::boxcox estimation
+gam_inf <- gam_influence(model, focus = "s(x)")
+bc_transform <- box_cox_transform(gam_inf)
 
 # Use log transformation (lambda = 0)
 bc_log <- box_cox_transform(data$response, lambda = 0)
@@ -64,4 +72,5 @@ bc_sqrt <- box_cox_transform(data$response, lambda = 0.5)
 # Add small epsilon to handle zeros in data
 bc_transform_eps <- box_cox_transform(data$response, eps = 0.01)
 }
+
 }

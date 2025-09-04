@@ -4,8 +4,7 @@
 \alias{predict.gam_box_cox}
 \title{Predict Method for Box-Cox Transformed GAM}
 \usage{
-\method{predict}{gam_box_cox}(object, newdata = NULL, type = "response",
-                               back_transform = TRUE, ...)
+\method{predict}{gam_box_cox}(object, newdata = NULL, type = "response", back_transform = TRUE, ...)
 }
 \arguments{
 \item{object}{An object of class "gam_box_cox" from box_cox_gam().}

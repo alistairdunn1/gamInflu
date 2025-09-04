@@ -33,7 +33,7 @@ Apply a Box-Cox transformation to the response variable, fit a GAM on the
 \details{
 This function applies a Box-Cox transformation to the response variable of a GAM,
 fits the model on the transformed data, and returns an object with both the
-transformed model and the transformation parameters. This allows for easier 
+transformed model and the transformation parameters. This allows for easier
 back-transformation of predictions.
 
 The model requires the mgcv package to be installed.
@@ -52,4 +52,5 @@ preds <- predict(bc_gam, newdata = newdata)
 # Summary of the model
 summary(bc_gam)
 }
+
 }
