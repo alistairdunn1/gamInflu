@@ -5,6 +5,7 @@
 #' @param obj A `gam_influence` object containing the fitted GAM model and data.
 #' @param type Character. Type of residual plot to create:
 #'   - `"standard"`: Standard GAM residual plots (4-panel diagnostic plot)
+#'   - `"minimal"`: Minimal diagnostic plots (residuals vs linear predictor and QQ plot only)
 #'   - `"violin"`: Violin plot of residuals by focus term levels
 #'   - `"both"`: Both standard and violin plots (combined layout)
 #' @param residual_type Character. Type of residuals to calculate:
@@ -25,6 +26,10 @@
 #'   - Q-Q plot of residuals
 #'   - Scale-location plot (sqrt(|residuals|) vs fitted values or linear predictor)
 #'   - Residuals vs leverage (Cook's distance contours)
+#'
+#'   **Minimal plots:**
+#'   - Residuals vs linear predictor
+#'   - Q-Q plot of residuals
 #'
 #'   **Violin plots:**
 #'   - Distribution of residuals by focus term levels
@@ -53,6 +58,9 @@
 #' # Basic usage - standard residual plots
 #' gi <- gam_influence(your_model, focus = "year")
 #' plot_residuals(gi, type = "standard")
+#'
+#' # Minimal diagnostic plots (residuals vs linear predictor and QQ plot only)
+#' plot_residuals(gi, type = "minimal")
 #'
 #' # Violin plot of residuals by focus levels
 #' plot_residuals(gi, type = "violin")
@@ -92,7 +100,7 @@
 #' @importFrom rlang .data
 #' @export
 plot_residuals <- function(obj,
-                           type = c("standard", "violin", "both"),
+                           type = c("standard", "minimal", "violin", "both"),
                            residual_type = c("deviance", "pearson", "response", "working"),
                            violin_trim = TRUE,
                            add_boxplot = TRUE,
@@ -176,6 +184,8 @@ plot_residuals <- function(obj,
   # Generate plots based on type
   if (type == "standard") {
     plot_result <- create_standard_residual_plots(resid_data, residual_type, model, by, ...)
+  } else if (type == "minimal") {
+    plot_result <- create_minimal_residual_plots(resid_data, residual_type, model, by, ...)
   } else if (type == "violin") {
     plot_result <- create_violin_residual_plot(
       resid_data, obj$focus, residual_type,
@@ -305,6 +315,50 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
 
   # Combine plots
   combined_plot <- patchwork::wrap_plots(p1, p2, p3, p4, ncol = 2)
+
+  return(combined_plot)
+}
+
+#' @title Create Minimal GAM Residual Plots
+#' @description Internal function to create minimal diagnostic plots with only residuals vs linear predictor and QQ plot
+#' @param resid_data Data frame containing residuals and fitted values
+#' @param residual_type Character string indicating residual type
+#' @param model The GAM model object
+#' @param by Character. Optional variable name for faceting
+#' @param ... Additional arguments
+#' @return A patchwork object with 2 diagnostic panels
+#' @noRd
+create_minimal_residual_plots <- function(resid_data, residual_type, model, by = NULL, add_smooth = TRUE, ...) {
+  # For residuals vs linear predictor, always use linear predictor for consistency
+  x_var <- resid_data$linear_predictor
+  x_label <- "Linear Predictor"
+
+  # Panel 1: Residuals vs Linear Predictor
+  p1 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = x_var, y = .data$residuals)) +
+    ggplot2::geom_point(alpha = 0.4, colour = "royalblue", size = 0.7) +
+    ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+    ggplot2::labs(x = x_label, y = paste(tools::toTitleCase(residual_type), "Residuals"))
+
+  if (add_smooth) {
+    p1 <- p1 + ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red")
+  }
+
+  if (!is.null(by)) {
+    p1 <- p1 + ggplot2::facet_wrap(~ .data$by_var)
+  }
+
+  # Panel 2: Q-Q Plot
+  p2 <- ggplot2::ggplot(resid_data, ggplot2::aes(sample = .data$residuals)) +
+    ggplot2::geom_qq(alpha = 0.4, colour = "royalblue", size = 0.7) +
+    ggplot2::geom_qq_line(colour = "black") +
+    ggplot2::labs(x = "Theoretical Quantiles", y = "Sample Quantiles")
+
+  if (!is.null(by)) {
+    p2 <- p2 + ggplot2::facet_wrap(~ .data$by_var)
+  }
+
+  # Combine plots (2 panels side by side)
+  combined_plot <- patchwork::wrap_plots(p1, p2, ncol = 2)
 
   return(combined_plot)
 }
