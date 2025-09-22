@@ -6,7 +6,7 @@
 \usage{
 plot_residuals(
   obj,
-  type = c("standard", "violin", "both"),
+  type = c("standard", "minimal", "violin", "both"),
   residual_type = c("deviance", "pearson", "response", "working"),
   violin_trim = TRUE,
   add_boxplot = TRUE,
@@ -20,6 +20,7 @@ plot_residuals(
 
 \item{type}{Character. Type of residual plot to create:
 - `"standard"`: Standard GAM residual plots (4-panel diagnostic plot)
+- `"minimal"`: Minimal diagnostic plots (residuals vs linear predictor and QQ plot only)
 - `"violin"`: Violin plot of residuals by focus term levels
 - `"both"`: Both standard and violin plots (combined layout)}
 
@@ -47,6 +48,10 @@ A ggplot object or patchwork object (for combined plots) showing:
   - Q-Q plot of residuals
   - Scale-location plot (sqrt(|residuals|) vs fitted values or linear predictor)
   - Residuals vs leverage (Cook's distance contours)
+
+  **Minimal plots:**
+  - Residuals vs linear predictor
+  - Q-Q plot of residuals
 
   **Violin plots:**
   - Distribution of residuals by focus term levels
@@ -82,6 +87,9 @@ as a numeric sequence for better readability.
 # Basic usage - standard residual plots
 gi <- gam_influence(your_model, focus = "year")
 plot_residuals(gi, type = "standard")
+
+# Minimal diagnostic plots (residuals vs linear predictor and QQ plot only)
+plot_residuals(gi, type = "minimal")
 
 # Violin plot of residuals by focus levels
 plot_residuals(gi, type = "violin")

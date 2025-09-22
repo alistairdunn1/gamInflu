@@ -142,7 +142,8 @@ plot_residuals <- function(obj,
   fitted_vals <- fitted(model)
 
   # Get linear predictor (systematic component before link function)
-  linear_predictor <- predict(model, type = "link")
+  # Need to provide data explicitly since model may not store it internally
+  linear_predictor <- predict(model, newdata = obj$data, type = "link")
 
   # Get residuals based on type
   residuals_vals <- switch(residual_type,

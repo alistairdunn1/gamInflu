@@ -224,50 +224,121 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
   # --- 2. Standardised Index (from the full model) ---
   # This is the final index after accounting for all terms in the model.
-  # We use type="response" to get full model predictions with proper uncertainty
-  # For subset analysis, we predict using the full model but only on subset data
-  preds_full_response <- predict(obj$model, newdata = obj$data, type = "response", se.fit = TRUE)
 
-  # Also get terms predictions to extract the focus term's partial effect for influence calculations
-  preds_full_terms <- predict(obj$model, newdata = obj$data, type = "terms", se.fit = TRUE)
+  # The approach differs based on the method:
+  # - Coefficient method: uses coefficients relative to mean
+  # - Prediction method: uses predictions at reference values for non-focus variables
 
-  # Create data frame with response predictions and focus term levels
-  response_pred_df <- data.frame(
-    level = obj$data[[obj$focus]],
-    pred = preds_full_response$fit,
-    se = preds_full_response$se.fit
-  )
+  if (use_coeff_method) {
+    # For coefficient method, get full model predictions for SE calculations
+    preds_full_response <- predict(obj$model, newdata = obj$data, type = "response", se.fit = TRUE)
 
-  # Aggregate by focus term level to get mean predictions and standard errors
-  # IMPORTANT: For standard errors, we need SE of the mean, not mean of SEs
-  stan_df <- aggregate(cbind(pred, se) ~ level,
-    data = response_pred_df,
-    FUN = function(x) {
-      if (length(x) == 1) {
-        return(x)
-      }
-      c(mean = mean(x), se_of_mean = sqrt(mean(x^2)))
-    }
-  )
-
-  # Handle the aggregation result format
-  if (is.matrix(stan_df$pred)) {
-    # Multiple observations per level - use corrected SE calculation
-    pred_means <- stan_df$pred[, "mean"]
-    se_corrected <- stan_df$se[, "se_of_mean"]
-    stan_df <- data.frame(
-      level = stan_df$level,
-      pred = pred_means,
-      se = se_corrected
+    # Create data frame with response predictions and focus term levels
+    response_pred_df <- data.frame(
+      level = obj$data[[obj$focus]],
+      pred = preds_full_response$fit,
+      se = preds_full_response$se.fit
     )
+
+    # Aggregate by focus term level to get mean predictions and standard errors
+    # IMPORTANT: For standard errors, we need SE of the mean, not mean of SEs
+    stan_df <- aggregate(cbind(pred, se) ~ level,
+      data = response_pred_df,
+      FUN = function(x) {
+        if (length(x) == 1) {
+          return(x)
+        }
+        c(mean = mean(x), se_of_mean = sqrt(mean(x^2)))
+      }
+    )
+
+    # Handle the aggregation result format
+    if (is.matrix(stan_df$pred)) {
+      # Multiple observations per level - use corrected SE calculation
+      pred_means <- stan_df$pred[, "mean"]
+      se_corrected <- stan_df$se[, "se_of_mean"]
+      stan_df <- data.frame(
+        level = stan_df$level,
+        pred = pred_means,
+        se = se_corrected
+      )
+    } else {
+      # Single observation per level - keep original
+      stan_df <- data.frame(
+        level = stan_df$level,
+        pred = stan_df$pred,
+        se = stan_df$se
+      )
+    }
   } else {
-    # Single observation per level - keep original
+    # For prediction method, create reference dataset with focus variable varying
+    # and all other variables held at mode/median
+
+    # Get all unique levels of the focus variable
+    focus_levels <- levels(obj$data[[obj$focus]])
+    if (is.null(focus_levels)) {
+      focus_levels <- sort(unique(obj$data[[obj$focus]]))
+    }
+
+    # Create reference data: focus levels with other variables at their mode/median
+    reference_data <- data.frame(level = factor(focus_levels, levels = focus_levels))
+    names(reference_data)[1] <- obj$focus
+
+    # Set reference values for all other variables (excluding response variable)
+    for (var_name in names(obj$data)) {
+      if (var_name != obj$focus && var_name != obj$response) {
+        if (is.factor(obj$data[[var_name]])) {
+          # For factors, use the mode (most frequent level)
+          mode_level <- names(sort(table(obj$data[[var_name]]), decreasing = TRUE))[1]
+          reference_data[[var_name]] <- factor(mode_level, levels = levels(obj$data[[var_name]]))
+        } else {
+          # For numeric variables, use the median (more robust than mean)
+          reference_data[[var_name]] <- median(obj$data[[var_name]], na.rm = TRUE)
+        }
+      }
+    }
+
+    # Special handling for models with offsets (Poisson, negative binomial)
+    # For count models with offsets, we need to be careful about the offset values
+    # in the reference data to ensure proper standardization
+    if (!is.null(obj$model$offset) && (family == "poisson")) {
+      message("Detected model with offset - using standardized offset handling for count data")
+
+      # For count data with offsets, we typically want to standardize to unit effort
+      # This gives indices that represent the rate per unit effort
+      # Extract offset variable name from model terms if possible
+      model_terms <- attr(terms(obj$model), "term.labels")
+      offset_terms <- grep("^offset\\(", model_terms, value = TRUE)
+
+      if (length(offset_terms) > 0) {
+        # Extract variable name from offset(log(variable)) or offset(variable)
+        offset_term <- offset_terms[1] # Use first offset if multiple
+        # Parse offset(log(var)) or offset(var) to get variable name
+        offset_var <- gsub(".*\\((.*)\\).*", "\\1", offset_term)
+        offset_var <- gsub("log\\((.*)\\)", "\\1", offset_var)
+
+        if (offset_var %in% names(reference_data)) {
+          # For Poisson/NB models, set offset variable to 1 (unit effort/exposure)
+          # This standardizes the predictions to rate per unit effort
+          reference_data[[offset_var]] <- 1
+          message("Setting offset variable '", offset_var, "' to 1 (unit effort) in reference data")
+        }
+      }
+    }
+
+    # Get predictions for the focus term at reference values
+    focus_preds <- predict(obj$model, newdata = reference_data, type = "response", se.fit = TRUE)
+
+    # Create stan_df from focus-term-only predictions
     stan_df <- data.frame(
-      level = stan_df$level,
-      pred = stan_df$pred,
-      se = stan_df$se
+      level = reference_data[[obj$focus]],
+      pred = focus_preds$fit,
+      se = focus_preds$se.fit
     )
   }
+
+  # Also get terms predictions for influence calculations (needed by both methods)
+  preds_full_terms <- predict(obj$model, newdata = obj$data, type = "terms", se.fit = TRUE)
 
   # Convert to relative index (standardised) using either coefficient or prediction method
   base_pred <- mean(stan_df$pred)
@@ -470,6 +541,8 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       )
     } else {
       # Standard relative index calculation
+      # Note: predictions from type="response" are always on the response scale,
+      # regardless of whether the original response was log-transformed
       stan_df$standardised_index <- stan_df$pred / base_pred
 
       # Calculate confidence intervals on the response scale
@@ -496,36 +569,52 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       }
 
       # Calculate CV and SE on the response scale
-      stan_df$stan_se <- stan_df$se / base_pred
+      if (islog) {
+        # For log-transformed responses, use delta method for SE calculation
+        # SE on response scale = index * SE_log where SE_log is SE on log scale
+        stan_df$stan_se <- stan_df$standardised_index * stan_df$se
+      } else {
+        # Standard case: SE calculation for natural scale
+        stan_df$stan_se <- stan_df$se / base_pred
+      }
 
       # Determine if we should use delta method for CV calculation
       # Use delta method for log-link models (regardless of islog setting)
       has_log_link <- !is.null(obj$model$family$link) && obj$model$family$link == "log"
 
-      if (has_log_link) {
-        # For log-link models (e.g., Gamma(link="log"), Poisson(link="log"))
+      if (has_log_link || islog) {
+        # For log-link models or log-transformed responses
         # Use delta method for CV calculation - this is mathematically correct
-        # regardless of whether islog=TRUE or FALSE
-        log_preds <- predict(obj$model, newdata = obj$data, type = "link", se.fit = TRUE)
-        log_pred_df <- data.frame(
-          level = obj$data[[obj$focus]],
-          log_se = log_preds$se.fit
-        )
-        log_se_agg <- aggregate(log_se ~ level, data = log_pred_df, FUN = mean)
+        if (has_log_link) {
+          # For log-link models, get SE on link scale
+          log_preds <- predict(obj$model, newdata = obj$data, type = "link", se.fit = TRUE)
+          log_pred_df <- data.frame(
+            level = obj$data[[obj$focus]],
+            log_se = log_preds$se.fit
+          )
+          log_se_agg <- aggregate(log_se ~ level, data = log_pred_df, FUN = mean)
 
-        # Merge log SE with standardised data
-        stan_df <- merge(stan_df, log_se_agg, by = "level", all.x = TRUE)
+          # Merge log SE with standardised data
+          stan_df <- merge(stan_df, log_se_agg, by = "level", all.x = TRUE)
 
-        # Delta method CV: sqrt(exp(sigma^2) - 1) where sigma is SE on log scale
-        stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
-          sqrt(exp(stan_df$log_se^2) - 1),
-          NA_real_
-        )
+          # Delta method CV: sqrt(exp(sigma^2) - 1) where sigma is SE on log scale
+          stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
+            sqrt(exp(stan_df$log_se^2) - 1),
+            NA_real_
+          )
 
-        # Remove the temporary log_se column
-        stan_df$log_se <- NULL
+          # Remove the temporary log_se column
+          stan_df$log_se <- NULL
+        } else {
+          # For log-transformed responses (islog=TRUE), SE is already on log scale
+          # Delta method CV: sqrt(exp(sigma^2) - 1) where sigma is SE on log scale
+          stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
+            sqrt(exp(stan_df$se^2) - 1),
+            NA_real_
+          )
+        }
       } else {
-        # For non-log-link models (Gaussian, etc.), use standard CV = se/mean
+        # For non-log-link models without log transformation, use standard CV = se/mean
         stan_df$standardised_cv <- ifelse(stan_df$standardised_index > 1e-6,
           stan_df$stan_se / stan_df$standardised_index,
           NA_real_
@@ -620,6 +709,11 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     if (nzchar(last_token)) tokens <- c(tokens, last_token)
     # Remove empty tokens and any inline comments (unlikely)
     tokens <- tokens[nzchar(tokens)]
+
+    # Filter out offset terms - they don't contribute to model building steps
+    # since they're fixed constraints, not estimated effects
+    tokens <- tokens[!grepl("^offset\\(", tokens)]
+
     tokens
   }
   all_terms <- parse_formula_terms(obj$model)
@@ -1136,6 +1230,12 @@ validate_gam_influence <- function(obj) {
 #' @noRd
 find_term_columns <- function(term, colnames_vec, group_by_bysmooth = TRUE) {
   original_term <- term
+
+  # Skip offset terms - they don't appear in predict() output columns
+  if (grepl("^offset\\(", term)) {
+    return(character(0)) # Return empty vector for offset terms
+  }
+
   # If term is a smooth with arguments, strip spaces
   term_clean <- gsub("[[:space:]]+", "", term)
   # Generic normalisation for smooth constructors s(), te(), ti(), t2()
