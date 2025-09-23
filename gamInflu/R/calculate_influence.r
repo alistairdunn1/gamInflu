@@ -543,15 +543,40 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       # Standard relative index calculation
       # Note: predictions from type="response" are always on the response scale,
       # regardless of whether the original response was log-transformed
-      stan_df$standardised_index <- stan_df$pred / base_pred
+
+      # For log-transformed data, we need to use geometric mean approach instead of direct division
+      if (islog) {
+        # Get predictions on log scale
+        log_preds <- predict(obj$model, newdata = reference_data, type = "link", se.fit = TRUE)
+        mean_log_pred <- mean(log_preds$fit)
+
+        # Calculate standardized index as exp(log_prediction - mean(log_predictions))
+        # This is equivalent to the geometric mean approach used in coefficient method
+        stan_df$standardised_index <- exp(log_preds$fit - mean_log_pred)
+      } else {
+        # Standard arithmetic mean division for non-log data
+        stan_df$standardised_index <- stan_df$pred / base_pred
+      }
 
       # Calculate confidence intervals on the response scale
       alpha <- 1 - confidence_level
       z_score <- qnorm(1 - alpha / 2)
 
-      # Calculate confidence intervals directly on response scale
-      stan_df$stan_lower <- (stan_df$pred - z_score * stan_df$se) / base_pred
-      stan_df$stan_upper <- (stan_df$pred + z_score * stan_df$se) / base_pred
+      # Calculate confidence intervals
+      if (islog) {
+        # For log-transformed data, CI is based on link scale predictions
+        # This matches the approach used in coefficient method
+        log_preds <- predict(obj$model, newdata = reference_data, type = "link", se.fit = TRUE)
+        mean_log_pred <- mean(log_preds$fit)
+
+        # Calculate CIs on log scale, then exponentiate
+        stan_df$stan_lower <- exp(log_preds$fit - mean_log_pred - z_score * log_preds$se.fit)
+        stan_df$stan_upper <- exp(log_preds$fit - mean_log_pred + z_score * log_preds$se.fit)
+      } else {
+        # Standard arithmetic approach for non-log data
+        stan_df$stan_lower <- (stan_df$pred - z_score * stan_df$se) / base_pred
+        stan_df$stan_upper <- (stan_df$pred + z_score * stan_df$se) / base_pred
+      }
 
       # Ensure confidence intervals are non-negative for positive-valued responses
       if (all(stan_df$pred > 0, na.rm = TRUE)) {
@@ -570,9 +595,15 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
       # Calculate CV and SE on the response scale
       if (islog) {
-        # For log-transformed responses, use delta method for SE calculation
-        # SE on response scale = index * SE_log where SE_log is SE on log scale
-        stan_df$stan_se <- stan_df$standardised_index * stan_df$se
+        # For log-transformed responses, use log-scale SEs directly
+        # When we use exp(log_pred - mean_log_pred) approach, the SE is simply the SE on log scale
+        # This matches the coefficient method approach
+        log_preds <- predict(obj$model, newdata = reference_data, type = "link", se.fit = TRUE)
+        log_ses <- log_preds$se.fit # SE on log scale (used as CV approximation)
+
+        # Delta method: SE on response scale = index * SE_log
+        # This is the standard delta method for log transformation
+        stan_df$stan_se <- stan_df$standardised_index * log_ses
       } else {
         # Standard case: SE calculation for natural scale
         stan_df$stan_se <- stan_df$se / base_pred
