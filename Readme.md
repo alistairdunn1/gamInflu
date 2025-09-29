@@ -659,6 +659,7 @@ if (length(problem_years) > 0) {
 - **Distributional Assumption Testing**: Tests normality and family-specific assumptions with p-value thresholds
 - **Index Difference Analysis**: Explains large differences between unstandardised and standardised indices
 - **Influence Impact Assessment**: Quantifies which model terms drive the largest changes to focus indices
+- **Process Error Estimation**: Calculates additional CV needed for biologically plausible smooth trends
 - **Comprehensive Recommendations**: Provides specific suggestions for model improvement
 - **Diagnostic Plots**: Visual assessment of residual patterns, Q-Q plots, and index comparisons
 
@@ -975,11 +976,61 @@ The package provides both specific plotting functions and a generic `plot()` met
 
 ### Utility Functions
 
-| Function           | Purpose                                | Usage Example                              |
-| ------------------ | -------------------------------------- | ------------------------------------------ |
-| `geometric_mean()` | Calculate geometric mean for rescaling | `geometric_mean(values, na.rm = TRUE)`     |
-| `weibull_family()` | Custom Weibull family for GAM fitting  | `gam(y ~ s(x), family = weibull_family())` |
-| `stepCPUE_gam()`   | Stepwise GAM building with CPUE data   | `stepCPUE_gam(data, response = "cpue")`    |
+| Function           | Purpose                                                  | Usage Example                                 |
+| ------------------ | -------------------------------------------------------- | --------------------------------------------- |
+| `geometric_mean()` | Calculate geometric mean for rescaling                   | `geometric_mean(values, na.rm = TRUE)`        |
+| `weibull_family()` | Custom Weibull family for GAM fitting                    | `gam(y ~ s(x), family = weibull_family())`    |
+| `stepCPUE_gam()`   | Stepwise GAM building with CPUE data                     | `stepCPUE_gam(data, response = "cpue")`       |
+| `CPUE_CV()`        | Estimate additional process error CV for standardized indices | `CPUE_CV(gi, r = 0.1, plot = TRUE)` |
+
+#### CPUE_CV Function
+
+The `CPUE_CV()` function estimates the additional process error CV needed for GAM-derived standardized indices to follow a smooth trend. It works with `gam_influence` objects, applies a lowess smoothing with constrained rate of change, and calculates both the model-based uncertainty and additional CV needed for a smoother trend.
+
+```r
+# First create and fit a gam_influence object
+gi <- gam_influence(model, focus = "year")
+gi <- calculate_influence(gi)
+
+# Basic usage with default settings
+results <- CPUE_CV(gi)
+
+# With custom settings
+results <- CPUE_CV(gi, 
+        r = 0.15,             # Maximum rate of change
+        increase.only = TRUE, # Only consider positive changes
+        ylim = c(0, 3),       # Custom y-axis limits
+        add.mean = TRUE,      # Add trend line
+        plot = TRUE)          # Create plot (set FALSE to suppress)
+
+# Store results without plotting
+results <- CPUE_CV(gi, plot = FALSE)
+cat("Additional process error CV:", results$additional_CV, "\n")
+cat("Total CV:", results$total_CV, "\n")
+
+# Access the data for custom plotting
+head(results$data)
+```
+
+**Function Components:**
+
+1. **Input**: Takes a `gam_influence` object with standardized indices and CV values
+2. **Process**: 
+   - Applies lowess smoothing with different spans
+   - Finds optimal smoothing parameter based on maximum rate of change constraint
+   - Compares model uncertainty to smoothed trend uncertainty
+   - Calculates additional CV needed to achieve smooth trend
+3. **Output**: 
+   - Additional process error CV needed
+   - Combined total CV (model + additional)
+   - Data frame with original indices, smoothed values, and all CV components
+   - ggplot visualization showing indices with uncertainty bands
+
+Key features:
+- Uses a lognormal error model appropriate for fisheries abundance indices
+- Automatically selects smoothing parameter based on maximum rate of change
+- Returns both CV estimate and complete dataset for further analysis
+- Modern ggplot2 visualization with confidence bounds
 
 ### S3 Methods
 
@@ -1033,6 +1084,8 @@ The package includes testing for all user-facing functions:
 **Utility Functions:**
 
 - ✅ `geometric_mean()` - Statistical calculations
+- ✅ `CPUE_CV()` - Process error estimation for standardized indices
+- ✅ `stepCPUE_gam()` - Stepwise model building
 
 **S3 Methods:**
 
