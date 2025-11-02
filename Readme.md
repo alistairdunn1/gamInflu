@@ -976,12 +976,12 @@ The package provides both specific plotting functions and a generic `plot()` met
 
 ### Utility Functions
 
-| Function           | Purpose                                                  | Usage Example                                 |
-| ------------------ | -------------------------------------------------------- | --------------------------------------------- |
-| `geometric_mean()` | Calculate geometric mean for rescaling                   | `geometric_mean(values, na.rm = TRUE)`        |
-| `weibull_family()` | Custom Weibull family for GAM fitting                    | `gam(y ~ s(x), family = weibull_family())`    |
-| `stepCPUE_gam()`   | Stepwise GAM building with CPUE data                     | `stepCPUE_gam(data, response = "cpue")`       |
-| `CPUE_CV()`        | Estimate additional process error CV for standardized indices | `CPUE_CV(gi, r = 0.1, plot = TRUE)` |
+| Function           | Purpose                                                       | Usage Example                              |
+| ------------------ | ------------------------------------------------------------- | ------------------------------------------ |
+| `geometric_mean()` | Calculate geometric mean for rescaling                        | `geometric_mean(values, na.rm = TRUE)`     |
+| `weibull_family()` | Custom Weibull family for GAM fitting                         | `gam(y ~ s(x), family = weibull_family())` |
+| `stepCPUE_gam()`   | Stepwise GAM building with CPUE data                          | `stepCPUE_gam(data, response = "cpue")`    |
+| `CPUE_CV()`        | Estimate additional process error CV for standardized indices | `CPUE_CV(gi, r = 0.1, plot = TRUE)`        |
 
 #### CPUE_CV Function
 

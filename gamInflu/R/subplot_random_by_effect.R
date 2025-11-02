@@ -122,24 +122,25 @@ subplot_random_by_effect <- function(obj, t, term_vars, re_type = "points", cdi 
   re_type <- pmatch(re_type, c("points", "qq", "hist", "caterpillar"), nomatch = 1)
 
   if (re_type == 1 || re_type == 4) { # points or caterpillar
-    p <- ggplot(plot_data, aes(x = .data$main_var, y = .data$coefficient)) +
-      geom_point(size = 2, colour = "royalblue") +
+    p <- ggplot(plot_data, aes(x = .data$main_var, y = .data$coefficient, colour = .data$by_var)) +
+      geom_point(size = 2, position = position_dodge(width = 0.3)) +
       geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper),
-        width = 0.2, colour = "royalblue"
+        width = 0.2, position = position_dodge(width = 0.3)
       ) +
       geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-      facet_wrap(~by_var, scales = "free_x") +
       labs(
         y = "Random Effect Coefficient",
-        title = paste("Random Effects:", main_var, "by", by_var)
+        title = paste("Random Effects:", main_var, "by", by_var),
+        colour = by_var
       ) +
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-    if (re_type == 4) { # caterpillar - sort by coefficient value
-      plot_data$main_var <- factor(plot_data$main_var,
-        levels = plot_data$main_var[order(plot_data$coefficient)]
-      )
-      p <- p + aes(x = .data$main_var)
+    if (re_type == 4) { # caterpillar - sort by coefficient value within each by_var group
+      # For caterpillar plots, we need to handle sorting differently when grouping by colour
+      # Sort within each by_var group to maintain meaningful ordering
+      plot_data <- plot_data[order(plot_data$by_var, plot_data$coefficient), ]
+      plot_data$main_var <- factor(plot_data$main_var, levels = unique(plot_data$main_var))
+      p <- p %+% plot_data
     }
   } else if (re_type == 2) { # qq plot - use simpler approach
     # Create Q-Q plot manually since stat_qq import might be problematic
