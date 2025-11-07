@@ -5,7 +5,7 @@
 #' constrains the maximum rate of change between time points.
 #'
 #' @param obj A `gam_influence` object containing calculated indices from `calculate_influence()`.
-#' @param r Numeric; maximum rate of population increase or change (as a proportion, default 0.1 or 10%).
+#' @param r Numeric; maximum rate of population increase or change (as a proportion, default 0.1 or 10 percent).
 #' @param ylim Numeric vector of length 2 specifying the y-axis limits. If NULL (default), calculated automatically.
 #' @param increase.only Logical; if TRUE, only consider positive changes when selecting smoothing parameter.
 #' @param add.mean Logical; if TRUE (default), add the smoothed trend line to the plot.

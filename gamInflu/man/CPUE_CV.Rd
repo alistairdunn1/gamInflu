@@ -16,7 +16,7 @@ CPUE_CV(
 \arguments{
 \item{obj}{A `gam_influence` object containing calculated indices from `calculate_influence()`.}
 
-\item{r}{Numeric; maximum rate of population increase or change (as a proportion, default 0.1 or 10%).}
+\item{r}{Numeric; maximum rate of population increase or change (as a proportion, default 0.1 or 10 percent).}
 
 \item{ylim}{Numeric vector of length 2 specifying the y-axis limits. If NULL (default), calculated automatically.}
 

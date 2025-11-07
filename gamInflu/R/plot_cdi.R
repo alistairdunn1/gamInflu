@@ -100,7 +100,7 @@ create_model_summary_table <- function(obj) {
 
   # Create data frame for the table
   table_data <- data.frame(
-    Label = c("Deviance:", "Null Dev:", "Dev Expl:", "R²:"),
+    Label = c("Deviance:", "Null Dev:", "Dev Expl:", "R2:"),
     Value = c(
       as.character(model_deviance),
       as.character(null_deviance),
