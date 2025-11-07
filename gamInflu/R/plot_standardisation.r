@@ -102,49 +102,52 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE) {
   return(p)
 }
 
-#' @title Unstandardised Index Plot with Boxplots
-#' @description Creates a plot showing the raw year effect as boxplots by year, with an optional 
+#' @title Unstandardised Index Plot with Boxplots or Violin Plots
+#' @description Creates a plot showing the raw year effect as violin plots or boxplots by year, with an optional 
 #' overlay of the standardised index as a line with confidence interval ribbon. The standardised 
 #' index is rescaled to have the same mean as the unstandardised data for direct comparison.
 #' @param obj A `gam_influence` object containing calculated indices from `calculate_influence()`.
 #' @param show_standardised Logical. Should the standardised index be displayed as an overlay? Default is TRUE.
 #'   When TRUE, adds a line and confidence ribbon showing the rescaled standardised index for comparison.
+#' @param plot_type Character. Type of plot to display raw data distribution. Options are "violin" (default) or "boxplot".
+#'   - "violin": Shows kernel density estimation of the distribution shape
+#'   - "boxplot": Shows median, quartiles, whiskers, and outliers
 #' @return A ggplot object showing:
-#'   - Boxplots: Distribution of raw observations by focus term level (typically year)
+#'   - Violin plots or boxplots: Distribution of raw observations by focus term level (typically year)
 #'   - Rescaled standardised index line (blue): Model-adjusted values rescaled to match unstandardised mean (if show_standardised = TRUE)
 #'   - Confidence ribbon (light blue): Uncertainty bounds around rescaled standardised index (if show_standardised = TRUE)
 #' @details
 #' This plot provides insight into the raw data distribution within each level of the focus term
 #' (typically years) and how the model's standardised index relates to this underlying variability.
 #' 
-#' The boxplots show:
-#' - Median (centre line)
-#' - Quartiles (box boundaries) 
-#' - Whiskers (1.5 × IQR)
-#' - Outliers (points beyond whiskers)
+#' **Plot types:**
+#' - **Violin plots** show: Kernel density estimation revealing the full distribution shape, including multimodality and skewness (default)
+#' - **Boxplots** show: Median (centre line), quartiles (box boundaries), whiskers (1.5 × IQR), and outliers (points beyond whiskers)
 #' 
 #' The standardised index overlay is rescaled to have the same mean as the unstandardised data,
 #' allowing direct visual comparison between the raw data patterns and the model-derived trend.
-#' The x-axis uses a numeric sequence for clean display regardless of the focus term values.
 #' 
 #' Rescaling formula: rescaled_index = standardised_index * (mean(unstandardised) / mean(standardised))
 #' @examples
 #' \dontrun{
-#' # Basic usage - shows boxplots with rescaled standardised overlay
+#' # Basic usage - shows violin plots with rescaled standardised overlay
 #' gi <- gam_influence(your_model, focus = "year")
 #' gi <- calculate_influence(gi)
 #' plot_unstandardised(gi)
 #' 
-#' # Show only boxplots without standardised overlay
+#' # Use boxplots for traditional quartile visualization
+#' plot_unstandardised(gi, plot_type = "boxplot")
+#' 
+#' # Show only violin plots without standardised overlay
 #' plot_unstandardised(gi, show_standardised = FALSE)
 #' 
 #' # Compare patterns between raw data and rescaled model trend
-#' plot_unstandardised(gi, show_standardised = TRUE)
+#' plot_unstandardised(gi, show_standardised = TRUE, plot_type = "violin")
 #' }
-#' @importFrom ggplot2 ggplot aes geom_boxplot geom_line geom_ribbon labs scale_y_continuous theme_minimal
+#' @importFrom ggplot2 ggplot aes geom_boxplot geom_violin geom_line geom_ribbon labs scale_y_continuous theme_minimal
 #' @importFrom rlang .data
 #' @export
-plot_unstandardised <- function(obj, show_standardised = TRUE) {
+plot_unstandardised <- function(obj, show_standardised = TRUE, plot_type = "violin") {
   # Validate inputs
   if (is.null(obj$data)) {
     stop("No data found in gam_influence object.", call. = FALSE)
@@ -154,6 +157,11 @@ plot_unstandardised <- function(obj, show_standardised = TRUE) {
   }
   if (is.null(obj$response)) {
     stop("Response variable is not set in gam_influence object.", call. = FALSE)
+  }
+  
+  # Validate plot_type parameter
+  if (!plot_type %in% c("boxplot", "violin")) {
+    stop("plot_type must be either 'boxplot' or 'violin'.", call. = FALSE)
   }
   
   # Get the raw data for boxplots
@@ -178,10 +186,16 @@ plot_unstandardised <- function(obj, show_standardised = TRUE) {
     plot_data[[focus_var]] <- as.numeric(as.character(plot_data[[focus_var]]))
   }
   
-  # Create the base plot with boxplots
+  # Create the base plot with either boxplots or violin plots
   p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[focus_var]], y = .data[[response_var]])) +
-    ggplot2::geom_boxplot(aes(group = .data[[focus_var]]), fill = "grey90", colour = "grey60", alpha = 0.7) +
-    ggplot2::labs(x = focus_var, y = response_var) 
+    ggplot2::labs(x = focus_var, y = response_var)
+  
+  # Add the appropriate plot type
+  if (plot_type == "boxplot") {
+    p <- p + ggplot2::geom_boxplot(aes(group = .data[[focus_var]]), fill = "grey90", colour = "grey60", alpha = 0.7)
+  } else if (plot_type == "violin") {
+    p <- p + ggplot2::geom_violin(aes(group = .data[[focus_var]]), fill = "grey90", colour = "grey60", alpha = 0.7)
+  }
 
   # Add standardised index overlay if requested
   if (show_standardised) {

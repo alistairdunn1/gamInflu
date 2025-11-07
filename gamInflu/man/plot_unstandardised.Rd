@@ -2,24 +2,28 @@
 % Please edit documentation in R/plot_standardisation.R
 \name{plot_unstandardised}
 \alias{plot_unstandardised}
-\title{Unstandardised Index Plot with Boxplots}
+\title{Unstandardised Index Plot with Boxplots or Violin Plots}
 \usage{
-plot_unstandardised(obj, show_standardised = TRUE)
+plot_unstandardised(obj, show_standardised = TRUE, plot_type = "violin")
 }
 \arguments{
 \item{obj}{A `gam_influence` object containing calculated indices from `calculate_influence()`.}
 
 \item{show_standardised}{Logical. Should the standardised index be displayed as an overlay? Default is TRUE.
 When TRUE, adds a line and confidence ribbon showing the rescaled standardised index for comparison.}
+
+\item{plot_type}{Character. Type of plot to display raw data distribution. Options are "violin" (default) or "boxplot".
+- "violin": Shows kernel density estimation of the distribution shape
+- "boxplot": Shows median, quartiles, whiskers, and outliers}
 }
 \value{
 A ggplot object showing:
-  - Boxplots: Distribution of raw observations by focus term level (typically year)
+  - Violin plots or boxplots: Distribution of raw observations by focus term level (typically year)
   - Rescaled standardised index line (blue): Model-adjusted values rescaled to match unstandardised mean (if show_standardised = TRUE)
   - Confidence ribbon (light blue): Uncertainty bounds around rescaled standardised index (if show_standardised = TRUE)
 }
 \description{
-Creates a plot showing the raw year effect as boxplots by year, with an optional 
+Creates a plot showing the raw year effect as violin plots or boxplots by year, with an optional 
 overlay of the standardised index as a line with confidence interval ribbon. The standardised 
 index is rescaled to have the same mean as the unstandardised data for direct comparison.
 }
@@ -27,29 +31,29 @@ index is rescaled to have the same mean as the unstandardised data for direct co
 This plot provides insight into the raw data distribution within each level of the focus term
 (typically years) and how the model's standardised index relates to this underlying variability.
 
-The boxplots show:
-- Median (centre line)
-- Quartiles (box boundaries) 
-- Whiskers (1.5 × IQR)
-- Outliers (points beyond whiskers)
+**Plot types:**
+- **Violin plots** show: Kernel density estimation revealing the full distribution shape, including multimodality and skewness (default)
+- **Boxplots** show: Median (centre line), quartiles (box boundaries), whiskers (1.5 × IQR), and outliers (points beyond whiskers)
 
 The standardised index overlay is rescaled to have the same mean as the unstandardised data,
 allowing direct visual comparison between the raw data patterns and the model-derived trend.
-The x-axis uses a numeric sequence for clean display regardless of the focus term values.
 
 Rescaling formula: rescaled_index = standardised_index * (mean(unstandardised) / mean(standardised))
 }
 \examples{
 \dontrun{
-# Basic usage - shows boxplots with rescaled standardised overlay
+# Basic usage - shows violin plots with rescaled standardised overlay
 gi <- gam_influence(your_model, focus = "year")
 gi <- calculate_influence(gi)
 plot_unstandardised(gi)
 
-# Show only boxplots without standardised overlay
+# Use boxplots for traditional quartile visualization
+plot_unstandardised(gi, plot_type = "boxplot")
+
+# Show only violin plots without standardised overlay
 plot_unstandardised(gi, show_standardised = FALSE)
 
 # Compare patterns between raw data and rescaled model trend
-plot_unstandardised(gi, show_standardised = TRUE)
+plot_unstandardised(gi, show_standardised = TRUE, plot_type = "violin")
 }
 }
