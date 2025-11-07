@@ -16,7 +16,7 @@ CPUE_CV(
 \arguments{
 \item{obj}{A `gam_influence` object containing calculated indices from `calculate_influence()`.}
 
-\item{r}{Numeric; maximum rate of population increase or change (as proportion, default 0.1 or 10%).}
+\item{r}{Numeric; maximum rate of population increase or change (as a proportion, default 0.1 or 10%).}
 
 \item{ylim}{Numeric vector of length 2 specifying the y-axis limits. If NULL (default), calculated automatically.}
 
@@ -31,14 +31,14 @@ Invisibly returns a list containing:
   \itemize{
     \item `additional_CV`: The additional CV needed to achieve the smooth trend
     \item `total_CV`: Combined model CV and additional smoothing CV
-    \item `data`: A data frame with the original indices, smoothed values, 
+    \item `data`: A data frame with the original indices, smoothed values,
           model CV, additional CV, and total CV
     \item `plot`: The ggplot object (if plot=TRUE)
   }
 }
 \description{
-Estimates the additional coefficient of variation (CV) needed for a GAM-derived 
-standardized index series to follow a smooth trend. Uses a lognormal error model and 
+Estimates the additional coefficient of variation (CV) needed for a GAM-derived
+standardized index series to follow a smooth trend. Uses a lognormal error model and
 constrains the maximum rate of change between time points.
 }
 \details{
@@ -52,7 +52,7 @@ This is useful for:
     \item Presenting smoothed indices with appropriate uncertainty bounds
   }
 
-The CV is calculated assuming a lognormal error distribution, which is appropriate for 
+The CV is calculated assuming a lognormal error distribution, which is appropriate for
 most fisheries abundance indices.
 }
 \examples{

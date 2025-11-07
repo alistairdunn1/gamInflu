@@ -16,8 +16,8 @@
 #'   logarithmic scale. If NULL, this will be inferred automatically by
 #'   `calculate_influence()` based on the response variable name and model family.
 #' @param use_coeff_method A logical value indicating whether to use coefficient-based
-#'   confidence intervals (TRUE, default) following traditional fisheries approaches, or prediction-based
-#'   confidence intervals (FALSE) using modern mgcv prediction methods. The coefficient-based
+#'   confidence intervals (FALSE) following traditional fisheries approaches, or prediction-based
+#'   confidence intervals (TRUE, default) using modern mgcv prediction methods. The coefficient-based
 #'   method provides traditional relative effect calculations, while
 #'   prediction-based method uses direct model predictions with uncertainty propagation.
 #' @return An object of S3 class 'gam_influence'. This is a list containing the model,
@@ -61,7 +61,7 @@
 #' }
 #' @importFrom stats terms formula
 #' @export
-gam_influence <- function(model, focus, data = NULL, islog = NULL, use_coeff_method = TRUE) {
+gam_influence <- function(model, focus, data = NULL, islog = NULL, use_coeff_method = FALSE) {
   # --- Data Extraction and Validation ---
   if (is.null(data)) {
     data <- model$data

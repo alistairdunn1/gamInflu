@@ -4,7 +4,13 @@
 \alias{gam_influence}
 \title{Create a GAM Influence Object}
 \usage{
-gam_influence(model, focus, data = NULL, islog = NULL, use_coeff_method = TRUE)
+gam_influence(
+  model,
+  focus,
+  data = NULL,
+  islog = NULL,
+  use_coeff_method = FALSE
+)
 }
 \arguments{
 \item{model}{A fitted model object from mgcv (gam) or stats (glm). Supported families:
@@ -24,8 +30,8 @@ logarithmic scale. If NULL, this will be inferred automatically by
 `calculate_influence()` based on the response variable name and model family.}
 
 \item{use_coeff_method}{A logical value indicating whether to use coefficient-based
-confidence intervals (TRUE, default) following traditional fisheries approaches, or prediction-based
-confidence intervals (FALSE) using modern mgcv prediction methods. The coefficient-based
+confidence intervals (FALSE) following traditional fisheries approaches, or prediction-based
+confidence intervals (TRUE, default) using modern mgcv prediction methods. The coefficient-based
 method provides traditional relative effect calculations, while
 prediction-based method uses direct model predictions with uncertainty propagation.}
 }

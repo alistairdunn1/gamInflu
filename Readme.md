@@ -955,6 +955,7 @@ The package provides both specific plotting functions and a generic `plot()` met
 | Function                    | Purpose                                            | Usage Example                                  |
 | --------------------------- | -------------------------------------------------- | ---------------------------------------------- |
 | `plot_standardisation()`    | Compare unstandardised vs standardised indices     | `plot_standardisation(gi)`                     |
+| `plot_unstandardised()`     | Show raw data distribution with optional standardised overlay | `plot_unstandardised(gi)`                      |
 | `plot_stepwise_index()`     | Show index changes as terms are added              | `plot_stepwise_index(gi)`                      |
 | `plot_term_influence()`     | Display influence of each term on focus            | `plot_term_influence(gi)`                      |
 | `plot_step_and_influence()` | Combined stepwise and influence plots              | `plot_step_and_influence(gi)`                  |
@@ -1064,6 +1065,7 @@ The package includes testing for all user-facing functions:
 **Plotting Functions:**
 
 - ✅ `plot_standardisation()` - Index comparison plots
+- ✅ `plot_unstandardised()` - Raw data distribution with optional standardised overlay
 - ✅ `plot_stepwise_index()` - Stepwise progression visualisation
 - ✅ `plot_term_influence()` - Term influence plots
 - ✅ `plot_step_and_influence()` - Combined plotting

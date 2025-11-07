@@ -101,3 +101,131 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE) {
 
   return(p)
 }
+
+#' @title Unstandardised Index Plot with Boxplots
+#' @description Creates a plot showing the raw year effect as boxplots by year, with an optional 
+#' overlay of the standardised index as a line with confidence interval ribbon. The standardised 
+#' index is rescaled to have the same mean as the unstandardised data for direct comparison.
+#' @param obj A `gam_influence` object containing calculated indices from `calculate_influence()`.
+#' @param show_standardised Logical. Should the standardised index be displayed as an overlay? Default is TRUE.
+#'   When TRUE, adds a line and confidence ribbon showing the rescaled standardised index for comparison.
+#' @return A ggplot object showing:
+#'   - Boxplots: Distribution of raw observations by focus term level (typically year)
+#'   - Rescaled standardised index line (blue): Model-adjusted values rescaled to match unstandardised mean (if show_standardised = TRUE)
+#'   - Confidence ribbon (light blue): Uncertainty bounds around rescaled standardised index (if show_standardised = TRUE)
+#' @details
+#' This plot provides insight into the raw data distribution within each level of the focus term
+#' (typically years) and how the model's standardised index relates to this underlying variability.
+#' 
+#' The boxplots show:
+#' - Median (centre line)
+#' - Quartiles (box boundaries) 
+#' - Whiskers (1.5 × IQR)
+#' - Outliers (points beyond whiskers)
+#' 
+#' The standardised index overlay is rescaled to have the same mean as the unstandardised data,
+#' allowing direct visual comparison between the raw data patterns and the model-derived trend.
+#' The x-axis uses a numeric sequence for clean display regardless of the focus term values.
+#' 
+#' Rescaling formula: rescaled_index = standardised_index * (mean(unstandardised) / mean(standardised))
+#' @examples
+#' \dontrun{
+#' # Basic usage - shows boxplots with rescaled standardised overlay
+#' gi <- gam_influence(your_model, focus = "year")
+#' gi <- calculate_influence(gi)
+#' plot_unstandardised(gi)
+#' 
+#' # Show only boxplots without standardised overlay
+#' plot_unstandardised(gi, show_standardised = FALSE)
+#' 
+#' # Compare patterns between raw data and rescaled model trend
+#' plot_unstandardised(gi, show_standardised = TRUE)
+#' }
+#' @importFrom ggplot2 ggplot aes geom_boxplot geom_line geom_ribbon labs scale_y_continuous theme_minimal
+#' @importFrom rlang .data
+#' @export
+plot_unstandardised <- function(obj, show_standardised = TRUE) {
+  # Validate inputs
+  if (is.null(obj$data)) {
+    stop("No data found in gam_influence object.", call. = FALSE)
+  }
+  if (is.null(obj$focus)) {
+    stop("Focus term is not set in gam_influence object.", call. = FALSE)
+  }
+  if (is.null(obj$response)) {
+    stop("Response variable is not set in gam_influence object.", call. = FALSE)
+  }
+  
+  # Get the raw data for boxplots
+  focus_var <- obj$focus
+  response_var <- obj$response
+  
+  if (!(focus_var %in% names(obj$data))) {
+    stop("Focus variable '", focus_var, "' not found in data.", call. = FALSE)
+  }
+  if (!(response_var %in% names(obj$data))) {
+    stop("Response variable '", response_var, "' not found in data.", call. = FALSE)
+  }
+  
+  # Calculate the mean of unstandardised data for rescaling
+  unstd_mean <- mean(obj$data[[response_var]], na.rm = TRUE)
+  
+  # Get plot data
+  plot_data <- obj$data
+  
+  # Convert focus variable to numeric if possible (same approach as plot_standardisation)
+  if (is.factor(plot_data[[focus_var]]) && all(!is.na(as.numeric(as.character(levels(plot_data[[focus_var]])))))) {
+    plot_data[[focus_var]] <- as.numeric(as.character(plot_data[[focus_var]]))
+  }
+  
+  # Create the base plot with boxplots
+  p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[focus_var]], y = .data[[response_var]])) +
+    ggplot2::geom_boxplot(aes(group = .data[[focus_var]]), fill = "grey90", colour = "grey60", alpha = 0.7) +
+    ggplot2::labs(x = focus_var, y = response_var) 
+
+  # Add standardised index overlay if requested
+  if (show_standardised) {
+    # Get standardised index data
+    indices_df <- obj$calculated$indices
+    if (is.null(indices_df)) {
+      warning("No calculated indices found. Run `calculate_influence()` first to show standardised overlay.")
+    } else {
+      # Check required columns exist
+      required_cols <- c("level", "standardised_index", "stan_lower", "stan_upper")
+      if (all(required_cols %in% names(indices_df))) {
+        
+        # Convert level to numeric if possible (same approach as plot_standardisation)
+        if (is.factor(indices_df$level) && all(!is.na(as.numeric(as.character(levels(indices_df$level)))))) {
+          indices_df$level <- as.numeric(as.character(indices_df$level))
+        }
+        
+        # Calculate rescaling factor to match unstandardised mean
+        std_mean <- mean(indices_df$standardised_index, na.rm = TRUE)
+        rescale_factor <- unstd_mean / std_mean
+        
+        # Rescale standardised index and confidence bounds
+        indices_df$standardised_index_rescaled <- indices_df$standardised_index * rescale_factor
+        indices_df$stan_lower_rescaled <- indices_df$stan_lower * rescale_factor
+        indices_df$stan_upper_rescaled <- indices_df$stan_upper * rescale_factor
+        
+        # Add standardised index as line and ribbon
+        p <- p +
+          ggplot2::geom_ribbon(data = indices_df, 
+                             ggplot2::aes(x = .data$level, 
+                                        ymin = .data$stan_lower_rescaled, 
+                                        ymax = .data$stan_upper_rescaled, 
+                                        group = 1),
+                             fill = "royalblue", alpha = 0.3, inherit.aes = FALSE) +
+          ggplot2::geom_line(data = indices_df, 
+                           ggplot2::aes(x = .data$level, y = .data$standardised_index_rescaled, group = 1),
+                           colour = "royalblue", inherit.aes = FALSE) +
+          ggplot2::labs(subtitle = paste("Standardised index rescaled by factor:", round(rescale_factor, 3))) 
+      } else {
+        warning("Required columns for standardised index not found. Missing: ", 
+                paste(setdiff(required_cols, names(indices_df)), collapse = ", "))
+      }
+    }
+  }
+  
+  return(p)
+}
