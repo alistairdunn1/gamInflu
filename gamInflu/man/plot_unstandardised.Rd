@@ -21,11 +21,14 @@ A ggplot object showing:
   - Violin plots or boxplots: Distribution of raw observations by focus term level (typically year)
   - Rescaled standardised index line (blue): Model-adjusted values rescaled to match unstandardised mean (if show_standardised = TRUE)
   - Confidence ribbon (light blue): Uncertainty bounds around rescaled standardised index (if show_standardised = TRUE)
+  - Automatic exp-transformation: Applied when islog = TRUE to show data on original scale
 }
 \description{
 Creates a plot showing the raw year effect as violin plots or boxplots by year, with an optional 
 overlay of the standardised index as a line with confidence interval ribbon. The standardised 
 index is rescaled to have the same mean as the unstandardised data for direct comparison.
+If the response was fitted on the log scale (islog = TRUE), both the raw data and standardised 
+indices are exp-transformed back to the original scale before plotting.
 }
 \details{
 This plot provides insight into the raw data distribution within each level of the focus term
@@ -34,6 +37,13 @@ This plot provides insight into the raw data distribution within each level of t
 **Plot types:**
 - **Violin plots** show: Kernel density estimation revealing the full distribution shape, including multimodality and skewness (default)
 - **Boxplots** show: Median (centre line), quartiles (box boundaries), whiskers (1.5 × IQR), and outliers (points beyond whiskers)
+
+**Log-scale handling:**
+When the response was fitted on the log scale (obj$islog = TRUE), the function automatically:
+- Applies exp() transformation to raw data before plotting for interpretability
+- Uses standardised indices as-is (already transformed by calculate_influence())
+- Updates y-axis label to indicate exp-transformation of raw data
+- Includes transformation note in plot subtitle
 
 The standardised index overlay is rescaled to have the same mean as the unstandardised data,
 allowing direct visual comparison between the raw data patterns and the model-derived trend.
@@ -52,6 +62,11 @@ plot_unstandardised(gi, plot_type = "boxplot")
 
 # Show only violin plots without standardised overlay
 plot_unstandardised(gi, show_standardised = FALSE)
+
+# For log-scale models, data is automatically exp-transformed
+gi_log <- gam_influence(log_model, focus = "year")  # islog will be TRUE
+gi_log <- calculate_influence(gi_log)
+plot_unstandardised(gi_log)  # Shows exp-transformed data on original scale
 
 # Compare patterns between raw data and rescaled model trend
 plot_unstandardised(gi, show_standardised = TRUE, plot_type = "violin")

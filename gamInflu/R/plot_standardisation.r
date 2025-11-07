@@ -103,9 +103,11 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE) {
 }
 
 #' @title Unstandardised Index Plot with Boxplots or Violin Plots
-#' @description Creates a plot showing the raw year effect as violin plots or boxplots by year, with an optional 
-#' overlay of the standardised index as a line with confidence interval ribbon. The standardised 
+#' @description Creates a plot showing the raw year effect as violin plots or boxplots by year, with an optional
+#' overlay of the standardised index as a line with confidence interval ribbon. The standardised
 #' index is rescaled to have the same mean as the unstandardised data for direct comparison.
+#' If the response was fitted on the log scale (islog = TRUE), both the raw data and standardised
+#' indices are exp-transformed back to the original scale before plotting.
 #' @param obj A `gam_influence` object containing calculated indices from `calculate_influence()`.
 #' @param show_standardised Logical. Should the standardised index be displayed as an overlay? Default is TRUE.
 #'   When TRUE, adds a line and confidence ribbon showing the rescaled standardised index for comparison.
@@ -116,17 +118,23 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE) {
 #'   - Violin plots or boxplots: Distribution of raw observations by focus term level (typically year)
 #'   - Rescaled standardised index line (blue): Model-adjusted values rescaled to match unstandardised mean (if show_standardised = TRUE)
 #'   - Confidence ribbon (light blue): Uncertainty bounds around rescaled standardised index (if show_standardised = TRUE)
+#'   - Automatic exp-transformation: Applied when islog = TRUE to show data on original scale
 #' @details
 #' This plot provides insight into the raw data distribution within each level of the focus term
 #' (typically years) and how the model's standardised index relates to this underlying variability.
-#' 
+#'
 #' **Plot types:**
 #' - **Violin plots** show: Kernel density estimation revealing the full distribution shape, including multimodality and skewness (default)
 #' - **Boxplots** show: Median (centre line), quartiles (box boundaries), whiskers (1.5 × IQR), and outliers (points beyond whiskers)
-#' 
+#'
+#' **Log-scale handling:**
+#' When the response was fitted on the log scale (obj$islog = TRUE), the function automatically:
+#' - Applies exp() transformation to raw data before plotting for interpretability
+#' - Uses standardised indices as-is (already transformed by calculate_influence())
+#'
 #' The standardised index overlay is rescaled to have the same mean as the unstandardised data,
 #' allowing direct visual comparison between the raw data patterns and the model-derived trend.
-#' 
+#'
 #' Rescaling formula: rescaled_index = standardised_index * (mean(unstandardised) / mean(standardised))
 #' @examples
 #' \dontrun{
@@ -134,13 +142,18 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE) {
 #' gi <- gam_influence(your_model, focus = "year")
 #' gi <- calculate_influence(gi)
 #' plot_unstandardised(gi)
-#' 
+#'
 #' # Use boxplots for traditional quartile visualization
 #' plot_unstandardised(gi, plot_type = "boxplot")
-#' 
+#'
 #' # Show only violin plots without standardised overlay
 #' plot_unstandardised(gi, show_standardised = FALSE)
-#' 
+#'
+#' # For log-scale models, data is automatically exp-transformed
+#' gi_log <- gam_influence(log_model, focus = "year") # islog will be TRUE
+#' gi_log <- calculate_influence(gi_log)
+#' plot_unstandardised(gi_log) # Shows exp-transformed data on original scale
+#'
 #' # Compare patterns between raw data and rescaled model trend
 #' plot_unstandardised(gi, show_standardised = TRUE, plot_type = "violin")
 #' }
@@ -158,38 +171,49 @@ plot_unstandardised <- function(obj, show_standardised = TRUE, plot_type = "viol
   if (is.null(obj$response)) {
     stop("Response variable is not set in gam_influence object.", call. = FALSE)
   }
-  
+
   # Validate plot_type parameter
   if (!plot_type %in% c("boxplot", "violin")) {
     stop("plot_type must be either 'boxplot' or 'violin'.", call. = FALSE)
   }
-  
+
   # Get the raw data for boxplots
   focus_var <- obj$focus
   response_var <- obj$response
-  
+
   if (!(focus_var %in% names(obj$data))) {
     stop("Focus variable '", focus_var, "' not found in data.", call. = FALSE)
   }
   if (!(response_var %in% names(obj$data))) {
     stop("Response variable '", response_var, "' not found in data.", call. = FALSE)
   }
-  
-  # Calculate the mean of unstandardised data for rescaling
-  unstd_mean <- mean(obj$data[[response_var]], na.rm = TRUE)
-  
+
   # Get plot data
   plot_data <- obj$data
-  
+
+  # Check if response is on log scale and transform if necessary
+  islog <- isTRUE(obj$islog)
+  if (islog) {
+    # Transform response to original scale using exp()
+    plot_data[[response_var]] <- exp(plot_data[[response_var]])
+    # Update y-axis label to reflect transformation
+    y_label <- paste(response_var, "(exp-transformed)")
+  } else {
+    y_label <- "Index"
+  }
+
+  # Calculate the mean of unstandardised data for rescaling (after transformation if needed)
+  unstd_mean <- mean(plot_data[[response_var]], na.rm = TRUE)
+
   # Convert focus variable to numeric if possible (same approach as plot_standardisation)
   if (is.factor(plot_data[[focus_var]]) && all(!is.na(as.numeric(as.character(levels(plot_data[[focus_var]])))))) {
     plot_data[[focus_var]] <- as.numeric(as.character(plot_data[[focus_var]]))
   }
-  
+
   # Create the base plot with either boxplots or violin plots
   p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[focus_var]], y = .data[[response_var]])) +
-    ggplot2::labs(x = focus_var, y = response_var)
-  
+    ggplot2::labs(x = focus_var, y = y_label)
+
   # Add the appropriate plot type
   if (plot_type == "boxplot") {
     p <- p + ggplot2::geom_boxplot(aes(group = .data[[focus_var]]), fill = "grey90", colour = "grey60", alpha = 0.7)
@@ -207,38 +231,48 @@ plot_unstandardised <- function(obj, show_standardised = TRUE, plot_type = "viol
       # Check required columns exist
       required_cols <- c("level", "standardised_index", "stan_lower", "stan_upper")
       if (all(required_cols %in% names(indices_df))) {
-        
         # Convert level to numeric if possible (same approach as plot_standardisation)
         if (is.factor(indices_df$level) && all(!is.na(as.numeric(as.character(levels(indices_df$level)))))) {
           indices_df$level <- as.numeric(as.character(indices_df$level))
         }
-        
+
+        # Note: standardised indices are already transformed by calculate_influence() when islog=TRUE
+        # so no additional transformation needed for indices_df
+
         # Calculate rescaling factor to match unstandardised mean
         std_mean <- mean(indices_df$standardised_index, na.rm = TRUE)
         rescale_factor <- unstd_mean / std_mean
-        
+
         # Rescale standardised index and confidence bounds
         indices_df$standardised_index_rescaled <- indices_df$standardised_index * rescale_factor
         indices_df$stan_lower_rescaled <- indices_df$stan_lower * rescale_factor
         indices_df$stan_upper_rescaled <- indices_df$stan_upper * rescale_factor
-        
+
         # Add standardised index as line and ribbon
         p <- p +
-          ggplot2::geom_ribbon(data = indices_df, 
-                             ggplot2::aes(x = .data$level, 
-                                        ymin = .data$stan_lower_rescaled, 
-                                        ymax = .data$stan_upper_rescaled, 
-                                        group = 1),
-                             fill = "royalblue", alpha = 0.3, inherit.aes = FALSE) +
-          ggplot2::geom_line(data = indices_df, 
-                           ggplot2::aes(x = .data$level, y = .data$standardised_index_rescaled, group = 1),
-                           colour = "royalblue", inherit.aes = FALSE) 
+          ggplot2::geom_ribbon(
+            data = indices_df,
+            ggplot2::aes(
+              x = .data$level,
+              ymin = .data$stan_lower_rescaled,
+              ymax = .data$stan_upper_rescaled,
+              group = 1
+            ),
+            fill = "royalblue", alpha = 0.3, inherit.aes = FALSE
+          ) +
+          ggplot2::geom_line(
+            data = indices_df,
+            ggplot2::aes(x = .data$level, y = .data$standardised_index_rescaled, group = 1),
+            colour = "royalblue", inherit.aes = FALSE
+          )
       } else {
-        warning("Required columns for standardised index not found. Missing: ", 
-                paste(setdiff(required_cols, names(indices_df)), collapse = ", "))
+        warning(
+          "Required columns for standardised index not found. Missing: ",
+          paste(setdiff(required_cols, names(indices_df)), collapse = ", ")
+        )
       }
     }
   }
-  
+
   return(p)
 }
