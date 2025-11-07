@@ -232,8 +232,7 @@ plot_unstandardised <- function(obj, show_standardised = TRUE, plot_type = "viol
                              fill = "royalblue", alpha = 0.3, inherit.aes = FALSE) +
           ggplot2::geom_line(data = indices_df, 
                            ggplot2::aes(x = .data$level, y = .data$standardised_index_rescaled, group = 1),
-                           colour = "royalblue", inherit.aes = FALSE) +
-          ggplot2::labs(subtitle = paste("Standardised index rescaled by factor:", round(rescale_factor, 3))) 
+                           colour = "royalblue", inherit.aes = FALSE) 
       } else {
         warning("Required columns for standardised index not found. Missing: ", 
                 paste(setdiff(required_cols, names(indices_df)), collapse = ", "))
