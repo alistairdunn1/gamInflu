@@ -24,8 +24,8 @@
 #'   **Standard plots:**
 #'   - Residuals vs fitted values (or linear predictor for deviance residuals)
 #'   - Q-Q plot of residuals
-#'   - Scale-location plot (sqrt(|residuals|) vs fitted values or linear predictor)
-#'   - Residuals vs leverage (Cook's distance contours)
+#'   - Histogram of residuals
+#'   - Observed vs fitted values
 #'
 #'   **Minimal plots:**
 #'   - Residuals vs linear predictor
@@ -93,9 +93,9 @@
 #' # Gamma model
 #' plot_residuals(gi_gamma, type = "standard") # Family-appropriate diagnostics
 #' }
-#' @importFrom ggplot2 ggplot aes geom_point geom_violin geom_boxplot geom_smooth geom_abline geom_qq geom_qq_line labs theme element_text facet_wrap scale_fill_manual scale_x_continuous
+#' @importFrom ggplot2 ggplot aes geom_point geom_violin geom_boxplot geom_smooth geom_abline geom_qq geom_qq_line geom_histogram labs theme element_text facet_wrap scale_fill_manual scale_x_continuous
 #' @importFrom patchwork wrap_plots plot_annotation
-#' @importFrom stats residuals fitted predict qqnorm qqline hatvalues cooks.distance quantile
+#' @importFrom stats residuals fitted predict qqnorm qqline quantile
 #' @importFrom tools toTitleCase
 #' @importFrom rlang .data
 #' @export
@@ -251,68 +251,32 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
     p2 <- p2 + ggplot2::facet_wrap(~ .data$by_var)
   }
 
-  # Panel 3: Scale-Location (sqrt of absolute residuals vs fitted/linear predictor)
-  resid_data$sqrt_abs_resid <- sqrt(abs(resid_data$residuals))
-  p3 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = x_var, y = .data$sqrt_abs_resid)) +
-    ggplot2::geom_point(alpha = 0.4, colour = "royalblue", size = 0.7) +
-    ggplot2::labs(x = x_label, y = expression(sqrt("|Residuals|")))
-
-  if (add_smooth) {
-    p3 <- p3 + ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red")
-  }
+  # Panel 3: Histogram of Residuals
+  p3 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$residuals)) +
+    ggplot2::geom_histogram(fill = "royalblue", colour = "black", alpha = 0.7, bins = 30) +
+    ggplot2::labs(x = paste(tools::toTitleCase(residual_type), "Residuals"), y = "Frequency")
 
   if (!is.null(by)) {
     p3 <- p3 + ggplot2::facet_wrap(~ .data$by_var)
   }
 
-  # Panel 4: Residuals vs Leverage (with Cook's distance)
-  # Calculate leverage and Cook's distance - handle GAM models safely
-  p4 <- tryCatch(
-    {
-      leverage <- hatvalues(model)
-      cooks_d <- cooks.distance(model)
+  # Panel 4: Observed vs Fitted Values
+  # Get observed values from the model
+  observed_vals <- model$y
+  resid_data$observed <- observed_vals
 
-      resid_data$leverage <- leverage
-      resid_data$cooks_distance <- cooks_d
+  p4 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$fitted, y = .data$observed)) +
+    ggplot2::geom_point(alpha = 0.4, colour = "royalblue", size = 0.7) +
+    ggplot2::geom_abline(intercept = 0, slope = 1, linetype = "dashed", colour = "grey50") +
+    ggplot2::labs(x = "Fitted Values", y = "Observed Values")
 
-      # Identify high leverage and high Cook's distance points
-      resid_data$high_influence <- (leverage > 2 * mean(leverage, na.rm = TRUE)) |
-        (cooks_d > 4 / length(cooks_d))
+  if (add_smooth) {
+    p4 <- p4 + ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red")
+  }
 
-      ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$leverage, y = .data$residuals)) +
-        ggplot2::geom_point(ggplot2::aes(colour = .data$high_influence, size = .data$cooks_distance), alpha = 0.6, size = 0.7) +
-        {
-          if (add_smooth) {
-            ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red")
-          } else {
-            NULL
-          }
-        } +
-        ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-        ggplot2::scale_colour_manual(
-          values = c("FALSE" = "black", "TRUE" = "red"),
-          name = "High Influence"
-        ) +
-        ggplot2::scale_size_continuous(name = "Cook's Distance") +
-        ggplot2::labs(x = "Leverage", y = paste(tools::toTitleCase(residual_type), "Residuals")) +
-        {
-          if (!is.null(by)) ggplot2::facet_wrap(~ .data$by_var) else NULL
-        }
-    },
-    error = function(e) {
-      # Fallback plot without leverage/Cook's distance if calculation fails
-      ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$observation, y = .data$residuals)) +
-        ggplot2::geom_point(alpha = 0.6, colour = "royalblue", size = 0.7) +
-        {
-          if (add_smooth) ggplot2::geom_smooth(method = "loess", se = FALSE, colour = "red") else NULL
-        } +
-        ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-        ggplot2::labs(x = "Observation Index", y = paste(tools::toTitleCase(residual_type), "Residuals")) +
-        {
-          if (!is.null(by)) ggplot2::facet_wrap(~ .data$by_var) else NULL
-        }
-    }
-  )
+  if (!is.null(by)) {
+    p4 <- p4 + ggplot2::facet_wrap(~ .data$by_var)
+  }
 
   # Combine plots
   combined_plot <- patchwork::wrap_plots(p1, p2, p3, p4, ncol = 2)

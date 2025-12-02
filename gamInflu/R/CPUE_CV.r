@@ -115,52 +115,33 @@ CPUE_CV <- function(obj, r = 0.1, ylim = NULL, increase.only = FALSE, add.mean =
   for (i in seq_along(f)) {
     x <- getCV(year, index, f = f[i])
     if (increase.only) {
-      # Maximum increase - only consider positive changes
-      changes <- diff(x$lowess) / x$lowess[-length(x$lowess)]
-      rhat[i] <- max(c(0, changes))
+      # Maximum increase
+      rhat[i] <- max(c(0, diff(x$lowess) / x$lowess[-length(x$lowess)]))
     } else {
-      # Maximum rate of change - consider both positive and negative changes
-      changes <- diff(x$lowess) / x$lowess[-length(x$lowess)]
-      rhat[i] <- max(abs(changes))
+      # Maximum rate of change
+      rhat[i] <- max(abs(c(0, diff(x$lowess) / x$lowess[-length(x$lowess)])))
     }
     CV[i] <- x$cv[1]
   }
 
   # Select smoothing parameter that gives desired rate of change
-  # Handle case where multiple smoothing parameters give the same rate of change
-  # First, remove any NA values
-  valid_idx <- !is.na(rhat)
-  rhat_valid <- rhat[valid_idx]
-  f_valid <- f[valid_idx]
-
-  # Then handle duplicates
-  unique_idx <- !duplicated(rhat_valid)
-  rhat_unique <- rhat_valid[unique_idx]
-  f_unique <- f_valid[unique_idx]
-
-  # Make sure values are sorted for proper interpolation
-  sort_idx <- order(rhat_unique)
-  fhat <- approx(rhat_unique[sort_idx], f_unique[sort_idx], xout = r, yleft = 1, yright = 0)$y
+  fhat <- approx(rhat, f, xout = r, yleft = 1, yright = 0)$y
 
   # Calculate final results with selected smoothing parameter
   x <- getCV(year, index, f = fhat)
 
-  # Calculate additional process error CV
-  # This is the extra CV needed beyond the model CV to fit the smooth curve
-  model_var <- log(1 + model_cv^2) # Convert model CV to log variance
-  total_var <- log(1 + x$cv[1]^2) # Total variance from smoothing
-
-  # Additional variance = total variance - model variance
-  # If model variance > total, no additional CV needed
-  additional_var <- pmax(0, total_var - model_var)
-  additional_cv <- sqrt(exp(additional_var) - 1)
+  # The CV from the smoothing is the additional CV needed
+  # This represents the extra uncertainty needed to accommodate the smooth trend
+  additional_cv <- x$cv[1]
 
   # Calculate total CV combining model CV and additional CV
-  total_cv <- sqrt((model_cv^2) + (additional_cv^2))
+  # Using quadrature sum (square root of sum of squares)
+  total_cv <- sqrt(model_cv^2 + additional_cv^2)
 
-  # Calculate lower and upper bounds using total CV (±2CV)
-  lower_bound <- exp(log(x$lowess) - 2 * total_cv)
-  upper_bound <- exp(log(x$lowess) + 2 * total_cv)
+  # Calculate confidence bounds using the formula from the original code
+  # exp(log(lowess) ± 2 * lowess * cv)
+  lower_bound <- exp(log(x$lowess) - 2 * x$lowess * additional_cv)
+  upper_bound <- exp(log(x$lowess) + 2 * x$lowess * additional_cv)
 
   # Create complete dataset with all results
   result_data <- data.frame(
@@ -168,20 +149,20 @@ CPUE_CV <- function(obj, r = 0.1, ylim = NULL, increase.only = FALSE, add.mean =
     index = x$cpue, # Original standardized index
     lowess = x$lowess, # Smoothed index
     model_cv = model_cv, # Original model CV
-    additional_cv = additional_cv, # Additional process error CV
+    additional_cv = rep(additional_cv, length(x$year)), # Additional process error CV (constant)
     total_cv = total_cv, # Combined CV
-    lower = lower_bound, # Lower bound using total CV
-    upper = upper_bound # Upper bound using total CV
+    lower = lower_bound, # Lower bound using additional CV
+    upper = upper_bound # Upper bound using additional CV
   )
 
-  # Print additional CV value
-  mean_additional_cv <- mean(additional_cv)
-  cat("Additional CV needed =", round(mean_additional_cv, 3), "\n")
+  # Print CV values
+  cat("Additional CV =", round(additional_cv, 3), "\n")
+  cat("Average model CV =", round(mean(model_cv), 3), "\n")
   cat("Average total CV =", round(mean(total_cv), 3), "\n")
 
   # Prepare return object
   result <- list(
-    additional_CV = mean_additional_cv,
+    additional_CV = additional_cv,
     total_CV = mean(total_cv),
     data = result_data
   )

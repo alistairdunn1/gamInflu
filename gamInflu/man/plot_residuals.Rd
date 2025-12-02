@@ -46,8 +46,8 @@ A ggplot object or patchwork object (for combined plots) showing:
   **Standard plots:**
   - Residuals vs fitted values (or linear predictor for deviance residuals)
   - Q-Q plot of residuals
-  - Scale-location plot (sqrt(|residuals|) vs fitted values or linear predictor)
-  - Residuals vs leverage (Cook's distance contours)
+  - Histogram of residuals
+  - Observed vs fitted values
 
   **Minimal plots:**
   - Residuals vs linear predictor

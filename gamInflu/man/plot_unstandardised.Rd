@@ -24,10 +24,10 @@ A ggplot object showing:
   - Automatic exp-transformation: Applied when islog = TRUE to show data on original scale
 }
 \description{
-Creates a plot showing the raw year effect as violin plots or boxplots by year, with an optional 
-overlay of the standardised index as a line with confidence interval ribbon. The standardised 
+Creates a plot showing the raw year effect as violin plots or boxplots by year, with an optional
+overlay of the standardised index as a line with confidence interval ribbon. The standardised
 index is rescaled to have the same mean as the unstandardised data for direct comparison.
-If the response was fitted on the log scale (islog = TRUE), both the raw data and standardised 
+If the response was fitted on the log scale (islog = TRUE), both the raw data and standardised
 indices are exp-transformed back to the original scale before plotting.
 }
 \details{
@@ -42,8 +42,6 @@ This plot provides insight into the raw data distribution within each level of t
 When the response was fitted on the log scale (obj$islog = TRUE), the function automatically:
 - Applies exp() transformation to raw data before plotting for interpretability
 - Uses standardised indices as-is (already transformed by calculate_influence())
-- Updates y-axis label to indicate exp-transformation of raw data
-- Includes transformation note in plot subtitle
 
 The standardised index overlay is rescaled to have the same mean as the unstandardised data,
 allowing direct visual comparison between the raw data patterns and the model-derived trend.
@@ -64,9 +62,9 @@ plot_unstandardised(gi, plot_type = "boxplot")
 plot_unstandardised(gi, show_standardised = FALSE)
 
 # For log-scale models, data is automatically exp-transformed
-gi_log <- gam_influence(log_model, focus = "year")  # islog will be TRUE
+gi_log <- gam_influence(log_model, focus = "year") # islog will be TRUE
 gi_log <- calculate_influence(gi_log)
-plot_unstandardised(gi_log)  # Shows exp-transformed data on original scale
+plot_unstandardised(gi_log) # Shows exp-transformed data on original scale
 
 # Compare patterns between raw data and rescaled model trend
 plot_unstandardised(gi, show_standardised = TRUE, plot_type = "violin")
