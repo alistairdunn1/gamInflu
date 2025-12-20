@@ -520,10 +520,12 @@ create_combination_diagnostics <- function(combined_data, binomial_gi, positive_
   }
 
   if (any(combined_data$standardised_index_binom > 1.0)) {
-    diagnostics$warnings <- c(diagnostics$warnings, "Unusually high probability indices (>1.0)")
+    diagnostics$warnings <- c(diagnostics$warnings, "Unexpected high probability indices (>1.0)")
   }
 
-  if (diagnostics$component_correlation < -0.5) {
+  if (is.na(diagnostics$component_correlation)) {
+    diagnostics$warnings <- c(diagnostics$warnings, "Component correlation could not be calculated: one or both components may be missing or contain only missing values.")
+  } else if (diagnostics$component_correlation < -0.5) {
     diagnostics$warnings <- c(diagnostics$warnings, "Strong negative correlation between components")
   }
 

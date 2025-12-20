@@ -1,6 +1,6 @@
 # gamInflu
 
-**gamInflu** provides  influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R. 
+**gamInflu** provides  influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R.
 
 **Note, this package is in development. Functionality may be not be fully complete in some cases.**
 
@@ -136,8 +136,8 @@ gi <- calculate_influence(gi, family = "gaussian", islog = TRUE)
 
 ### Family-Specific Methods
 
-| Family       | Data Type           | Index Calculation         | Use Cases                                  |
-| ------------ | ------------------- | ------------------------- | ------------------------------------------ |
+| Family             | Data Type           | Index Calculation         | Use Cases                                  |
+| ------------------ | ------------------- | ------------------------- | ------------------------------------------ |
 | **Gaussian** | Continuous          | Geometric/arithmetic mean | Log-normal CPUE, linear models             |
 | **Binomial** | Binary/proportions  | Proportion-based          | Presence/absence, catch probability        |
 | **Gamma**    | Positive continuous | Geometric mean            | Biomass, positive CPUE                     |
@@ -230,9 +230,9 @@ gi <- calculate_influence(gi)
 
 ### Method Comparison
 
-| Aspect                      | Coefficient-Based (Default)         | Prediction-Based                    |
-| --------------------------- | ----------------------------------- | ----------------------------------- |
-| **Backwards Compatibility** | ✅ Traditional equivalent            | ❌ Approach                          |
+| Aspect                            | Coefficient-Based (Default)         | Prediction-Based                    |
+| --------------------------------- | ----------------------------------- | ----------------------------------- |
+| **Backwards Compatibility** | ✅ Traditional equivalent           | ❌ Approach                         |
 | **Index Differences**       | Pronounced                          | Conservative                        |
 | **Uncertainty Handling**    | Francis method with Q matrix        | Prediction uncertainty              |
 | **Statistical Approach**    | Coefficient                         | mgcv methods                        |
@@ -366,7 +366,7 @@ original_values <- inverse_box_cox(bc_with_eps$transformed,
 ### Box-Cox Transformation Benefits
 
 - **Variance Stabilization**: Reduces heteroscedasticity in residuals
-- **Improved Normality**: Helps achieve more normal residual distributions  
+- **Improved Normality**: Helps achieve more normal residual distributions
 - **Better Model Fit**: Can improve GAM performance and diagnostics
 - **Automatic Lambda Selection**: Finds optimal transformation parameter
 - **Seamless Integration**: Works directly with **gamInflu** influence analysis
@@ -374,14 +374,14 @@ original_values <- inverse_box_cox(bc_with_eps$transformed,
 
 ### Common Lambda Values
 
-| Lambda   | Transformation       | Use Case                                   |
-| -------- | -------------------- | ------------------------------------------ |
-| **2**    | Square (y²)          | Compress small values, expand large values |
-| **1**    | Identity (y)         | No transformation needed                   |
-| **0.5**  | Square root (√y)     | Right-skewed data, count-like data         |
-| **0**    | Natural log (ln y)   | Log-normal data, multiplicative effects    |
+| Lambda         | Transformation         | Use Case                                   |
+| -------------- | ---------------------- | ------------------------------------------ |
+| **2**    | Square (y²)           | Compress small values, expand large values |
+| **1**    | Identity (y)           | No transformation needed                   |
+| **0.5**  | Square root (√y)      | Right-skewed data, count-like data         |
+| **0**    | Natural log (ln y)     | Log-normal data, multiplicative effects    |
 | **-0.5** | Reciprocal √ (-1/√y) | Highly right-skewed data                   |
-| **-1**   | Reciprocal (-1/y)    | Rate/time data, extreme right skew         |
+| **-1**   | Reciprocal (-1/y)      | Rate/time data, extreme right skew         |
 
 ---
 
@@ -923,8 +923,8 @@ plot_terms(gi, term = "te(lon, lat)")
 
 ### Core Analysis Functions
 
-| Function                      | Purpose                                    | Usage Example                                |
-| ----------------------------- | ------------------------------------------ | -------------------------------------------- |
+| Function                        | Purpose                                    | Usage Example                                  |
+| ------------------------------- | ------------------------------------------ | ---------------------------------------------- |
 | `gam_influence()`             | Initialise influence analysis object       | `gi <- gam_influence(model, focus = "year")` |
 | `calculate_influence()`       | Compute all indices and influence metrics  | `gi <- calculate_influence(gi)`              |
 | `analyse_residual_patterns()` | Identify missing covariates from residuals | `analyse_residual_patterns(gi)`              |
@@ -934,8 +934,8 @@ plot_terms(gi, term = "te(lon, lat)")
 
 ### Data Transformation Functions
 
-| Function                       | Purpose                                      | Usage Example                                      |
-| ------------------------------ | -------------------------------------------- | -------------------------------------------------- |
+| Function                         | Purpose                                      | Usage Example                                        |
+| -------------------------------- | -------------------------------------------- | ---------------------------------------------------- |
 | `box_cox_transform()`          | Apply Box-Cox transformation to response     | `bc <- box_cox_transform(data$response)`           |
 | `inverse_box_cox()`            | Convert transformed values to original scale | `original <- inverse_box_cox(x, lambda)`           |
 | `box_cox_gam()`                | Transform response and fit GAM in one step   | `bc_gam <- box_cox_gam(y ~ s(x), data)`            |
@@ -952,33 +952,33 @@ The package provides both specific plotting functions and a generic `plot()` met
 - `"distribution"`: Data distribution plot (`plot_term_distribution()`, requires `term` argument)
 - `"all"`: Combined step and influence plots (`plot_step_and_influence()`)
 
-| Function                    | Purpose                                            | Usage Example                                  |
-| --------------------------- | -------------------------------------------------- | ---------------------------------------------- |
-| `plot_standardisation()`    | Compare unstandardised vs standardised indices     | `plot_standardisation(gi)`                     |
+| Function                      | Purpose                                                       | Usage Example                                    |
+| ----------------------------- | ------------------------------------------------------------- | ------------------------------------------------ |
+| `plot_standardisation()`    | Compare unstandardised vs standardised indices                | `plot_standardisation(gi)`                     |
 | `plot_unstandardised()`     | Show raw data distribution with optional standardised overlay | `plot_unstandardised(gi)`                      |
-| `plot_stepwise_index()`     | Show index changes as terms are added              | `plot_stepwise_index(gi)`                      |
-| `plot_term_influence()`     | Display influence of each term on focus            | `plot_term_influence(gi)`                      |
-| `plot_step_and_influence()` | Combined stepwise and influence plots              | `plot_step_and_influence(gi)`                  |
-| `plot_cdi()`                | Coefficient-Distribution-Influence plot for a term | `plot_cdi(gi, term = "s(temp)")`               |
-| `plot_terms()`              | Plot predicted effects for model terms             | `plot_terms(gi, term = "s(depth)")`            |
-| `plot_residuals()`          | Residual diagnostic plots                          | `plot_residuals(gi, type = "violin")`          |
-| `plot_re()`                 | Random effects diagnostics                         | `plot_re(gi, term = "site", re_type = "qq")`   |
-| `plot_term_distribution()`  | Data distribution for a specific term              | `plot_term_distribution(gi, term = "s(temp)")` |
-| `plot_implied_residuals()`  | Residual analysis                                  | `plot_implied_residuals(gi)`                   |
-| `plot_binomial()`           | Binomial-specific diagnostic plots                 | `plot_binomial(gi)`                            |
+| `plot_stepwise_index()`     | Show index changes as terms are added                         | `plot_stepwise_index(gi)`                      |
+| `plot_term_influence()`     | Display influence of each term on focus                       | `plot_term_influence(gi)`                      |
+| `plot_step_and_influence()` | Combined stepwise and influence plots                         | `plot_step_and_influence(gi)`                  |
+| `plot_cdi()`                | Coefficient-Distribution-Influence plot for a term            | `plot_cdi(gi, term = "s(temp)")`               |
+| `plot_terms()`              | Plot predicted effects for model terms                        | `plot_terms(gi, term = "s(depth)")`            |
+| `plot_residuals()`          | Residual diagnostic plots                                     | `plot_residuals(gi, type = "violin")`          |
+| `plot_re()`                 | Random effects diagnostics                                    | `plot_re(gi, term = "site", re_type = "qq")`   |
+| `plot_term_distribution()`  | Data distribution for a specific term                         | `plot_term_distribution(gi, term = "s(temp)")` |
+| `plot_implied_residuals()`  | Residual analysis                                             | `plot_implied_residuals(gi)`                   |
+| `plot_binomial()`           | Binomial-specific diagnostic plots                            | `plot_binomial(gi)`                            |
 
 ### Delta-GLM Functions
 
-| Function                    | Purpose                                    | Usage Example                                    |
-| --------------------------- | ------------------------------------------ | ------------------------------------------------ |
+| Function                      | Purpose                                    | Usage Example                                      |
+| ----------------------------- | ------------------------------------------ | -------------------------------------------------- |
 | `combine_indices()`         | Combine binomial and positive catch models | `combine_indices(gi_binom, gi_positive)`         |
 | `compare_focus_by_groups()` | Compare focus effects across groups        | `compare_focus_by_groups(gi_list, group_names)`  |
 | `analyse_focus_by_group()`  | Analyse focus term by group levels         | `analyse_focus_by_group(gi, group_var = "area")` |
 
 ### Utility Functions
 
-| Function           | Purpose                                                       | Usage Example                              |
-| ------------------ | ------------------------------------------------------------- | ------------------------------------------ |
+| Function             | Purpose                                                       | Usage Example                                |
+| -------------------- | ------------------------------------------------------------- | -------------------------------------------- |
 | `geometric_mean()` | Calculate geometric mean for rescaling                        | `geometric_mean(values, na.rm = TRUE)`     |
 | `weibull_family()` | Custom Weibull family for GAM fitting                         | `gam(y ~ s(x), family = weibull_family())` |
 | `stepCPUE_gam()`   | Stepwise GAM building with CPUE data                          | `stepCPUE_gam(data, response = "cpue")`    |
@@ -1016,18 +1016,19 @@ head(results$data)
 **Function Components:**
 
 1. **Input**: Takes a `gam_influence` object with standardized indices and CV values
-2. **Process**: 
+2. **Process**:
    - Applies lowess smoothing with different spans
    - Finds optimal smoothing parameter based on maximum rate of change constraint
    - Compares model uncertainty to smoothed trend uncertainty
    - Calculates additional CV needed to achieve smooth trend
-3. **Output**: 
+3. **Output**:
    - Additional process error CV needed
    - Combined total CV (model + additional)
    - Data frame with original indices, smoothed values, and all CV components
    - ggplot visualization showing indices with uncertainty bands
 
 Key features:
+
 - Uses a lognormal error model appropriate for fisheries abundance indices
 - Automatically selects smoothing parameter based on maximum rate of change
 - Returns both CV estimate and complete dataset for further analysis
@@ -1035,8 +1036,8 @@ Key features:
 
 ### S3 Methods
 
-| Method                             | Purpose                                    | Usage Example                              |
-| ---------------------------------- | ------------------------------------------ | ------------------------------------------ |
+| Method                               | Purpose                                    | Usage Example                                |
+| ------------------------------------ | ------------------------------------------ | -------------------------------------------- |
 | `plot.gam_influence()`             | Generic plot method with type selection    | `plot(gi, type = "cdi", term = "s(temp)")` |
 | `plot.gam_influence_combined()`    | Plot method for combined delta-GLM objects | `plot(gi_combined, type = "comparison")`   |
 | `summary.gam_influence()`          | Formatted summary of analysis results      | `summary(gi)`                              |
