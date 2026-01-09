@@ -7,10 +7,12 @@
 extract_indices(obj)
 }
 \arguments{
-\item{obj}{A \code{gam_influence} object containing calculated indices from \code{calculate_influence()}.}
+\item{obj}{A \code{gam_influence} or \code{gam_influence_combined} object containing calculated indices.}
 }
 \value{
-A data frame with columns:
+A data frame with columns depending on the object type:
+
+For \code{gam_influence} objects:
   \describe{
     \item{focus_term}{Name of the focus term (for reference)}
     \item{level}{The levels/values of the focus term}
@@ -22,9 +24,28 @@ A data frame with columns:
     \item{lower_CI}{Lower confidence bound for standardised index}
     \item{upper_CI}{Upper confidence bound for standardised index}
   }
+
+For \code{gam_influence_combined} objects:
+  \describe{
+    \item{focus_term}{Name of the focus term}
+    \item{level}{The levels/values of the focus term}
+    \item{binomial_index}{Probability component from binomial model}
+    \item{binomial_cv}{Coefficient of variation for binomial component}
+    \item{positive_index}{Conditional catch component from positive model}
+    \item{positive_cv}{Coefficient of variation for positive component}
+    \item{combined_index}{Combined delta-GLM index}
+    \item{combined_se}{Standard error of combined index}
+    \item{combined_cv}{Coefficient of variation for combined index}
+    \item{combined_lower_CI}{Lower confidence bound for combined index}
+    \item{combined_upper_CI}{Upper confidence bound for combined index}
+    \item{combination_method}{Method used to combine indices}
+  }
 }
 \description{
 Extracts the standardised and unstandardised indices for the focus term as a data frame.
+This is a generic function that works with both \code{gam_influence} objects (from \code{calculate_influence()})
+and \code{gam_influence_combined} objects (from \code{combine_indices()}).
+
 Works with all supported GLM families (Gaussian, binomial, gamma, Poisson) and returns the underlying
 data used by \code{plot_standardisation()} for further analysis, export, or custom visualisation.
 }
@@ -34,12 +55,23 @@ that are visualized in \code{plot_standardisation()}. The returned data frame co
 underlying data used for plotting but in a format suitable for further analysis, export,
 or custom visualisation.
 
-\strong{Family-specific behaviour:}
+\strong{Family-specific behaviour (gam_influence objects):}
 \itemize{
   \item \strong{Gaussian}: Traditional CPUE-style indices with geometric/arithmetic mean aggregation
   \item \strong{Binomial}: Probability-based indices for presence/absence data
   \item \strong{Gamma}: Positive continuous indices using geometric mean methods
   \item \strong{Poisson}: Count-based indices with appropriate statistical methods
+}
+
+\strong{Combined indices (gam_influence_combined objects):}
+For objects created by \code{combine_indices()}, this function extracts both the component
+indices (binomial probability and positive conditional catch) and the combined delta-GLM index.
+This is particularly useful for:
+\itemize{
+  \item Exporting complete delta-GLM results
+  \item Comparing component contributions
+  \item Custom visualizations of combined indices
+  \item Further statistical analysis
 }
 
 \strong{Log-transformed data handling:}
@@ -53,7 +85,7 @@ confidence level specified in \code{calculate_influence()} (default 95%).
 }
 \examples{
 \dontrun{
-# Basic usage
+# Basic usage with gam_influence object
 gi <- gam_influence(your_model, focus = "year")
 gi <- calculate_influence(gi)
 indices_df <- extract_indices(gi)
@@ -76,10 +108,19 @@ binom_indices <- extract_indices(gi_binom)
 gi_gamma <- calculate_influence(gi_gamma_model)
 gamma_indices <- extract_indices(gi_gamma)
 
+# Use with combined indices (delta-GLM)
+combined_gi <- combine_indices(gi_binom, gi_pos)
+combined_df <- extract_indices(combined_gi)
+
+# View all components and combined index
+print(combined_df)
+
 # Export to CSV including CV information
 write.csv(indices_df, "focus_indices.csv", row.names = FALSE)
+write.csv(combined_df, "combined_indices.csv", row.names = FALSE)
 }
 }
 \seealso{
-\code{plot_standardisation}, \code{calculate_influence}, \code{gam_influence}
+\code{\link{plot_standardisation}}, \code{\link{calculate_influence}}, 
+  \code{\link{gam_influence}}, \code{\link{combine_indices}}
 }

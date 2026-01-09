@@ -704,8 +704,12 @@ plot(gi_combined, type = "combined")    # Combined index only
 plot(gi_combined, type = "components")  # Individual components
 plot(gi_combined, type = "comparison")  # All indices together
 
-# Extract combined indices
+# Extract combined indices - returns comprehensive data frame
 combined_indices <- extract_indices(gi_combined)
+# Returns: focus_term, level, binomial_index, binomial_cv, positive_index, positive_cv,
+#          combined_index, combined_se, combined_cv, combined_lower_CI, combined_upper_CI,
+#          combination_method
+
 summary(gi_combined)
 ```
 
@@ -859,7 +863,10 @@ gi_combined <- combine_indices(gi_binomial, gi_positive, confidence_method = "bo
 # Extract and visualise combined results
 plot(gi_combined)
 summary(gi_combined)
-combined_indices <- extract_indices(gi_combined)
+
+# extract_indices() automatically detects object type and returns appropriate columns
+combined_indices <- extract_indices(gi_combined)  # Returns binomial, positive, and combined indices
+head(combined_indices)  # Shows all component indices with CVs and confidence intervals
 ```
 
 ---
@@ -928,7 +935,7 @@ plot_terms(gi, term = "te(lon, lat)")
 | `gam_influence()`             | Initialise influence analysis object       | `gi <- gam_influence(model, focus = "year")` |
 | `calculate_influence()`       | Compute all indices and influence metrics  | `gi <- calculate_influence(gi)`              |
 | `analyse_residual_patterns()` | Identify missing covariates from residuals | `analyse_residual_patterns(gi)`              |
-| `extract_indices()`           | Extract standardised results as data frame | `indices <- extract_indices(gi)`             |
+| `extract_indices()`           | Extract indices as data frame (works with both standard and combined objects) | `indices <- extract_indices(gi)` |
 | `get_terms()`                 | Get model term names or full expressions   | `get_terms(gi, full = TRUE)`                 |
 | `r2()`                        | Extract model progression statistics       | `r2(gi)`                                     |
 
