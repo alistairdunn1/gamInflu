@@ -121,6 +121,6 @@ write.csv(combined_df, "combined_indices.csv", row.names = FALSE)
 }
 }
 \seealso{
-\code{\link{plot_standardisation}}, \code{\link{calculate_influence}}, 
+\code{\link{plot_standardisation}}, \code{\link{calculate_influence}},
   \code{\link{gam_influence}}, \code{\link{combine_indices}}
 }

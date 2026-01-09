@@ -710,7 +710,15 @@ combined_indices <- extract_indices(gi_combined)
 #          combined_index, combined_se, combined_cv, combined_lower_CI, combined_upper_CI,
 #          combination_method
 
+# View comprehensive diagnostics and summary
 summary(gi_combined)
+# Displays:
+#  - Analysis configuration (focus term, combination method, confidence method, rescaling)
+#  - Component model families (binomial and positive)
+#  - Index ranges for binomial, positive, and combined indices
+#  - Uncertainty summary (mean CVs for each component)
+#  - Component correlation between binomial and positive indices
+#  - Detailed results table with all indices and confidence intervals
 ```
 
 ### Compare focus effects across multiple groups
@@ -860,13 +868,19 @@ gi_combined <- combine_indices(gi_binomial, gi_positive)
 gi_combined <- combine_indices(gi_binomial, gi_positive, method = "geometric")
 gi_combined <- combine_indices(gi_binomial, gi_positive, confidence_method = "bootstrap")
 
-# Extract and visualise combined results
+# Visualise combined results
 plot(gi_combined)
-summary(gi_combined)
 
-# extract_indices() automatically detects object type and returns appropriate columns
-combined_indices <- extract_indices(gi_combined)  # Returns binomial, positive, and combined indices
-head(combined_indices)  # Shows all component indices with CVs and confidence intervals
+# View comprehensive diagnostics
+summary(gi_combined)
+# Prints: configuration, model families, index ranges, uncertainty measures, 
+#         component correlation, and detailed results table
+
+# Extract data for further analysis or export
+combined_indices <- extract_indices(gi_combined)
+# Returns data frame with: binomial_index, positive_index, combined_index, 
+#                          CVs, confidence intervals, and metadata
+head(combined_indices)
 ```
 
 ---
@@ -1214,7 +1228,8 @@ gi_gamma <- calculate_influence(gam_influence(mod_gamma, focus = "year"))
 gi_combined <- combine_indices(gi_binom, gi_gamma)
 
 plot(gi_combined, type = "comparison")
-summary(gi_combined)
+summary(gi_combined)  # View diagnostics and detailed summary
+combined_indices <- extract_indices(gi_combined)  # Extract data for analysis
 
 cat("✅ All function validation tests passed\n")
 ```
