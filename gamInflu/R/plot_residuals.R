@@ -13,6 +13,7 @@
 #'   - `"pearson"`: Pearson residuals
 #'   - `"response"`: Response residuals (observed - fitted)
 #'   - `"working"`: Working residuals
+#'   - `"pit"`: Probability Integral Transform (PIT) residuals (uniform distribution under correct model)
 
 #' @param violin_trim Logical. Should violin plots be trimmed to data range? Default is TRUE.
 #' @param add_boxplot Logical. Should boxplots be overlaid on violin plots? Default is TRUE.
@@ -40,6 +41,7 @@
 #' - **Pearson residuals**: Standardised residuals, useful for checking variance assumptions. Plotted against fitted values.
 #' - **Response residuals**: Simple observed - fitted, interpretable but may not be appropriate for all families. Plotted against fitted values.
 #' - **Working residuals**: Used in iterative fitting, less commonly needed for diagnostics. Plotted against fitted values.
+#' - **PIT residuals**: Probability Integral Transform residuals should be uniformly distributed if the model is correctly specified. Useful for all distributions. QQ plot compares against uniform distribution.
 #'
 #' **Family-specific behaviour:**
 #' - **Gaussian**: All residual types available, deviance = Pearson for identity link
@@ -72,6 +74,10 @@
 #' plot_residuals(gi, type = "violin", residual_type = "pearson")
 #' plot_residuals(gi, type = "standard", residual_type = "response")
 #'
+#' # PIT residuals for model diagnostics (uniform distribution expected if model correct)
+#' plot_residuals(gi, type = "standard", residual_type = "pit")
+#' plot_residuals(gi, type = "violin", residual_type = "pit")
+#'
 #' # Customised violin plot
 #' plot_residuals(gi,
 #'   type = "violin",
@@ -95,13 +101,13 @@
 #' }
 #' @importFrom ggplot2 ggplot aes geom_point geom_violin geom_boxplot geom_smooth geom_abline geom_qq geom_qq_line geom_histogram labs theme element_text facet_wrap scale_fill_manual scale_x_continuous
 #' @importFrom patchwork wrap_plots plot_annotation
-#' @importFrom stats residuals fitted predict qqnorm qqline quantile
+#' @importFrom stats residuals fitted predict qqnorm qqline quantile pnorm ppois pnbinom pgamma qunif runif
 #' @importFrom tools toTitleCase
 #' @importFrom rlang .data
 #' @export
 plot_residuals <- function(obj,
                            type = c("standard", "minimal", "violin", "both"),
-                           residual_type = c("deviance", "pearson", "response", "working"),
+                           residual_type = c("deviance", "pearson", "response", "working", "pit"),
                            violin_trim = TRUE,
                            add_boxplot = TRUE,
                            add_smooth = TRUE,
@@ -150,7 +156,8 @@ plot_residuals <- function(obj,
     "deviance" = residuals(model, type = "deviance"),
     "pearson" = residuals(model, type = "pearson"),
     "response" = residuals(model, type = "response"),
-    "working" = residuals(model, type = "working")
+    "working" = residuals(model, type = "working"),
+    "pit" = calculate_pit_residuals(model, obj$data)
   )
 
   # Create base data frame
@@ -207,6 +214,74 @@ plot_residuals <- function(obj,
   return(plot_result)
 }
 
+#' @title Calculate PIT Residuals
+#' @description Calculate Probability Integral Transform (PIT) residuals for GAM models.
+#' PIT residuals should be uniformly distributed on [0,1] if the model is correctly specified.
+#' @param model A fitted GAM model object
+#' @param data The data frame used for model fitting
+#' @return Numeric vector of PIT residuals
+#' @details PIT residuals are calculated as F(y|X), where F is the cumulative distribution
+#' function of the response given covariates. For continuous distributions, this equals the
+#' CDF evaluated at observed values. For discrete distributions, we use randomized PIT residuals.
+#' @noRd
+calculate_pit_residuals <- function(model, data) {
+  family_obj <- model$family
+  y <- model$y
+  mu <- fitted(model)
+
+  # Get distribution parameters
+  if (family_obj$family == "gaussian") {
+    # Gaussian: PIT = Phi((y - mu) / sigma)
+    sigma <- sqrt(summary(model)$dispersion)
+    pit <- pnorm(y, mean = mu, sd = sigma)
+  } else if (family_obj$family == "binomial") {
+    # Binomial: use randomized PIT for binary data
+    # For y = 1: U ~ Uniform(1-p, 1)
+    # For y = 0: U ~ Uniform(0, 1-p)
+    p <- mu # fitted probabilities
+    pit <- numeric(length(y))
+    pit[y == 1] <- runif(sum(y == 1), min = 1 - p[y == 1], max = 1)
+    pit[y == 0] <- runif(sum(y == 0), min = 0, max = 1 - p[y == 0])
+  } else if (family_obj$family == "poisson" || family_obj$family == "Negative Binomial") {
+    # Poisson/NB: randomized PIT
+    # U ~ Uniform(F(y-1), F(y)) where F is CDF
+    pit <- numeric(length(y))
+    if (family_obj$family == "poisson") {
+      for (i in seq_along(y)) {
+        lower <- if (y[i] == 0) 0 else ppois(y[i] - 1, lambda = mu[i])
+        upper <- ppois(y[i], lambda = mu[i])
+        pit[i] <- runif(1, min = lower, max = upper)
+      }
+    } else {
+      # Negative binomial - extract theta from family
+      theta <- model$family$getTheta(TRUE) # overdispersion parameter
+      for (i in seq_along(y)) {
+        lower <- if (y[i] == 0) 0 else pnbinom(y[i] - 1, mu = mu[i], size = theta)
+        upper <- pnbinom(y[i], mu = mu[i], size = theta)
+        pit[i] <- runif(1, min = lower, max = upper)
+      }
+    }
+  } else if (family_obj$family == "Gamma") {
+    # Gamma distribution
+    shape <- 1 / summary(model)$dispersion
+    scale <- mu / shape
+    pit <- pgamma(y, shape = shape, scale = scale)
+  } else if (grepl("Tweedie", family_obj$family)) {
+    # Tweedie: use approximate PIT via simulation or numerical integration
+    # For simplicity, we'll use a normal approximation
+    var_y <- mu^model$family$getTheta(TRUE) # Tweedie variance function
+    pit <- pnorm(y, mean = mu, sd = sqrt(var_y))
+    warning("PIT residuals for Tweedie family use normal approximation", call. = FALSE)
+  } else {
+    # For other families, default to normal approximation
+    warning(paste("PIT residuals for", family_obj$family, "family use normal approximation"), call. = FALSE)
+    sigma <- sqrt(mu * summary(model)$dispersion) # variance proportional to mean
+    pit <- pnorm(y, mean = mu, sd = sigma)
+  }
+
+  return(pit)
+}
+
 #' @title Create Standard GAM Residual Plots
 #' @description Internal function to create the standard 4-panel GAM diagnostic plots
 #' @param resid_data Data frame containing residuals and fitted values
@@ -242,10 +317,18 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
   }
 
   # Panel 2: Q-Q Plot
-  p2 <- ggplot2::ggplot(resid_data, ggplot2::aes(sample = .data$residuals)) +
-    ggplot2::geom_qq(alpha = 0.4, colour = "royalblue", size = 0.7) +
-    ggplot2::geom_qq_line(colour = "black") +
-    ggplot2::labs(x = "Theoretical Quantiles", y = "Sample Quantiles")
+  # For PIT residuals, compare against uniform distribution
+  if (residual_type == "pit") {
+    p2 <- ggplot2::ggplot(resid_data, ggplot2::aes(sample = .data$residuals)) +
+      ggplot2::geom_qq(distribution = stats::qunif, alpha = 0.4, colour = "royalblue", size = 0.7) +
+      ggplot2::geom_qq_line(distribution = stats::qunif, colour = "black") +
+      ggplot2::labs(x = "Theoretical Quantiles (Uniform)", y = "Sample Quantiles")
+  } else {
+    p2 <- ggplot2::ggplot(resid_data, ggplot2::aes(sample = .data$residuals)) +
+      ggplot2::geom_qq(alpha = 0.4, colour = "royalblue", size = 0.7) +
+      ggplot2::geom_qq_line(colour = "black") +
+      ggplot2::labs(x = "Theoretical Quantiles", y = "Sample Quantiles")
+  }
 
   if (!is.null(by)) {
     p2 <- p2 + ggplot2::facet_wrap(~ .data$by_var)
@@ -313,10 +396,18 @@ create_minimal_residual_plots <- function(resid_data, residual_type, model, by =
   }
 
   # Panel 2: Q-Q Plot
-  p2 <- ggplot2::ggplot(resid_data, ggplot2::aes(sample = .data$residuals)) +
-    ggplot2::geom_qq(alpha = 0.4, colour = "royalblue", size = 0.7) +
-    ggplot2::geom_qq_line(colour = "black") +
-    ggplot2::labs(x = "Theoretical Quantiles", y = "Sample Quantiles")
+  # For PIT residuals, compare against uniform distribution
+  if (residual_type == "pit") {
+    p2 <- ggplot2::ggplot(resid_data, ggplot2::aes(sample = .data$residuals)) +
+      ggplot2::geom_qq(distribution = stats::qunif, alpha = 0.4, colour = "royalblue", size = 0.7) +
+      ggplot2::geom_qq_line(distribution = stats::qunif, colour = "black") +
+      ggplot2::labs(x = "Theoretical Quantiles (Uniform)", y = "Sample Quantiles")
+  } else {
+    p2 <- ggplot2::ggplot(resid_data, ggplot2::aes(sample = .data$residuals)) +
+      ggplot2::geom_qq(alpha = 0.4, colour = "royalblue", size = 0.7) +
+      ggplot2::geom_qq_line(colour = "black") +
+      ggplot2::labs(x = "Theoretical Quantiles", y = "Sample Quantiles")
+  }
 
   if (!is.null(by)) {
     p2 <- p2 + ggplot2::facet_wrap(~ .data$by_var)
