@@ -6,7 +6,7 @@
 #' @param re_type Character; for random effects, one of "points", "qq", "hist", or "caterpillar".
 #' @param cdi Logical indicating if the plot is for CDI (Cumulative Distribution Influence).
 #' @return A ggplot object showing the random by-variable effects.
-#' @importFrom ggplot2 ggplot aes geom_point geom_errorbar facet_wrap labs theme element_blank element_text xlab geom_hline geom_histogram geom_density geom_vline after_stat geom_abline
+#' @importFrom ggplot2 ggplot aes geom_point geom_errorbar facet_wrap labs theme element_blank element_text xlab geom_hline geom_histogram geom_density geom_vline after_stat geom_abline position_dodge
 #' @importFrom patchwork plot_spacer
 #' @importFrom stats coef vcov qnorm ppoints
 #' @noRd
@@ -27,7 +27,7 @@ subplot_random_by_effect <- function(obj, t, term_vars, re_type = "points", cdi 
   # For s(vessel, by=f.NNets, bs="re"), we need to find the relevant coefficients
 
   # Get all coefficient names that match this term pattern
-  coef_names <- names(coef(model))
+  coef_names <- names(get_coefficients(model))
 
   # Find coefficients that match the random effect pattern for this term
   # Pattern for s(vessel, by=f.NNets, bs="re"): s(vessel):f.NNetsNet1.1, s(vessel):f.NNetsNet2.1, etc.
@@ -42,8 +42,8 @@ subplot_random_by_effect <- function(obj, t, term_vars, re_type = "points", cdi 
   }
 
   # Extract coefficients and their standard errors
-  coef_values <- coef(model)[matching_coefs]
-  coef_se <- sqrt(diag(vcov(model)))[matching_coefs]
+  coef_values <- get_coefficients(model)[matching_coefs]
+  coef_se <- sqrt(diag(get_vcov(model)))[matching_coefs]
 
   # Parse the coefficient names to extract levels and groups
   # Extract the by-variable level from coefficient names

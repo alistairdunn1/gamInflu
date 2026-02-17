@@ -110,13 +110,18 @@ fit_test_models <- function(data, formula_base = "~ s(depth) + s(temp) + year + 
   )
 
   # Tweedie model (if available)
-  if (requireNamespace("tweedie", quietly = TRUE)) {
-    models$tweedie <- gam(
-      as.formula(paste("y_tweedie", formula_base)),
-      data = data,
-      family = tw(link = "log")
-    )
-  }
+  tryCatch(
+    {
+      models$tweedie <- gam(
+        as.formula(paste("y_tweedie", formula_base)),
+        data = data,
+        family = mgcv::tw(link = "log")
+      )
+    },
+    error = function(e) {
+      message("Tweedie model skipped: ", e$message)
+    }
+  )
 
   # Store data reference in each model for gam_influence
   for (i in seq_along(models)) {

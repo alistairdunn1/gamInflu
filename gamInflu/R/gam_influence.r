@@ -1,9 +1,10 @@
 #' @title Create a GAM Influence Object
 #' @description Initialises a gam_influence object for a given model and focus term. This is the
-#' main constructor for the 'gam_influence' class that supports multiple GLM families
-#' including Gaussian, binomial, gamma, and Poisson distributions. It sets up the basic structure,
-#' which is then populated by `calculate_influence()` with family-specific methods.
-#' @param model A fitted model object from mgcv (gam) or stats (glm). Supported families:
+#' main constructor for the 'gam_influence' class that supports multiple model backends
+#' (mgcv::gam, stats::glm, glmmTMB) and GLM families including Gaussian, binomial, gamma, and
+#' Poisson distributions. It sets up the basic structure, which is then populated by
+#' `calculate_influence()` with family-specific methods.
+#' @param model A fitted model object from mgcv (gam), stats (glm), or glmmTMB. Supported families:
 #'   Gaussian, binomial, Gamma, Poisson, and their quasi variants.
 #' @param focus A character string specifying the name of the focus term. This
 #'   term must be a factor in the model's data and is typically the term for
@@ -26,9 +27,15 @@
 #' @details
 #' The gam_influence object stores essential information for subsequent influence analysis:
 #' - Model object with family information for automatic family detection
+#' - Backend detection (mgcv or glmmTMB) for appropriate method dispatch
 #' - Data validation ensuring focus term is present and properly formatted
 #' - Term extraction for stepwise model building
 #' - Response variable identification for family-specific calculations
+#'
+#' **Supported Model Backends:**
+#' - **mgcv::gam**: Full support for all smooth types (s, te, ti, t2, bs="re")
+#' - **stats::glm**: Support for standard GLM models
+#' - **glmmTMB**: Support for generalized linear mixed models
 #'
 #' **Supported Model Families:**
 #' - **Gaussian**: For continuous response data (CPUE, biomass indices)
@@ -62,9 +69,16 @@
 #' @importFrom stats terms formula
 #' @export
 gam_influence <- function(model, focus, data = NULL, islog = NULL, use_coeff_method = FALSE) {
+  # --- Backend Detection ---
+  if (!is_supported_model(model)) {
+    stop("Model must be an mgcv gam, stats glm, or glmmTMB object. Got: ",
+         paste(class(model), collapse = ", "), call. = FALSE)
+  }
+  backend <- detect_backend(model)
+
   # --- Data Extraction and Validation ---
   if (is.null(data)) {
-    data <- model$data
+    data <- tryCatch(get_model_data(model), error = function(e) NULL)
   }
   if (is.null(data)) {
     # Attempt to retrieve data from the model's call if not explicitly provided
@@ -92,17 +106,26 @@ gam_influence <- function(model, focus, data = NULL, islog = NULL, use_coeff_met
   term_labels <- attr(terms(model), "term.labels")
   response_var <- all.vars(formula(model))[1]
 
+  # --- Family Extraction ---
+  fam_info <- tryCatch(get_model_family(model), error = function(e) NULL)
+  model_family <- if (!is.null(fam_info)) fam_info$family_object else NULL
+
   # --- Structure and Class Assignment ---
   # The main object is a list with the 'gam_influence' class assigned.
   obj <- structure(
     list(
       model = model,
+      original_model = model,
       data = as.data.frame(data),
+      model_data = as.list(as.data.frame(data)),
       focus = focus,
+      focus_var = focus,
       response = response_var,
       terms = term_labels,
+      family = model_family,
       islog = islog,
       use_coeff_method = use_coeff_method,
+      backend = backend,
       calculated = FALSE # This list will be populated by calculate_influence()
     ),
     class = "gam_influence"

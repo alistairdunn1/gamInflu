@@ -129,16 +129,7 @@ subplot_random_effect_caterpillar <- function(obj, term, conf_level = 0.95) {
 #' @return A named list of random effect coefficients and standard errors.
 #' @noRd
 extract_random_effects <- function(obj) {
-  model <- obj$model
-  re_list <- list()
-  for (sm in model$smooth) {
-    if (inherits(sm, "random.effect")) {
-      coefs <- model$coefficients[sm$first.para:sm$last.para]
-      ses <- sqrt(diag(model$Vp))[sm$first.para:sm$last.para]
-      re_list[[sm$label]] <- list(coefficients = coefs, std_errors = ses)
-    }
-  }
-  return(re_list)
+  return(extract_random_effects_generic(obj$model))
 }
 
 #' @title Match Random Effect Label

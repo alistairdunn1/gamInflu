@@ -1,10 +1,10 @@
 # gamInflu
 
-**gamInflu** provides  influence analysis tools for Generalised Additive Models (GAMs) fitted with the `mgcv` package in R.
+**gamInflu** provides  influence analysis tools for Generalised Additive Models (GAMs) and generalised linear mixed models (GLMMs) fitted with the `mgcv` or `glmmTMB` packages in R.
 
 **Note, this package is in development. Functionality may be not be fully complete in some cases.**
 
-The package supports Gaussian, binomial, gamma, Poisson, and Tweedie distributions with automatic family detection. Weibull is also available as a limited custom family. It offers coefficient-based confidence intervals and prediction-based methods for the model terms. The package handles smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms) and generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, residual diagnostics, residual pattern analysis for model adequacy assessment, delta-GLM analysis (combined indices) for fisheries data, diagnostics for random effects, and family-specific standardised indices to understand model structure and the influence of each term.
+The package supports multiple model backends (mgcv::gam, stats::glm, and glmmTMB) with automatic backend detection. It supports Gaussian, binomial, gamma, Poisson, and Tweedie distributions with automatic family detection. Weibull is also available as a limited custom family. It offers coefficient-based confidence intervals and prediction-based methods for the model terms. The package handles smoother types (`s()`, `te()`, `ti()`, `t2()`, and `by=` terms) for mgcv models and mixed-effects specifications for glmmTMB models. It generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, residual diagnostics, residual pattern analysis for model adequacy assessment, delta-GLM analysis (combined indices) for fisheries data, diagnostics for random effects, and family-specific standardised indices to understand model structure and the influence of each term.
 
 [![R Package](https://img.shields.io/badge/R-package-blue.svg)](https://www.r-project.org/)
 [![Version](https://img.shields.io/badge/version-0.2-orange.svg)](https://github.com/alistairdunn1/gamInflu)
@@ -19,6 +19,9 @@ The package supports Gaussian, binomial, gamma, Poisson, and Tweedie distributio
 devtools::install_github("alistairdunn1/gamInflu", subdir = "gamInflu")
 # Or install from tar.gz file:
 install.packages("gamInflu_0.2.0.tar.gz", repos = NULL, type = "source")
+
+# For glmmTMB backend support, also install:
+install.packages("glmmTMB")
 ```
 
 ---
@@ -177,6 +180,54 @@ gi <- calculate_influence(gi, family = "weibull")  # Auto-detects Weibull
 - 🔧 **Implementation**: Uses quasi-family base with Weibull-specific characteristics
 - 📈 **Shape Parameter**: Fixed at k=2 (Rayleigh approximation) for stability
 - 🎯 **Applications**: Survival analysis, reliability modeling, duration data
+
+## Model Backend Support
+
+**gamInflu** v0.2 introduces a dual-backend architecture, supporting both `mgcv` and `glmmTMB` as model backends via an S3 abstraction layer. The backend is automatically detected from the model object.
+
+### Supported Backends
+
+| Backend | Model Class | Smooths | Random Effects | Notes |
+|---------|-------------|---------|----------------|-------|
+| **mgcv::gam** | `gam` | `s()`, `te()`, `ti()`, `t2()`, `bs="re"` | Via `bs="re"` | Full feature support |
+| **stats::glm** | `glm` | None | None | Basic GLM support |
+| **glmmTMB** | `glmmTMB` | Via `splines::ns()`/`bs()` | `(1\|group)` syntax | Mixed-effects models |
+
+### Using glmmTMB Backend
+
+```r
+library(gamInflu)
+library(glmmTMB)
+
+# Fit a glmmTMB model
+data$year <- factor(data$year)
+mod_tmb <- glmmTMB(cpue ~ year + ns(depth, df = 4) + (1|vessel),
+                   data = data, family = Gamma(link = "log"))
+
+# Works identically to mgcv models
+gi <- gam_influence(mod_tmb, focus = "year")
+gi <- calculate_influence(gi)
+
+# All plotting and analysis functions work
+plot_standardisation(gi)
+plot_stepwise_index(gi)
+extract_indices(gi)
+```
+
+### Backend Equivalence Table
+
+When migrating between backends, use these equivalent specifications:
+
+| Feature | mgcv | glmmTMB |
+|---------|------|---------|
+| Smooth | `s(depth)` | `ns(depth, df = 4)` or `bs(depth, df = 4)` |
+| Tensor product | `te(x, y)` | `ns(x, df = 3):ns(y, df = 3)` |
+| Random intercept | `s(vessel, bs = "re")` | `(1\|vessel)` |
+| Random slope | `s(vessel, depth, bs = "re")` | `(depth\|vessel)` |
+
+**Note:** The `predict(type = "terms")` functionality is reconstructed from the model matrix for glmmTMB models, and R² is computed as McFadden's pseudo-R² from log-likelihoods.
+
+---
 
 ## Confidence Interval Calculation Methods
 

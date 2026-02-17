@@ -131,8 +131,8 @@ combine_indices <- function(binomial_gi, positive_gi,
   focus_term <- binomial_gi$focus
 
   # Validate model families
-  binomial_family <- binomial_gi$model$family$family
-  positive_family <- positive_gi$model$family$family
+  binomial_family <- get_model_family(binomial_gi$model)$family
+  positive_family <- get_model_family(positive_gi$model)$family
 
   if (!grepl("binomial", binomial_family, ignore.case = TRUE)) {
     warning("First model family is '", binomial_family,
@@ -491,8 +491,8 @@ create_combination_diagnostics <- function(combined_data, binomial_gi, positive_
     n_levels = nrow(combined_data),
     focus_term = binomial_gi$focus,
     combination_method = method,
-    binomial_family = binomial_gi$model$family$family,
-    positive_family = positive_gi$model$family$family,
+    binomial_family = get_model_family(binomial_gi$model)$family,
+    positive_family = get_model_family(positive_gi$model)$family,
 
     # Component statistics
     binomial_range = range(combined_data$standardised_index_binom, na.rm = TRUE),

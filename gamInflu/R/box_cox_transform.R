@@ -507,8 +507,8 @@ print.gam_box_cox <- function(x, ...) {
   cat("\n")
 
   # Print brief model info
-  cat("Model family:", x$model$family$family, "\n")
-  cat("Link function:", x$model$family$link, "\n")
+  cat("Model family:", get_model_family(x$model)$family, "\n")
+  cat("Link function:", get_model_family(x$model)$link, "\n")
   cat("\nCall:\n")
   print(x$call)
   cat("\nUse summary() for more details.\n")

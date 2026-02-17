@@ -73,12 +73,13 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   }
 
   # Check for Gamma with inverse link - override method if needed
-  if (is.null(obj$model$family)) {
+  fam_info <- tryCatch(get_model_family(obj$model), error = function(e) NULL)
+  if (is.null(fam_info)) {
     # Not a GLM/GAM, so cannot check family
     is_gamma_inverse <- FALSE
   } else {
-    is_gamma_inverse <- obj$model$family$family == "Gamma" &&
-      obj$model$family$link == "inverse"
+    is_gamma_inverse <- fam_info$family == "Gamma" &&
+      fam_info$link == "inverse"
 
     if (is_gamma_inverse && use_coeff_method) {
       message("Detected Gamma model with inverse link - forcing prediction-based method")
@@ -121,8 +122,11 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
   # Detect model family
   if (family == "auto") {
-    model_family <- obj$model$family$family
-    model_link <- obj$model$family$link
+    if (is.null(fam_info)) {
+      stop("Cannot auto-detect family: model does not have family information", call. = FALSE)
+    }
+    model_family <- fam_info$family
+    model_link <- fam_info$link
 
     # Map common families, including pattern matching for Tweedie and NB
     if (grepl("^Tweedie\\(", model_family)) {
@@ -131,8 +135,8 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       family_detected <- "poisson" # Treat NB like Poisson for calculations
     } else {
       # Check for Weibull family (custom attribute)
-      if (!is.null(attr(obj$model$family, "weibull_approximation")) &&
-        attr(obj$model$family, "weibull_approximation") == TRUE) {
+      if (!is.null(attr(fam_info$family_object, "weibull_approximation")) &&
+        attr(fam_info$family_object, "weibull_approximation") == TRUE) {
         family_detected <- "weibull"
       } else {
         family_detected <- switch(model_family,
@@ -231,7 +235,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
   if (use_coeff_method) {
     # For coefficient method, get full model predictions for SE calculations
-    preds_full_response <- predict(obj$model, newdata = obj$data, type = "response", se.fit = TRUE)
+    preds_full_response <- predict_response(obj$model, obj$data)
 
     # Create data frame with response predictions and focus term levels
     response_pred_df <- data.frame(
@@ -301,7 +305,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     # Special handling for models with offsets (Poisson, negative binomial)
     # For count models with offsets, we need to be careful about the offset values
     # in the reference data to ensure proper standardization
-    if (!is.null(obj$model$offset) && (family == "poisson")) {
+    if (!is.null(get_model_offset(obj$model)) && (family == "poisson")) {
       message("Detected model with offset - using standardized offset handling for count data")
 
       # For count data with offsets, we typically want to standardize to unit effort
@@ -327,7 +331,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     }
 
     # Get predictions for the focus term at reference values
-    focus_preds <- predict(obj$model, newdata = reference_data, type = "response", se.fit = TRUE)
+    focus_preds <- predict_response(obj$model, reference_data)
 
     # Create stan_df from focus-term-only predictions
     stan_df <- data.frame(
@@ -338,7 +342,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   }
 
   # Also get terms predictions for influence calculations (needed by both methods)
-  preds_full_terms <- predict(obj$model, newdata = obj$data, type = "terms", se.fit = TRUE)
+  preds_full_terms <- predict_terms(obj$model, obj$data)
 
   # Convert to relative index (standardised) using either coefficient or prediction method
   base_pred <- mean(stan_df$pred)
@@ -349,7 +353,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     message("Using coefficient-based CI calculation")
 
     # Extract coefficients for the focus term
-    all_coeffs <- coef(obj$model)
+    all_coeffs <- get_coefficients(obj$model)
     focus_term_pattern <- paste0("^", obj$focus)
     focus_coeff_indices <- grep(focus_term_pattern, names(all_coeffs))
 
@@ -386,7 +390,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     # This ensures all levels get non-zero confidence intervals
     if (length(focus_coeff_indices) > 0) {
       # Get the variance-covariance matrix including intercept
-      all_vcov <- vcov(obj$model)
+      all_vcov <- get_vcov(obj$model)
 
       # Need intercept + focus term coefficients for Francis method
       intercept_name <- "(Intercept)"
@@ -506,9 +510,9 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     message("Using prediction-based CI calculation (modern approach)")
 
     # Special handling for Gamma with inverse link - these can produce NaN values
-    is_gamma_inverse <- !is.null(obj$model$family) &&
-      obj$model$family$family == "Gamma" &&
-      obj$model$family$link == "inverse"
+    is_gamma_inverse <- !is.null(fam_info) &&
+      fam_info$family == "Gamma" &&
+      fam_info$link == "inverse"
 
     if (is_gamma_inverse) {
       message("Detected Gamma model with inverse link - using robust prediction handling")
@@ -547,7 +551,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       # For log-transformed data, we need to use geometric mean approach instead of direct division
       if (islog) {
         # Get predictions on log scale
-        log_preds <- predict(obj$model, newdata = reference_data, type = "link", se.fit = TRUE)
+        log_preds <- predict_link(obj$model, reference_data)
         mean_log_pred <- mean(log_preds$fit)
 
         # Calculate standardized index as exp(log_prediction - mean(log_predictions))
@@ -566,7 +570,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       if (islog) {
         # For log-transformed data, CI is based on link scale predictions
         # This matches the approach used in coefficient method
-        log_preds <- predict(obj$model, newdata = reference_data, type = "link", se.fit = TRUE)
+        log_preds <- predict_link(obj$model, reference_data)
         mean_log_pred <- mean(log_preds$fit)
 
         # Calculate CIs on log scale, then exponentiate
@@ -598,7 +602,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
         # For log-transformed responses, use log-scale SEs directly
         # When we use exp(log_pred - mean_log_pred) approach, the SE is simply the SE on log scale
         # This matches the coefficient method approach
-        log_preds <- predict(obj$model, newdata = reference_data, type = "link", se.fit = TRUE)
+        log_preds <- predict_link(obj$model, reference_data)
         log_ses <- log_preds$se.fit # SE on log scale (used as CV approximation)
 
         # Delta method: SE on response scale = index * SE_log
@@ -611,14 +615,14 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
       # Determine if we should use delta method for CV calculation
       # Use delta method for log-link models (regardless of islog setting)
-      has_log_link <- !is.null(obj$model$family$link) && obj$model$family$link == "log"
+      has_log_link <- !is.null(fam_info) && fam_info$link == "log"
 
       if (has_log_link || islog) {
         # For log-link models or log-transformed responses
         # Use delta method for CV calculation - this is mathematically correct
         if (has_log_link) {
           # For log-link models, get SE on link scale
-          log_preds <- predict(obj$model, newdata = obj$data, type = "link", se.fit = TRUE)
+          log_preds <- predict_link(obj$model, obj$data)
           log_pred_df <- data.frame(
             level = obj$data[[obj$focus]],
             log_se = log_preds$se.fit
@@ -756,7 +760,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     # Perform stepwise analysis for full dataset analysis
 
     # Start with an intercept-only model
-    model_int <- update(obj$model, . ~ 1, data = obj$data)
+    model_int <- update_model(obj$model, . ~ 1, obj$data)
     logLike_int <- as.numeric(logLik(model_int))
     summary_list[["intercept"]] <- data.frame(
       term = "Intercept",
@@ -768,18 +772,18 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       smooth_edf = 0,
       smooth_edf_cum = 0
     )
-    prev_resid_df <- model_int$df.residual
+    prev_resid_df <- get_model_fit_stats(model_int)$df_residual
     prev_total_smooth_edf <- 0
 
     # Sequentially add each term from the original model formula
     for (i in seq_along(all_terms)) {
       current_terms <- all_terms[1:i]
       formula_str <- paste("~", paste(current_terms, collapse = " + "))
-      model_step <- update(obj$model, as.formula(formula_str), data = obj$data)
+      model_step <- update_model(obj$model, as.formula(formula_str), obj$data)
 
       # Store the step-wise index if the focus term is in the current model
       if (obj$focus %in% current_terms) {
-        step_preds <- predict(model_step, newdata = obj$data, type = "terms")
+        step_preds <- predict_terms(model_step, obj$data)$fit
         pred_cols <- colnames(step_preds)
         # Focus columns: exact match for factor parametric term OR smooths containing the focus variable
         # Simpler: gather columns that start with focus term or contain focus term followed by ) for smooths
@@ -803,30 +807,24 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
       # Store summary statistics for the current step
       logLike_step <- as.numeric(logLik(model_step))
-      model_summary <- summary(model_step)
+      model_step_stats <- get_model_stats(model_step)
+      model_step_fit <- get_model_fit_stats(model_step)
 
-      # Get R-squared and Deviance Explained, robust to model type (gam vs. glm)
-      r_sq_step <- if ("r.sq" %in% names(model_summary)) model_summary$r.sq else NA
-      dev_expl_step <- if ("dev.expl" %in% names(model_summary)) model_summary$dev.expl else (model_step$null.deviance - deviance(model_step)) / model_step$null.deviance
+      # Get R-squared and Deviance Explained, robust to model type (gam vs. glm vs. glmmTMB)
+      r_sq_step <- model_step_stats$r_sq
+      dev_expl_step <- model_step_stats$dev_expl
+      if (is.null(dev_expl_step) || is.na(dev_expl_step)) {
+        dev_expl_step <- if (!is.null(model_step_fit$null_deviance) && !is.null(model_step_fit$deviance)) {
+          (model_step_fit$null_deviance - model_step_fit$deviance) / model_step_fit$null_deviance
+        } else NA
+      }
 
       # Degrees of freedom contributed by this added term (drop in residual df)
-      df_added <- prev_resid_df - model_step$df.residual
+      df_added <- prev_resid_df - model_step_fit$df_residual
       if (is.null(df_added) || is.na(df_added)) df_added <- NA_real_
 
-      # Smooth-specific EDF: obtain total smooth edf from the model summary
-      s_tab <- try(summary(model_step)$s.table, silent = TRUE)
-      total_smooth_edf <- if (!inherits(s_tab, "try-error") && !is.null(s_tab)) {
-        # s.table may be matrix or data.frame; edf column usually named 'edf'
-        if (is.matrix(s_tab) || is.data.frame(s_tab)) {
-          edf_col <- NULL
-          if ("edf" %in% colnames(s_tab)) edf_col <- s_tab[, "edf"] else if (ncol(s_tab) >= 1) edf_col <- s_tab[, 1]
-          suppressWarnings(sum(as.numeric(edf_col), na.rm = TRUE))
-        } else {
-          0
-        }
-      } else {
-        0
-      }
+      # Smooth-specific EDF: obtain total smooth edf from the model
+      total_smooth_edf <- get_smooth_edf(model_step)
       smooth_edf_added <- total_smooth_edf - prev_total_smooth_edf
       if (is.null(smooth_edf_added) || is.na(smooth_edf_added)) smooth_edf_added <- NA_real_
       summary_list[[all_terms[i]]] <- data.frame(
@@ -839,7 +837,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
         smooth_edf = smooth_edf_added,
         smooth_edf_cum = total_smooth_edf
       )
-      prev_resid_df <- model_step$df.residual
+      prev_resid_df <- model_step_fit$df_residual
       prev_total_smooth_edf <- total_smooth_edf
     }
   } else {
@@ -894,7 +892,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     # Start with an intercept-only model fitted to subset data
     tryCatch(
       {
-        model_int <- update(obj$model, . ~ 1, data = obj$data)
+        model_int <- update_model(obj$model, . ~ 1, obj$data)
         logLike_int <- as.numeric(logLik(model_int))
         summary_list[["intercept"]] <- data.frame(
           term = "Intercept (Subset)",
@@ -906,7 +904,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
           smooth_edf = 0,
           smooth_edf_cum = 0
         )
-        prev_resid_df <- model_int$df.residual
+        prev_resid_df <- get_model_fit_stats(model_int)$df_residual
         prev_total_smooth_edf <- 0
 
         # Sequentially add each valid term from the filtered list
@@ -918,11 +916,11 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
           tryCatch(
             {
               # Fit stepwise model to subset data
-              model_step <- update(obj$model, as.formula(formula_str), data = obj$data)
+              model_step <- update_model(obj$model, as.formula(formula_str), obj$data)
 
               # Store the step-wise index if the focus term is in the current model
               if (obj$focus %in% current_terms) {
-                step_preds <- predict(model_step, newdata = obj$data, type = "terms")
+                step_preds <- predict_terms(model_step, obj$data)$fit
                 focus_cols <- grep(paste0("^", obj$focus, ""), colnames(step_preds), value = TRUE)
                 if (length(focus_cols) > 0) {
                   focus_effect_sum <- rowSums(step_preds[, focus_cols, drop = FALSE])
@@ -941,26 +939,21 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
               # Store summary statistics for the current step
               logLike_step <- as.numeric(logLik(model_step))
-              model_summary <- summary(model_step)
+              model_step_stats <- get_model_stats(model_step)
+              model_step_fit <- get_model_fit_stats(model_step)
 
-              # Get R-squared and Deviance Explained, robust to model type (gam vs. glm)
-              r_sq_step <- if ("r.sq" %in% names(model_summary)) model_summary$r.sq else NA
-              dev_expl_step <- if ("dev.expl" %in% names(model_summary)) model_summary$dev.expl else (model_step$null.deviance - deviance(model_step)) / model_step$null.deviance
-
-              df_added <- prev_resid_df - model_step$df.residual
-              if (is.null(df_added) || is.na(df_added)) df_added <- NA_real_
-              s_tab <- try(summary(model_step)$s.table, silent = TRUE)
-              total_smooth_edf <- if (!inherits(s_tab, "try-error") && !is.null(s_tab)) {
-                if (is.matrix(s_tab) || is.data.frame(s_tab)) {
-                  edf_col <- NULL
-                  if ("edf" %in% colnames(s_tab)) edf_col <- s_tab[, "edf"] else if (ncol(s_tab) >= 1) edf_col <- s_tab[, 1]
-                  suppressWarnings(sum(as.numeric(edf_col), na.rm = TRUE))
-                } else {
-                  0
-                }
-              } else {
-                0
+              # Get R-squared and Deviance Explained, robust to model type (gam vs. glm vs. glmmTMB)
+              r_sq_step <- model_step_stats$r_sq
+              dev_expl_step <- model_step_stats$dev_expl
+              if (is.null(dev_expl_step) || is.na(dev_expl_step)) {
+                dev_expl_step <- if (!is.null(model_step_fit$null_deviance) && !is.null(model_step_fit$deviance)) {
+                  (model_step_fit$null_deviance - model_step_fit$deviance) / model_step_fit$null_deviance
+                } else NA
               }
+
+              df_added <- prev_resid_df - model_step_fit$df_residual
+              if (is.null(df_added) || is.na(df_added)) df_added <- NA_real_
+              total_smooth_edf <- get_smooth_edf(model_step)
               smooth_edf_added <- total_smooth_edf - prev_total_smooth_edf
               if (is.null(smooth_edf_added) || is.na(smooth_edf_added)) smooth_edf_added <- NA_real_
               summary_list[[paste(subset_terms[i], "(Subset)")]] <- data.frame(
@@ -973,7 +966,7 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
                 smooth_edf = smooth_edf_added,
                 smooth_edf_cum = total_smooth_edf
               )
-              prev_resid_df <- model_step$df.residual
+              prev_resid_df <- model_step_fit$df_residual
               prev_total_smooth_edf <- total_smooth_edf
             },
             error = function(e) {
@@ -999,12 +992,13 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       error = function(e) {
         # If even the intercept model fails, fall back to minimal summary
         warning("Could not perform stepwise analysis on subset data:", e$message)
+        full_stats <- tryCatch(get_model_stats(obj$model), error = function(e2) list(r_sq = NA, dev_expl = NA))
         summary_list[["full_model"]] <- data.frame(
           term = "Full Model (Subset Analysis)",
           logLike = as.numeric(logLik(obj$model)),
           aic = AIC(obj$model),
-          r_sq = summary(obj$model)$r.sq,
-          deviance_explained = summary(obj$model)$dev.expl,
+          r_sq = full_stats$r_sq,
+          deviance_explained = full_stats$dev_expl,
           df = NA,
           smooth_edf = NA,
           smooth_edf_cum = NA
@@ -1017,13 +1011,13 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   # Calculate successive differences
   # If we performed a full (non-subset) analysis, ensure the final row reflects the full model metrics exactly
   if (!is_subset_analysis && nrow(summary_df) > 1) {
-    full_mod_sum <- try(suppressWarnings(summary(obj$model)), silent = TRUE)
-    if (!inherits(full_mod_sum, "try-error")) {
-      if ("r.sq" %in% names(full_mod_sum)) {
-        summary_df$r_sq[nrow(summary_df)] <- full_mod_sum$r.sq
+    full_mod_stats <- tryCatch(get_model_stats(obj$model), error = function(e) NULL)
+    if (!is.null(full_mod_stats)) {
+      if (!is.null(full_mod_stats$r_sq) && !is.na(full_mod_stats$r_sq)) {
+        summary_df$r_sq[nrow(summary_df)] <- full_mod_stats$r_sq
       }
-      if ("dev.expl" %in% names(full_mod_sum)) {
-        summary_df$deviance_explained[nrow(summary_df)] <- full_mod_sum$dev.expl
+      if (!is.null(full_mod_stats$dev_expl) && !is.na(full_mod_stats$dev_expl)) {
+        summary_df$deviance_explained[nrow(summary_df)] <- full_mod_stats$dev_expl
       }
     }
   }
@@ -1180,6 +1174,16 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     step_labels = step_labels
   )
 
+  # Add convenience accessor with standardized column names
+  obj$indices <- data.frame(
+    level = indices_df$level,
+    index = indices_df$standardised_index,
+    cv = indices_df$standardised_cv,
+    lower_CI = indices_df$stan_lower,
+    upper_CI = indices_df$stan_upper,
+    stringsAsFactors = FALSE
+  )
+
   return(obj)
 }
 
@@ -1192,8 +1196,9 @@ validate_gam_influence <- function(obj) {
   if (!inherits(obj, "gam_influence")) {
     stop("Object must be of class 'gam_influence'", call. = FALSE)
   }
-  if (!inherits(obj$model, "gam")) {
-    stop("Model must be a GAM object from mgcv package", call. = FALSE)
+  if (!is_supported_model(obj$model)) {
+    stop("Model must be an mgcv gam, stats glm, or glmmTMB object. Got: ",
+         paste(class(obj$model), collapse = ", "), call. = FALSE)
   }
   if (!obj$focus %in% obj$terms) {
     stop("Focus term must be present in model terms", call. = FALSE)
@@ -1203,8 +1208,9 @@ validate_gam_influence <- function(obj) {
   }
 
   # Check family compatibility
-  if (!is.null(obj$model$family)) {
-    family_name <- obj$model$family$family
+  fam_check <- tryCatch(get_model_family(obj$model), error = function(e) NULL)
+  if (!is.null(fam_check)) {
+    family_name <- fam_check$family
     supported_families <- c("gaussian", "binomial", "Gamma", "gamma", "poisson", "weibull", "quasi", "quasipoisson", "quasibinomial", "Tweedie", "nb")
 
     # Check for Tweedie family (which reports as "Tweedie(p=X.XXX)")

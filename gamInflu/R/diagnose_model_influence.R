@@ -64,7 +64,7 @@ diagnose_model_influence <- function(obj,
   )
 
   # === DISTRIBUTIONAL TESTS ===
-  normality_p <- if (model$family$family == "gaussian" && length(residuals_vec) >= 3 && length(residuals_vec) <= 5000) {
+  normality_p <- if (get_model_family(model)$family == "gaussian" && length(residuals_vec) >= 3 && length(residuals_vec) <= 5000) {
     tryCatch(shapiro.test(residuals_vec)$p.value, error = function(e) NA)
   } else {
     NA

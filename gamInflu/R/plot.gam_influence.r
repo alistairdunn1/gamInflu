@@ -18,12 +18,12 @@ plot.gam_influence <- function(x, type = "all", ...) {
   }
 
   switch(type,
-    stan = plot_standardisation(x, ...),
-    step = plot_stepwise_index(x, ...),
-    influ = plot_term_influence(x, ...),
+    stan = , standardisation = plot_standardisation(x, ...),
+    step = , stepwise = plot_stepwise_index(x, ...),
+    influ = , step_influence = plot_term_influence(x, ...),
     cdi = plot_cdi(x, ...),
     distribution = plot_term_distribution(x, ...),
     all = plot_step_and_influence(x, ...),
-    stop("Invalid plot type. Choose from 'stan', 'step', 'influ', 'cdi', 'distribution', 'all'.", call. = FALSE)
+    stop("Invalid plot type. Choose from 'stan', 'standardisation', 'step', 'stepwise', 'influ', 'step_influence', 'cdi', 'distribution', 'all'.", call. = FALSE)
   )
 }

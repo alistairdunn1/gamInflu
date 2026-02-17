@@ -40,8 +40,8 @@ summary.gam_influence_comparison <- function(object, ...) {
   cat("\nModel Fit Statistics by Group:\n")
   cat("------------------------------\n")
 
-  for (group in x$groups) {
-    result <- x$results[[group]]
+  for (group in object$groups) {
+    result <- object$results[[group]]
 
     cat("\nGroup:", group, "\n")
 
@@ -88,9 +88,12 @@ summary.gam_influence_comparison <- function(object, ...) {
 #' @importFrom patchwork wrap_plots
 #' @importFrom ggplot2 ggplot aes geom_line geom_point geom_ribbon labs theme_minimal facet_wrap
 #' @export
-plot.gam_influence_comparison <- function(x, type = c("standardisation", "comparison", "stepwise", "influence", "terms"),
+plot.gam_influence_comparison <- function(x, type = c("standardisation", "comparison", "stepwise", "influence", "terms", "indices"),
                                           groups = NULL, ncol = NULL, ...) {
   type <- match.arg(type)
+
+  # "indices" is an alias for "comparison"
+  if (type == "indices") type <- "comparison"
 
   if (is.null(groups)) {
     groups <- x$groups

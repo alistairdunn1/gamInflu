@@ -141,9 +141,10 @@ analyse_residual_patterns <- function(obj,
       if (var %in% names(residual_data) && sum(!is.na(residual_data[[var]])) > 0) {
         tryCatch(
           {
-            fit <- gam(residuals ~ s(get(var)), data = residual_data)
-            r_squared <- summary(fit)$r.sq
-            p_value <- summary(fit)$s.table[1, 4] # p-value for smooth term
+            fit <- mgcv::gam(residuals ~ s(get(var)), data = residual_data)
+            fit_stats <- get_model_stats(fit)
+            r_squared <- fit_stats$r_sq
+            p_value <- if (!is.null(fit_stats$s_table)) fit_stats$s_table[1, 4] else NA
 
             smooth_results <- rbind(smooth_results, data.frame(
               variable = var,

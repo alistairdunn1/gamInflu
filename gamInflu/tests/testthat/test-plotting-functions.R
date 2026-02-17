@@ -6,7 +6,7 @@ test_that("plotting functions work with all GLM families", {
   for (family_name in names(models)) {
     model <- models[[family_name]]
 
-    gi <- gam_influence(model, focus = "year")
+    gi <- gam_influence(model, focus = "year", data = test_data)
     gi <- calculate_influence(gi)
 
     # Test main plotting functions
@@ -14,12 +14,12 @@ test_that("plotting functions work with all GLM families", {
     expect_no_error(plot_stepwise_index(gi))
     expect_no_error(plot_step_and_influence(gi))
 
-    # Test plot_terms for different term types
-    terms <- get_terms(gi)
-    if (length(terms) > 0) {
-      expect_no_error(plot_terms(gi, terms[1]))
-      expect_no_error(plot_cdi(gi, terms[1]))
-      expect_no_error(plot_term_distribution(gi, terms[1]))
+    # Test plot_terms for different term types (use full names, exclude focus)
+    terms_full <- setdiff(get_terms(gi, full = TRUE), "year")
+    if (length(terms_full) > 0) {
+      expect_no_error(plot_terms(gi, terms_full[1]))
+      expect_no_error(plot_cdi(gi, terms_full[1]))
+      expect_no_error(plot_term_distribution(gi, terms_full[1]))
     }
 
     # Test generic plot method
@@ -66,9 +66,9 @@ test_that("plot_terms works with different smoother types", {
     gi <- gam_influence(model, focus = "year")
     gi <- calculate_influence(gi)
 
-    terms <- get_terms(gi)
-    if (length(terms) > 0) {
-      for (term in terms) {
+    terms_full <- setdiff(get_terms(gi, full = TRUE), "year")
+    if (length(terms_full) > 0) {
+      for (term in terms_full) {
         expect_no_error(plot_terms(gi, term))
         expect_no_error(plot_cdi(gi, term))
       }
@@ -85,11 +85,11 @@ test_that("random effects plotting works", {
   for (model_name in names(random_models)) {
     model <- random_models[[model_name]]
 
-    gi <- gam_influence(model, focus = "year")
+    gi <- gam_influence(model, focus = "year", data = test_data)
     gi <- calculate_influence(gi)
 
-    terms <- get_terms(gi)
-    random_terms <- terms[grepl("vessel", terms)]
+    terms_full <- get_terms(gi, full = TRUE)
+    random_terms <- terms_full[grepl("vessel", terms_full)]
 
     if (length(random_terms) > 0) {
       for (term in random_terms) {

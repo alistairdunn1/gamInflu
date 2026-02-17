@@ -1,12 +1,13 @@
 Package: gamInflu
 Type: Package
 Title: Influence Analysis for Generalized Additive Models
-Version: 0.1
+Version: 0.2
 Author: Alistair Dunn [aut, cre]
 Maintainer: Alistair Dunn <alistair.dunn@OceanEnvironmental.co.nz>
 Description: Comprehensive influence analysis tools for Generalized Additive Models (GAMs) fitted with mgcv. 
     Enhanced with multi-family support for Gaussian, binomial, gamma, and Poisson distributions.
-    Supports all smoother types including s(), te(), ti(), t2(), and by= terms. 
+    Supports all smoother types including s(), te(), ti(), t2(), and by= terms.
+    Also supports glmmTMB models as an alternative backend for mixed-effects modeling.
     Generates stepwise index plots, term influence plots, coefficient-distribution-influence (CDI) plots, 
     and family-specific standardized indices to help understand model structure and term influences.
     Features automatic family detection, family-appropriate statistical methods, and comprehensive 
@@ -29,6 +30,7 @@ Imports:
     tools,
     scales
 Suggests:
+    glmmTMB,
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,

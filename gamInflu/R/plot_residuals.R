@@ -149,7 +149,7 @@ plot_residuals <- function(obj,
 
   # Get linear predictor (systematic component before link function)
   # Need to provide data explicitly since model may not store it internally
-  linear_predictor <- predict(model, newdata = obj$data, type = "link")
+  linear_predictor <- predict_link(model, obj$data)$fit
 
   # Get residuals based on type
   residuals_vals <- switch(residual_type,
@@ -225,16 +225,17 @@ plot_residuals <- function(obj,
 #' CDF evaluated at observed values. For discrete distributions, we use randomized PIT residuals.
 #' @noRd
 calculate_pit_residuals <- function(model, data) {
-  family_obj <- model$family
-  y <- model$y
-  mu <- fitted(model)
+  family_info <- get_model_family(model)
+  family_obj <- family_info$family_object
+  y <- get_model_response(model)
+  mu <- get_fitted(model)
 
   # Get distribution parameters
-  if (family_obj$family == "gaussian") {
+  if (family_info$family == "gaussian") {
     # Gaussian: PIT = Phi((y - mu) / sigma)
-    sigma <- sqrt(summary(model)$dispersion)
+    sigma <- sqrt(get_dispersion_params(model)$dispersion)
     pit <- pnorm(y, mean = mu, sd = sigma)
-  } else if (family_obj$family == "binomial") {
+  } else if (family_info$family == "binomial") {
     # Binomial: use randomized PIT for binary data
     # For y = 1: U ~ Uniform(1-p, 1)
     # For y = 0: U ~ Uniform(0, 1-p)
@@ -242,11 +243,11 @@ calculate_pit_residuals <- function(model, data) {
     pit <- numeric(length(y))
     pit[y == 1] <- runif(sum(y == 1), min = 1 - p[y == 1], max = 1)
     pit[y == 0] <- runif(sum(y == 0), min = 0, max = 1 - p[y == 0])
-  } else if (family_obj$family == "poisson" || family_obj$family == "Negative Binomial") {
+  } else if (family_info$family == "poisson" || family_info$family == "Negative Binomial") {
     # Poisson/NB: randomized PIT
     # U ~ Uniform(F(y-1), F(y)) where F is CDF
     pit <- numeric(length(y))
-    if (family_obj$family == "poisson") {
+    if (family_info$family == "poisson") {
       for (i in seq_along(y)) {
         lower <- if (y[i] == 0) 0 else ppois(y[i] - 1, lambda = mu[i])
         upper <- ppois(y[i], lambda = mu[i])
@@ -254,28 +255,29 @@ calculate_pit_residuals <- function(model, data) {
       }
     } else {
       # Negative binomial - extract theta from family
-      theta <- model$family$getTheta(TRUE) # overdispersion parameter
+      theta <- get_dispersion_params(model)$theta
       for (i in seq_along(y)) {
         lower <- if (y[i] == 0) 0 else pnbinom(y[i] - 1, mu = mu[i], size = theta)
         upper <- pnbinom(y[i], mu = mu[i], size = theta)
         pit[i] <- runif(1, min = lower, max = upper)
       }
     }
-  } else if (family_obj$family == "Gamma") {
+  } else if (family_info$family == "Gamma") {
     # Gamma distribution
-    shape <- 1 / summary(model)$dispersion
+    shape <- 1 / get_dispersion_params(model)$dispersion
     scale <- mu / shape
     pit <- pgamma(y, shape = shape, scale = scale)
-  } else if (grepl("Tweedie", family_obj$family)) {
+  } else if (grepl("Tweedie", family_info$family)) {
     # Tweedie: use approximate PIT via simulation or numerical integration
     # For simplicity, we'll use a normal approximation
-    var_y <- mu^model$family$getTheta(TRUE) # Tweedie variance function
+    disp_params <- get_dispersion_params(model)
+    var_y <- mu^(if (!is.null(disp_params$theta)) disp_params$theta else 1.5) # Tweedie variance function
     pit <- pnorm(y, mean = mu, sd = sqrt(var_y))
     warning("PIT residuals for Tweedie family use normal approximation", call. = FALSE)
   } else {
     # For other families, default to normal approximation
-    warning(paste("PIT residuals for", family_obj$family, "family use normal approximation"), call. = FALSE)
-    sigma <- sqrt(mu * summary(model)$dispersion) # variance proportional to mean
+    warning(paste("PIT residuals for", family_info$family, "family use normal approximation"), call. = FALSE)
+    sigma <- sqrt(mu * get_dispersion_params(model)$dispersion) # variance proportional to mean
     pit <- pnorm(y, mean = mu, sd = sigma)
   }
 
@@ -345,7 +347,7 @@ create_standard_residual_plots <- function(resid_data, residual_type, model, by 
 
   # Panel 4: Observed vs Fitted Values
   # Get observed values from the model
-  observed_vals <- model$y
+  observed_vals <- get_model_response(model)
   resid_data$observed <- observed_vals
 
   p4 <- ggplot2::ggplot(resid_data, ggplot2::aes(x = .data$fitted, y = .data$observed)) +

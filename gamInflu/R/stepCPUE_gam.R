@@ -95,8 +95,8 @@ stepCPUE_gam <- function(object, scope, r2.change = 0.005, scale = 0,
                          direction = c("both", "backward", "forward"),
                          trace = 1, keep = deviance, steps = 1000, ...) {
   # Check if object is a GAM
-  if (!inherits(object, "gam")) {
-    stop("Object must be an mgcv GAM object fitted with gam()")
+  if (!is_supported_model(object)) {
+    stop("Object must be a supported model (mgcv gam, stats glm, or glmmTMB)")
   }
 
   # Internal function to extract R-squared and other statistics from GAM
@@ -105,12 +105,12 @@ stepCPUE_gam <- function(object, scope, r2.change = 0.005, scale = 0,
     # For GAMs, use the summary to get effective degrees of freedom
     edf <- sum(fit$edf) + length(fit$coefficients) - sum(fit$edf)
 
-    # Calculate R-squared for GAMs
-    if (!is.null(fit$null.deviance) && !is.null(fit$deviance)) {
-      r.squared <- 1 - (fit$deviance / fit$null.deviance)
+    # Calculate R-squared using backend-aware function
+    fit_stats <- get_model_fit_stats(fit)
+    if (!is.null(fit_stats$null_deviance) && !is.null(fit_stats$deviance)) {
+      r.squared <- 1 - (fit_stats$deviance / fit_stats$null_deviance)
     } else {
-      # Alternative calculation for GAMs
-      r.squared <- summary(fit)$r.sq
+      r.squared <- get_model_stats(fit)$r_sq
     }
 
     c(edf, r.squared)
@@ -118,11 +118,11 @@ stepCPUE_gam <- function(object, scope, r2.change = 0.005, scale = 0,
 
   # Internal function to calculate R-squared for GAMs
   r.squared_gam <- function(GAM, decimals = 3) {
-    if (!is.null(GAM$null.deviance) && !is.null(GAM$deviance)) {
-      RES <- round(1 - (GAM$deviance / GAM$null.deviance), decimals)
+    fit_stats <- get_model_fit_stats(GAM)
+    if (!is.null(fit_stats$null_deviance) && !is.null(fit_stats$deviance)) {
+      RES <- round(1 - (fit_stats$deviance / fit_stats$null_deviance), decimals)
     } else {
-      # Use summary r.sq for GAMs
-      RES <- round(summary(GAM)$r.sq, decimals)
+      RES <- round(get_model_stats(GAM)$r_sq, decimals)
     }
     return(RES)
   }

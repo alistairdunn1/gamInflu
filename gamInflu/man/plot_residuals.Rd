@@ -7,7 +7,7 @@
 plot_residuals(
   obj,
   type = c("standard", "minimal", "violin", "both"),
-  residual_type = c("deviance", "pearson", "response", "working"),
+  residual_type = c("deviance", "pearson", "response", "working", "pit"),
   violin_trim = TRUE,
   add_boxplot = TRUE,
   add_smooth = TRUE,
@@ -28,7 +28,8 @@ plot_residuals(
 - `"deviance"`: Deviance residuals (default, family-appropriate)
 - `"pearson"`: Pearson residuals
 - `"response"`: Response residuals (observed - fitted)
-- `"working"`: Working residuals}
+- `"working"`: Working residuals
+- `"pit"`: Probability Integral Transform (PIT) residuals (uniform distribution under correct model)}
 
 \item{violin_trim}{Logical. Should violin plots be trimmed to data range? Default is TRUE.}
 
@@ -68,6 +69,7 @@ comprehensive residual diagnostics.
 - **Pearson residuals**: Standardised residuals, useful for checking variance assumptions. Plotted against fitted values.
 - **Response residuals**: Simple observed - fitted, interpretable but may not be appropriate for all families. Plotted against fitted values.
 - **Working residuals**: Used in iterative fitting, less commonly needed for diagnostics. Plotted against fitted values.
+- **PIT residuals**: Probability Integral Transform residuals should be uniformly distributed if the model is correctly specified. Useful for all distributions. QQ plot compares against uniform distribution.
 
 **Family-specific behaviour:**
 - **Gaussian**: All residual types available, deviance = Pearson for identity link
@@ -100,6 +102,10 @@ plot_residuals(gi, type = "both")
 # Using different residual types
 plot_residuals(gi, type = "violin", residual_type = "pearson")
 plot_residuals(gi, type = "standard", residual_type = "response")
+
+# PIT residuals for model diagnostics (uniform distribution expected if model correct)
+plot_residuals(gi, type = "standard", residual_type = "pit")
+plot_residuals(gi, type = "violin", residual_type = "pit")
 
 # Customised violin plot
 plot_residuals(gi,

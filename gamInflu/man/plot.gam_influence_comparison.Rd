@@ -6,7 +6,7 @@
 \usage{
 \method{plot}{gam_influence_comparison}(
   x,
-  type = c("standardisation", "comparison", "stepwise", "influence", "terms"),
+  type = c("standardisation", "comparison", "stepwise", "influence", "terms", "indices"),
   groups = NULL,
   ncol = NULL,
   ...

@@ -160,7 +160,7 @@ plot_binomial <- function(obj, confidence_level = 0.95) {
   }
 
   # Make predictions
-  preds <- predict(obj$model, newdata = new_data, se.fit = TRUE, type = "response")
+  preds <- predict_response(obj$model, new_data)
 
   pred_df <- data.frame(
     level = new_data[[focus_var]],

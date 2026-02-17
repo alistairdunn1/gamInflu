@@ -20,10 +20,11 @@ test_that("package handles edge cases gracefully", {
     y = rnorm(20)
   )
 
-  model_single <- gam(y ~ s(x) + year, data = single_level_data, family = gaussian())
-
-  # Should handle or error gracefully
-  expect_error(gam_influence(model_single, focus = "year"))
+  # GAM with single-level factor errors at model creation or gam_influence
+  expect_error({
+    model_single <- gam(y ~ s(x) + year, data = single_level_data, family = gaussian())
+    gam_influence(model_single, focus = "year")
+  })
 
   message("✓ Package handles minimal data and edge cases")
 })
@@ -72,7 +73,7 @@ test_that("package handles missing values appropriately", {
   test_data$temp[10:15] <- NA
 
   # Model should handle NAs appropriately
-  model <- gam(y_gaussian ~ s(depth, na.action = na.exclude) + s(temp, na.action = na.exclude) + year,
+  model <- gam(y_gaussian ~ s(depth) + s(temp) + year,
     data = test_data, family = gaussian(), na.action = na.exclude
   )
 
@@ -102,7 +103,7 @@ test_that("package works with different factor orderings", {
   })
 
   # Check that factor levels are preserved
-  expect_true("year_reversed" %in% names(indices))
+  expect_true("year_reversed" %in% as.character(indices$focus_term))
 
   message("✓ Package works with different factor orderings")
 })

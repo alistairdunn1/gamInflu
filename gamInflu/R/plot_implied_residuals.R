@@ -41,7 +41,7 @@ plot_implied_residuals <- function(obj, var, nbins = 6, ylim = NULL, n.exclude =
   # Predict values for the focus variable using the stored model
   predictions <- data.frame(
     focus_var = data[[focus_var]],
-    predicted = predict(obj$model, type = "response", newdata = data),
+    predicted = predict_response(obj$model, data)$fit,
     group = data$var_factor,
     observed = data[[response_var]]
   )

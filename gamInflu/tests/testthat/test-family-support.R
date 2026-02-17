@@ -13,8 +13,12 @@ test_that("Factor ordering works correctly in distribution plots", {
 
   # Test that factor levels are handled properly in plotting
   expect_no_error(plot_terms(gi, "year"))
-  expect_no_error(plot_cdi(gi, "year"))
-  expect_no_error(plot_term_distribution(gi, "year"))
+  # CDI and distribution plots are for non-focus terms
+  non_focus_terms <- setdiff(get_terms(gi, full = TRUE), "year")
+  if (length(non_focus_terms) > 0) {
+    expect_no_error(plot_cdi(gi, non_focus_terms[1]))
+    expect_no_error(plot_term_distribution(gi, non_focus_terms[1]))
+  }
 
   # The actual ordering should be maintained as specified in factor levels
   year_levels <- levels(test_data$year)
@@ -90,9 +94,9 @@ test_that("Random effects plotting works with by-variables", {
 
   gi <- calculate_influence(gam_influence(model, focus = "year", data = test_data))
 
-  # Test plotting of random effects terms
-  terms <- get_terms(gi)
-  random_terms <- terms[grepl("vessel", terms)]
+  # Test plotting of random effects terms (use full term names)
+  terms_full <- get_terms(gi, full = TRUE)
+  random_terms <- terms_full[grepl("vessel", terms_full)]
 
   if (length(random_terms) > 0) {
     expect_no_error(plot_terms(gi, random_terms[1]))

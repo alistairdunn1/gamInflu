@@ -81,19 +81,20 @@ create_model_summary_table <- function(obj) {
   model <- obj$model
 
   # Get deviance
-  model_deviance <- round(deviance(model), 2)
-  null_deviance <- round(model$null.deviance, 2)
+  model_fit_stats <- get_model_fit_stats(model)
+  model_stats <- get_model_stats(model)
+  model_deviance <- round(model_fit_stats$deviance, 2)
+  null_deviance <- round(model_fit_stats$null_deviance, 2)
 
   # Get R² (adjusted if available)
-  model_summary <- summary(model)
-  r_squared <- if (!is.null(model_summary$r.sq)) {
-    round(model_summary$r.sq, 3)
+  r_squared <- if (!is.null(model_stats$r_sq) && !is.na(model_stats$r_sq)) {
+    round(model_stats$r_sq, 3)
   } else {
     NA
   }
 
-  adj_r_squared <- if (!is.null(model_summary$dev.expl)) {
-    round(model_summary$dev.expl, 3)
+  adj_r_squared <- if (!is.null(model_stats$dev_expl) && !is.na(model_stats$dev_expl)) {
+    round(model_stats$dev_expl, 3)
   } else {
     NA
   }
