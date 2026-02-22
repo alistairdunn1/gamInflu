@@ -295,9 +295,22 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
           # For factors, use the mode (most frequent level)
           mode_level <- names(sort(table(obj$data[[var_name]]), decreasing = TRUE))[1]
           reference_data[[var_name]] <- factor(mode_level, levels = levels(obj$data[[var_name]]))
-        } else {
+        } else if (is.character(obj$data[[var_name]])) {
+          # For character variables, use the mode (most frequent value)
+          mode_val <- names(sort(table(obj$data[[var_name]]), decreasing = TRUE))[1]
+          reference_data[[var_name]] <- mode_val
+        } else if (inherits(obj$data[[var_name]], c("POSIXt", "POSIXlt", "POSIXct", "Date"))) {
+          # For date/time variables, use the median date
+          # Convert to numeric, get median, convert back
+          numeric_dates <- as.numeric(obj$data[[var_name]])
+          median_numeric <- median(numeric_dates, na.rm = TRUE)
+          reference_data[[var_name]] <- as.POSIXct(median_numeric, origin = "1970-01-01")
+        } else if (is.numeric(obj$data[[var_name]])) {
           # For numeric variables, use the median (more robust than mean)
           reference_data[[var_name]] <- median(obj$data[[var_name]], na.rm = TRUE)
+        } else {
+          # For other types (logical, etc.), use the most common value
+          reference_data[[var_name]] <- obj$data[[var_name]][1]
         }
       }
     }
@@ -816,7 +829,9 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
       if (is.null(dev_expl_step) || is.na(dev_expl_step)) {
         dev_expl_step <- if (!is.null(model_step_fit$null_deviance) && !is.null(model_step_fit$deviance)) {
           (model_step_fit$null_deviance - model_step_fit$deviance) / model_step_fit$null_deviance
-        } else NA
+        } else {
+          NA
+        }
       }
 
       # Degrees of freedom contributed by this added term (drop in residual df)
@@ -948,7 +963,9 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
               if (is.null(dev_expl_step) || is.na(dev_expl_step)) {
                 dev_expl_step <- if (!is.null(model_step_fit$null_deviance) && !is.null(model_step_fit$deviance)) {
                   (model_step_fit$null_deviance - model_step_fit$deviance) / model_step_fit$null_deviance
-                } else NA
+                } else {
+                  NA
+                }
               }
 
               df_added <- prev_resid_df - model_step_fit$df_residual
@@ -1198,7 +1215,9 @@ validate_gam_influence <- function(obj) {
   }
   if (!is_supported_model(obj$model)) {
     stop("Model must be an mgcv gam, stats glm, or glmmTMB object. Got: ",
-         paste(class(obj$model), collapse = ", "), call. = FALSE)
+      paste(class(obj$model), collapse = ", "),
+      call. = FALSE
+    )
   }
   if (!obj$focus %in% obj$terms) {
     stop("Focus term must be present in model terms", call. = FALSE)
