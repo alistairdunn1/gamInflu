@@ -129,6 +129,11 @@ summary.gam_influence_combined <- function(object, ...) {
 #'   - "components": All three indices (binomial, positive, combined) on separate panels
 #' @param show_points Logical. Should individual points be shown? Default TRUE.
 #' @param show_ci Logical. Should confidence intervals be shown? Default TRUE.
+#' @param rescale_binomial Logical. Should the binomial component be rescaled to have a mean of 1
+#'   rather than displaying on the raw probability (0-1) scale? Default is TRUE. When TRUE, the
+#'   binomial index and its confidence bounds are divided by their mean, placing the component on
+#'   the same relative scale as the positive-catch and combined indices for easier comparison.
+#'   Set to FALSE to display the original probability scale.
 #' @param ... Additional arguments passed to ggplot2
 #' @return A ggplot object
 #' @importFrom ggplot2 ggplot aes geom_line geom_point geom_ribbon labs scale_colour_manual facet_wrap
@@ -136,7 +141,8 @@ summary.gam_influence_combined <- function(object, ...) {
 #' @importFrom rlang .data
 #' @export
 plot.gam_influence_combined <- function(x, type = c("comparison", "combined", "components"),
-                                        show_points = TRUE, show_ci = TRUE, ...) {
+                                        show_points = TRUE, show_ci = TRUE,
+                                        rescale_binomial = TRUE, ...) {
   type <- match.arg(type)
 
   # Prepare data for plotting
@@ -147,6 +153,16 @@ plot.gam_influence_combined <- function(x, type = c("comparison", "combined", "c
     plot_data$level_numeric <- as.numeric(as.character(plot_data$level))
   } else {
     plot_data$level_numeric <- as.numeric(plot_data$level)
+  }
+
+  # Rescale binomial component to mean=1 if requested
+  if (rescale_binomial && "standardised_index_binom" %in% names(plot_data)) {
+    binom_mean <- mean(plot_data$standardised_index_binom, na.rm = TRUE)
+    if (!is.na(binom_mean) && binom_mean != 0) {
+      plot_data$standardised_index_binom <- plot_data$standardised_index_binom / binom_mean
+      plot_data$stan_lower_binom <- plot_data$stan_lower_binom / binom_mean
+      plot_data$stan_upper_binom <- plot_data$stan_upper_binom / binom_mean
+    }
   }
 
   if (type == "combined") {
@@ -197,7 +213,6 @@ create_combined_index_plot <- function(plot_data, focus_term, method, show_point
       colour = "royalblue"
     )
   }
-
 
 
   # Add reference line

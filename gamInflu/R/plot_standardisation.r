@@ -5,6 +5,11 @@
 #' @param obj A `gam_influence` object containing calculated indices from `calculate_influence()`.
 #' @param show_unstandardised Logical. Should the unstandardised index be displayed? Default is TRUE.
 #'   When FALSE, only the standardised index is shown and the legend is hidden for a cleaner plot.
+#' @param rescale_binomial Logical. For binomial models, should the indices be rescaled to have a mean
+#'   of 1 rather than displaying on the raw probability (0-1) scale? Default is TRUE. When TRUE, both
+#'   the standardised and unstandardised indices are divided by their respective means, placing them on
+#'   a relative scale centred on 1 that is directly comparable to non-binomial standardisation plots.
+#'   Set to FALSE to display the original probability scale.
 #' @return A ggplot object showing both unstandardised and standardised indices, with confidence ribbon
 #'   around the standardised index. The plot includes:
 #'   - Unstandardised index (grey line and points): Raw aggregated values by focus level (if show_unstandardised = TRUE)
@@ -35,9 +40,10 @@
 #' plot_standardisation(gi, show_unstandardised = FALSE)
 #'
 #' # With different families
-#' # Binomial model
+#' # Binomial model - rescaled to mean=1 by default
 #' gi_binom <- calculate_influence(gi_binomial_model)
-#' plot_standardisation(gi_binom) # Shows probability indices
+#' plot_standardisation(gi_binom) # Rescaled relative index (mean=1)
+#' plot_standardisation(gi_binom, rescale_binomial = FALSE) # Raw probability scale
 #'
 #' # Gamma model - standardised only
 #' gi_gamma <- calculate_influence(gi_gamma_model)
@@ -46,7 +52,7 @@
 #' @importFrom ggplot2 ggplot aes geom_hline geom_line geom_point geom_ribbon labs scale_colour_manual scale_y_continuous theme
 #' @importFrom rlang .data
 #' @export
-plot_standardisation <- function(obj, show_unstandardised = TRUE) {
+plot_standardisation <- function(obj, show_unstandardised = TRUE, rescale_binomial = TRUE) {
   df <- obj$calculated$indices
   if (is.null(df)) {
     stop("No indices calculated. Please run `calculate_influence()` first.", call. = FALSE)
@@ -62,6 +68,27 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE) {
   }
   if (is.null(obj$focus)) {
     stop("Focus term is not set. Please set the focus term in the gam_influence object.", call. = FALSE)
+  }
+
+  # Detect binomial family and apply rescaling if requested
+  is_binomial <- tryCatch(
+    grepl("binomial", family(obj$model)$family, ignore.case = TRUE),
+    error = function(e) FALSE
+  )
+
+  y_label <- "Index"
+  if (is_binomial && rescale_binomial) {
+    stan_mean <- mean(df$standardised_index, na.rm = TRUE)
+    unstan_mean <- mean(df$unstan, na.rm = TRUE)
+    if (!is.na(stan_mean) && stan_mean != 0) {
+      df$standardised_index <- df$standardised_index / stan_mean
+      df$stan_lower <- df$stan_lower / stan_mean
+      df$stan_upper <- df$stan_upper / stan_mean
+    }
+    if (!is.na(unstan_mean) && unstan_mean != 0) {
+      df$unstan <- df$unstan / unstan_mean
+    }
+    y_label <- "Relative Index"
   }
 
   # Convert level to numeric if possible
@@ -85,7 +112,7 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE) {
     ggplot2::geom_line(ggplot2::aes(y = .data$standardised_index, colour = "Standardised")) +
     ggplot2::geom_point(ggplot2::aes(y = .data$standardised_index, colour = "Standardised")) +
     ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$stan_lower, ymax = .data$stan_upper), fill = "royalblue", alpha = 0.2) +
-    ggplot2::labs(x = obj$focus, y = "Index") +
+    ggplot2::labs(x = obj$focus, y = y_label) +
     ggplot2::scale_y_continuous(limits = c(0, NA))
 
   # Conditionally add legend and colour scale

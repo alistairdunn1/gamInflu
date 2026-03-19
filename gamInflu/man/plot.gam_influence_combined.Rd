@@ -9,6 +9,7 @@
   type = c("comparison", "combined", "components"),
   show_points = TRUE,
   show_ci = TRUE,
+  rescale_binomial = TRUE,
   ...
 )
 }
@@ -23,6 +24,12 @@
 \item{show_points}{Logical. Should individual points be shown? Default TRUE.}
 
 \item{show_ci}{Logical. Should confidence intervals be shown? Default TRUE.}
+
+\item{rescale_binomial}{Logical. Should the binomial component be rescaled to have a mean of 1
+rather than displaying on the raw probability (0-1) scale? Default is TRUE. When TRUE, the
+binomial index and its confidence bounds are divided by their mean, placing the component on
+the same relative scale as the positive-catch and combined indices for easier comparison.
+Set to FALSE to display the original probability scale.}
 
 \item{...}{Additional arguments passed to ggplot2}
 }

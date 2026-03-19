@@ -206,6 +206,25 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
   # Always ensure obj$islog is set for plotting functions
   obj$islog <- islog
 
+  # Check for unused factor levels in the focus variable - these cause predict.gam to crash
+  if (is.factor(obj$data[[obj$focus]])) {
+    all_levels <- levels(obj$data[[obj$focus]])
+    used_levels <- levels(droplevels(obj$data[[obj$focus]]))
+    dropped <- setdiff(all_levels, used_levels)
+    if (length(dropped) > 0) {
+      warning(
+        "The focus variable '", obj$focus, "' has ", length(dropped),
+        " unused factor level(s) that are not present in the data: ",
+        paste(dropped, collapse = ", "), ".\n",
+        "These will be dropped automatically. To avoid this warning, use droplevels() ",
+        "on your data before fitting the model, e.g.:\n",
+        "  data <- droplevels(data)",
+        call. = FALSE
+      )
+      obj$data[[obj$focus]] <- droplevels(obj$data[[obj$focus]])
+    }
+  }
+
   observed <- obj$data[[obj$response]]
 
   # Special handling for binomial models with raw rescaling
@@ -278,8 +297,8 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
     # For prediction method, create reference dataset with focus variable varying
     # and all other variables held at mode/median
 
-    # Get all unique levels of the focus variable
-    focus_levels <- levels(obj$data[[obj$focus]])
+    # Get all unique levels of the focus variable (only those actually present in data)
+    focus_levels <- levels(droplevels(obj$data[[obj$focus]]))
     if (is.null(focus_levels)) {
       focus_levels <- sort(unique(obj$data[[obj$focus]]))
     }

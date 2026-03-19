@@ -4,13 +4,19 @@
 \alias{plot_standardisation}
 \title{Standardisation Plot}
 \usage{
-plot_standardisation(obj, show_unstandardised = TRUE)
+plot_standardisation(obj, show_unstandardised = TRUE, rescale_binomial = TRUE)
 }
 \arguments{
 \item{obj}{A `gam_influence` object containing calculated indices from `calculate_influence()`.}
 
 \item{show_unstandardised}{Logical. Should the unstandardised index be displayed? Default is TRUE.
 When FALSE, only the standardised index is shown and the legend is hidden for a cleaner plot.}
+
+\item{rescale_binomial}{Logical. For binomial models, should the indices be rescaled to have a mean
+of 1 rather than displaying on the raw probability (0-1) scale? Default is TRUE. When TRUE, both
+the standardised and unstandardised indices are divided by their respective means, placing them on
+a relative scale centred on 1 that is directly comparable to non-binomial standardisation plots.
+Set to FALSE to display the original probability scale.}
 }
 \value{
 A ggplot object showing both unstandardised and standardised indices, with confidence ribbon
