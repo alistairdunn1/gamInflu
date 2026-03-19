@@ -16,7 +16,8 @@ The package supports multiple model backends (mgcv::gam, stats::glm, and glmmTMB
 
 ```r
 # Install from source directory:
-devtools::install_github("alistairdunn1/gamInflu", subdir = "gamInflu")
+# devtools::install_github("alistairdunn1/gamInflu", subdir = "gamInflu"
+devtools::install_github("alistairdunn1/gamInflu", subdir = "gamInflu", ref = "glmmTMB-backend")
 # Or install from tar.gz file:
 install.packages("gamInflu_0.2.0.tar.gz", repos = NULL, type = "source")
 
