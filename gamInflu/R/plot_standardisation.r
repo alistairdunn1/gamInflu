@@ -1,3 +1,28 @@
+# Internal helper to split line/ribbon segments across non-consecutive numeric levels.
+.compute_contiguous_groups <- function(x, break_year_gaps = FALSE) {
+  if (!isTRUE(break_year_gaps)) {
+    return(rep(1L, length(x)))
+  }
+
+  x_num <- suppressWarnings(as.numeric(as.character(x)))
+  if (length(x_num) == 0 || all(is.na(x_num))) {
+    return(rep(1L, length(x)))
+  }
+
+  groups <- integer(length(x_num))
+  groups[1] <- 1L
+
+  for (i in 2:length(x_num)) {
+    if (is.na(x_num[i]) || is.na(x_num[i - 1]) || (x_num[i] - x_num[i - 1]) > 1) {
+      groups[i] <- groups[i - 1] + 1L
+    } else {
+      groups[i] <- groups[i - 1]
+    }
+  }
+
+  groups
+}
+
 #' @title Standardisation Plot
 #' @description Creates a standardisation plot comparing the unstandardised (raw) index to the final
 #' standardised index for the focus term. Works with all supported GLM families (Gaussian, binomial,
@@ -10,6 +35,9 @@
 #'   the standardised and unstandardised indices are divided by their respective means, placing them on
 #'   a relative scale centred on 1 that is directly comparable to non-binomial standardisation plots.
 #'   Set to FALSE to display the original probability scale.
+#' @param break_year_gaps Logical. Should lines and confidence ribbons break across missing
+#'   year-like levels (numeric gaps greater than 1)? Default is FALSE. Set to TRUE to avoid
+#'   visually connecting non-consecutive years.
 #' @return A ggplot object showing both unstandardised and standardised indices, with confidence ribbon
 #'   around the standardised index. The plot includes:
 #'   - Unstandardised index (grey line and points): Raw aggregated values by focus level (if show_unstandardised = TRUE)
@@ -52,7 +80,7 @@
 #' @importFrom ggplot2 ggplot aes geom_hline geom_line geom_point geom_ribbon labs scale_colour_manual scale_y_continuous theme
 #' @importFrom rlang .data
 #' @export
-plot_standardisation <- function(obj, show_unstandardised = TRUE, rescale_binomial = TRUE) {
+plot_standardisation <- function(obj, show_unstandardised = TRUE, rescale_binomial = TRUE, break_year_gaps = FALSE) {
   df <- obj$calculated$indices
   if (is.null(df)) {
     stop("No indices calculated. Please run `calculate_influence()` first.", call. = FALSE)
@@ -96,22 +124,24 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE, rescale_binomi
     df$level <- as.numeric(as.character(df$level))
   }
 
+  df$line_group <- .compute_contiguous_groups(df$level, break_year_gaps = break_year_gaps)
+
   # Start building the plot
-  p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$level, group = 1)) +
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$level)) +
     ggplot2::geom_hline(ggplot2::aes(yintercept = 1), linetype = "dashed", colour = "grey")
 
   # Conditionally add unstandardised index
   if (show_unstandardised) {
     p <- p +
-      ggplot2::geom_line(ggplot2::aes(y = .data$unstan, colour = "Unstandardised")) +
+      ggplot2::geom_line(ggplot2::aes(y = .data$unstan, colour = "Unstandardised", group = .data$line_group)) +
       ggplot2::geom_point(ggplot2::aes(y = .data$unstan, colour = "Unstandardised"))
   }
 
   # Add standardised index and confidence ribbon
   p <- p +
-    ggplot2::geom_line(ggplot2::aes(y = .data$standardised_index, colour = "Standardised")) +
+    ggplot2::geom_line(ggplot2::aes(y = .data$standardised_index, colour = "Standardised", group = .data$line_group)) +
     ggplot2::geom_point(ggplot2::aes(y = .data$standardised_index, colour = "Standardised")) +
-    ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$stan_lower, ymax = .data$stan_upper), fill = "royalblue", alpha = 0.2) +
+    ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$stan_lower, ymax = .data$stan_upper, group = .data$line_group), fill = "royalblue", alpha = 0.2) +
     ggplot2::labs(x = obj$focus, y = y_label) +
     ggplot2::scale_y_continuous(limits = c(0, NA))
 
@@ -141,6 +171,8 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE, rescale_binomi
 #' @param plot_type Character. Type of plot to display raw data distribution. Options are "violin" (default) or "boxplot".
 #'   - "violin": Shows kernel density estimation of the distribution shape
 #'   - "boxplot": Shows median, quartiles, whiskers, and outliers
+#' @param break_year_gaps Logical. Should the standardised overlay line and confidence ribbon
+#'   break across missing year-like levels (numeric gaps greater than 1)? Default is FALSE.
 #' @return A ggplot object showing:
 #'   - Violin plots or boxplots: Distribution of raw observations by focus term level (typically year)
 #'   - Rescaled standardised index line (blue): Model-adjusted values rescaled to match unstandardised mean (if show_standardised = TRUE)
@@ -187,7 +219,7 @@ plot_standardisation <- function(obj, show_unstandardised = TRUE, rescale_binomi
 #' @importFrom ggplot2 ggplot aes geom_boxplot geom_violin geom_line geom_ribbon labs scale_y_continuous theme_minimal
 #' @importFrom rlang .data
 #' @export
-plot_unstandardised <- function(obj, show_standardised = TRUE, plot_type = "violin") {
+plot_unstandardised <- function(obj, show_standardised = TRUE, plot_type = "violin", break_year_gaps = FALSE) {
   # Validate inputs
   if (is.null(obj$data)) {
     stop("No data found in gam_influence object.", call. = FALSE)
@@ -263,6 +295,8 @@ plot_unstandardised <- function(obj, show_standardised = TRUE, plot_type = "viol
           indices_df$level <- as.numeric(as.character(indices_df$level))
         }
 
+        indices_df$line_group <- .compute_contiguous_groups(indices_df$level, break_year_gaps = break_year_gaps)
+
         # Note: standardised indices are already transformed by calculate_influence() when islog=TRUE
         # so no additional transformation needed for indices_df
 
@@ -283,13 +317,13 @@ plot_unstandardised <- function(obj, show_standardised = TRUE, plot_type = "viol
               x = .data$level,
               ymin = .data$stan_lower_rescaled,
               ymax = .data$stan_upper_rescaled,
-              group = 1
+              group = .data$line_group
             ),
             fill = "royalblue", alpha = 0.3, inherit.aes = FALSE
           ) +
           ggplot2::geom_line(
             data = indices_df,
-            ggplot2::aes(x = .data$level, y = .data$standardised_index_rescaled, group = 1),
+            ggplot2::aes(x = .data$level, y = .data$standardised_index_rescaled, group = .data$line_group),
             colour = "royalblue", inherit.aes = FALSE
           )
       } else {
