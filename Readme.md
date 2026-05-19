@@ -16,8 +16,8 @@ The package supports multiple model backends (mgcv::gam, stats::glm, and glmmTMB
 
 ```r
 # Install from source directory:
-# devtools::install_github("alistairdunn1/gamInflu", subdir = "gamInflu"
-devtools::install_github("alistairdunn1/gamInflu", subdir = "gamInflu", ref = "glmmTMB-backend")
+devtools::install_github("alistairdunn1/gamInflu", subdir = "gamInflu"
+
 # Or install from tar.gz file:
 install.packages("gamInflu_0.2.0.tar.gz", repos = NULL, type = "source")
 
@@ -188,11 +188,11 @@ gi <- calculate_influence(gi, family = "weibull")  # Auto-detects Weibull
 
 ### Supported Backends
 
-| Backend | Model Class | Smooths | Random Effects | Notes |
-|---------|-------------|---------|----------------|-------|
-| **mgcv::gam** | `gam` | `s()`, `te()`, `ti()`, `t2()`, `bs="re"` | Via `bs="re"` | Full feature support |
-| **stats::glm** | `glm` | None | None | Basic GLM support |
-| **glmmTMB** | `glmmTMB` | Via `splines::ns()`/`bs()` | `(1\|group)` syntax | Mixed-effects models |
+| Backend              | Model Class | Smooths                                            | Random Effects       | Notes                |
+| -------------------- | ----------- | -------------------------------------------------- | -------------------- | -------------------- |
+| **mgcv::gam**  | `gam`     | `s()`, `te()`, `ti()`, `t2()`, `bs="re"` | Via `bs="re"`      | Full feature support |
+| **stats::glm** | `glm`     | None                                               | None                 | Basic GLM support    |
+| **glmmTMB**    | `glmmTMB` | Via `splines::ns()`/`bs()`                     | `(1\|group)` syntax | Mixed-effects models |
 
 ### Using glmmTMB Backend
 
@@ -219,12 +219,12 @@ extract_indices(gi)
 
 When migrating between backends, use these equivalent specifications:
 
-| Feature | mgcv | glmmTMB |
-|---------|------|---------|
-| Smooth | `s(depth)` | `ns(depth, df = 4)` or `bs(depth, df = 4)` |
-| Tensor product | `te(x, y)` | `ns(x, df = 3):ns(y, df = 3)` |
-| Random intercept | `s(vessel, bs = "re")` | `(1\|vessel)` |
-| Random slope | `s(vessel, depth, bs = "re")` | `(depth\|vessel)` |
+| Feature          | mgcv                            | glmmTMB                                        |
+| ---------------- | ------------------------------- | ---------------------------------------------- |
+| Smooth           | `s(depth)`                    | `ns(depth, df = 4)` or `bs(depth, df = 4)` |
+| Tensor product   | `te(x, y)`                    | `ns(x, df = 3):ns(y, df = 3)`                |
+| Random intercept | `s(vessel, bs = "re")`        | `(1\|vessel)`                                 |
+| Random slope     | `s(vessel, depth, bs = "re")` | `(depth\|vessel)`                             |
 
 **Note:** The `predict(type = "terms")` functionality is reconstructed from the model matrix for glmmTMB models, and R² is computed as McFadden's pseudo-R² from log-likelihoods.
 
@@ -996,14 +996,14 @@ plot_terms(gi, term = "te(lon, lat)")
 
 ### Core Analysis Functions
 
-| Function                        | Purpose                                    | Usage Example                                  |
-| ------------------------------- | ------------------------------------------ | ---------------------------------------------- |
-| `gam_influence()`             | Initialise influence analysis object       | `gi <- gam_influence(model, focus = "year")` |
-| `calculate_influence()`       | Compute all indices and influence metrics  | `gi <- calculate_influence(gi)`              |
-| `analyse_residual_patterns()` | Identify missing covariates from residuals | `analyse_residual_patterns(gi)`              |
-| `extract_indices()`           | Extract indices as data frame (works with both standard and combined objects) | `indices <- extract_indices(gi)` |
-| `get_terms()`                 | Get model term names or full expressions   | `get_terms(gi, full = TRUE)`                 |
-| `r2()`                        | Extract model progression statistics       | `r2(gi)`                                     |
+| Function                        | Purpose                                                                       | Usage Example                                  |
+| ------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------- |
+| `gam_influence()`             | Initialise influence analysis object                                          | `gi <- gam_influence(model, focus = "year")` |
+| `calculate_influence()`       | Compute all indices and influence metrics                                     | `gi <- calculate_influence(gi)`              |
+| `analyse_residual_patterns()` | Identify missing covariates from residuals                                    | `analyse_residual_patterns(gi)`              |
+| `extract_indices()`           | Extract indices as data frame (works with both standard and combined objects) | `indices <- extract_indices(gi)`             |
+| `get_terms()`                 | Get model term names or full expressions                                      | `get_terms(gi, full = TRUE)`                 |
+| `r2()`                        | Extract model progression statistics                                          | `r2(gi)`                                     |
 
 ### Data Transformation Functions
 
