@@ -227,6 +227,31 @@ calculate_influence.gam_influence <- function(obj, islog = NULL,
 
   observed <- obj$data[[obj$response]]
 
+  # Sanity check: warn if islog=TRUE looks inconsistent with the data or model.
+  if (isTRUE(islog)) {
+    # Check 1: response values too large for log-scale data (log-scale is typically [-5, 15]).
+    if (max(observed, na.rm = TRUE) > 50) {
+      warning(
+        "islog=TRUE but the response '", obj$response, "' has values as large as ",
+        round(max(observed, na.rm = TRUE), 1), ", which is very large for log-scale data. ",
+        "Did you mean islog=FALSE? Log-scale responses are typically in the range [-5, 15].",
+        call. = FALSE
+      )
+    }
+    # Check 2: model uses a log link, meaning the response is already on the original scale
+    # and the log transform is handled internally by the model - islog=TRUE is likely wrong.
+    if (!is.null(fam_info) && isTRUE(fam_info$link == "log")) {
+      warning(
+        "islog=TRUE but the model uses a log link (", fam_info$family, "(link='log')). ",
+        "A log-link model expects the response on its original (untransformed) scale; ",
+        "the log transform is applied internally. ",
+        "islog=TRUE should only be set when you manually pre-logged the response (e.g. log_cpue ~ ...). ",
+        "Did you mean islog=FALSE?",
+        call. = FALSE
+      )
+    }
+  }
+
   # Special handling for binomial models with raw rescaling
   # For binomial, raw rescaling should preserve the probability scale (0-1)
   is_binomial <- family == "binomial"
