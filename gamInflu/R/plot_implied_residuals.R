@@ -7,16 +7,15 @@
 #' @param n.exclude (Optional) Minimum number of records required to include a group in the plot.
 #' @return A ggplot object (multi-panel plot).
 #' @importFrom dplyr group_by summarise n %>%
-#' @importFrom ggplot2 ggplot aes geom_errorbar geom_point geom_line geom_col scale_colour_manual facet_wrap ylab xlab coord_cartesian
+#' @importFrom ggplot2 ggplot aes geom_errorbar geom_point geom_line geom_col scale_colour_manual scale_fill_manual facet_wrap ylab xlab coord_cartesian
 #' @importFrom rlang .data
-#' @importFrom stats sd predict
+#' @importFrom stats sd predict formula
 #' @export
 plot_implied_residuals <- function(obj, var, nbins = 6, ylim = NULL, n.exclude = 0) {
   # Check object and data
   if (is.null(obj$data)) stop("No data found in gam_influence object.", call. = FALSE)
   data <- obj$data
   focus_var <- obj$focus
-  response_var <- obj$response
 
   # Determine log transformation
   islog <- obj$islog
@@ -38,12 +37,15 @@ plot_implied_residuals <- function(obj, var, nbins = 6, ylim = NULL, n.exclude =
   }
   data$var_factor <- var_factor
 
-  # Predict values for the focus variable using the stored model
+  # Predict values for the focus variable using the stored model.
+  # Evaluate the model's LHS so observed values are on the same scale as the
+  # fitted values (e.g. log(cpue) for islog models); using the raw response
+  # column would mismatch the scale and produce large, one-sided residuals.
   predictions <- data.frame(
     focus_var = data[[focus_var]],
     predicted = predict_response(obj$model, data)$fit,
     group = data$var_factor,
-    observed = data[[response_var]]
+    observed = as.numeric(eval(stats::formula(obj$model)[[2]], envir = data))
   )
 
   # Calculate residuals and standardised residuals
@@ -56,6 +58,7 @@ plot_implied_residuals <- function(obj, var, nbins = 6, ylim = NULL, n.exclude =
     dplyr::group_by(.data$focus_var, .data$group) %>%
     dplyr::summarise(
       mean_std_resid = mean(.data$std_residual, na.rm = TRUE),
+      se_resid = sd(.data$std_residual, na.rm = TRUE) / sqrt(dplyr::n()),
       focus_coef = mean(.data$focus_coef, na.rm = TRUE),
       n_records = dplyr::n(),
       .groups = "drop"
@@ -66,10 +69,11 @@ plot_implied_residuals <- function(obj, var, nbins = 6, ylim = NULL, n.exclude =
     df <- df[df$n_records >= n.exclude, ]
   }
 
-  # Calculate implied coefficient per group
+  # Calculate implied coefficient per group, with errorbars based on the
+  # standard error of the mean residual (not the mean residual itself).
   df$implied_coef <- df$focus_coef + df$mean_std_resid
-  df$q025 <- df$implied_coef - 1.96 * df$mean_std_resid
-  df$q975 <- df$implied_coef + 1.96 * df$mean_std_resid
+  df$q025 <- df$implied_coef - 1.96 * df$se_resid
+  df$q975 <- df$implied_coef + 1.96 * df$se_resid
 
   # Apply log transformation if needed
   if (islog) {
@@ -102,6 +106,17 @@ plot_implied_residuals <- function(obj, var, nbins = 6, ylim = NULL, n.exclude =
     df$focus_var <- as.numeric(as.character(df$focus_var))
   }
 
+  # Interpretation guidance
+  message(
+    "Interpreting the implied residuals plot:\n",
+    "  - Each panel is a level of '", var, "'; the x-axis is the focus term '", focus_var, "'.\n",
+    "  - The black 'Expected' line is the focus-term trend (full model prediction) for that group.\n",
+    "  - Blue 'Implied' points/intervals are that trend adjusted by the mean residual in each cell.\n",
+    "  - Where Implied points sit away from the Expected line (line outside the interval), that\n",
+    "    group is inconsistent with the focus trend in those focus levels.\n",
+    "  - Grey bars show the number of records per cell (wider support = more reliable points)."
+  )
+
   # Create the multi-panel plot with proper NSE and grouping
   p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$focus_var)) +
     ggplot2::geom_errorbar(ggplot2::aes(ymin = .data$q025, ymax = .data$q975, colour = "Implied"),
@@ -109,10 +124,11 @@ plot_implied_residuals <- function(obj, var, nbins = 6, ylim = NULL, n.exclude =
     ) +
     ggplot2::geom_point(ggplot2::aes(y = .data$implied_coef, colour = "Implied")) +
     ggplot2::geom_line(ggplot2::aes(y = .data$focus_coef, colour = "Expected", group = 1)) +
-    ggplot2::geom_col(ggplot2::aes(y = .data$N), fill = "grey80", alpha = 0.3, width = 1) +
-    ggplot2::scale_colour_manual(values = c("Implied" = "royalblue", "Expected" = "black")) +
+    ggplot2::geom_col(ggplot2::aes(y = .data$N, fill = "Records"), alpha = 0.4, width = 1) +
+    ggplot2::scale_colour_manual(name = NULL, values = c("Implied" = "royalblue", "Expected" = "black")) +
+    ggplot2::scale_fill_manual(name = NULL, values = c("Records" = "grey60")) +
     ggplot2::facet_wrap(~ .data$group, scales = "fixed") +
-    ggplot2::ylab("Implied coefficient") +
+    ggplot2::ylab("Implied coefficient residual") +
     ggplot2::xlab(focus_var) +
     ggplot2::coord_cartesian(ylim = ylim)
 
